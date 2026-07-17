@@ -1,4 +1,4 @@
-"""Viewer projection for the live self-assembling MNIST experiment."""
+"""Sparse JSON projection for the configurable persistent MNIST organism."""
 
 from __future__ import annotations
 
@@ -7,55 +7,109 @@ from typing import Any
 import numpy as np
 import torch
 
-from .channels import Channel
 from .mnist_experiment import MnistExperiment
+from .mnist_hyperparameters import hyperparameter_payload
 
 
-CHANNEL_NAMES = [channel.name.lower() for channel in Channel]
+CHANNEL_NAMES = [
+    "alive",
+    "activation",
+    "energy",
+    "stimulation",
+    "load",
+    "credit",
+    "input_signal",
+    "sensor_id",
+    "motor_id",
+    "utility",
+    "genotype_norm",
+    "emission",
+]
 
 
 def build_mnist_snapshot(experiment: MnistExperiment) -> dict[str, Any]:
-    """Project the current developmental frame into the common viewer schema."""
+    """Serialize occupied sites and the most informative real edges."""
 
     model = experiment.model
+    substrate = model.substrate
     cfg = experiment.config
-    device = experiment.device
     frame = experiment.last_frame
-    hidden = frame.state
-    cells = torch.zeros(cfg.cell_count, len(Channel), device=device)
-    cells[:, Channel.ALIVE] = model.lesion_mask
-    cells[:, Channel.ACTIVATION] = hidden[:, 0]
-    cells[:, Channel.PHASE_SIN] = hidden[:, 1]
-    cells[:, Channel.PHASE_COS] = hidden[:, 2]
-    cells[:, Channel.MEMORY_0 : Channel.MEMORY_3 + 1] = hidden[:, 3:7]
-    cells[:, Channel.ENERGY] = torch.sigmoid(hidden[:, 7])
-    cells[:, Channel.AXON_GROWTH] = frame.axon_request
-    cells[:, Channel.DENDRITE_GROWTH] = frame.receptor_request
-    cells[:, Channel.REWARD_TRACE] = frame.sensory_signal
-    cells[:, Channel.POSITION_X : Channel.POSITION_Y + 1] = model.coordinates
-    cells[:, Channel.SENSOR_ID] = model.sensor_identity
-    cells[:, Channel.MOTOR_ID] = model.motor_identity
+    sites = frame.sites
+    roles = substrate.roles[sites]
+    cells = torch.stack(
+        (
+            torch.ones(sites.numel(), device=experiment.device),
+            frame.state[:, 0],
+            substrate.energy[sites],
+            frame.stimulation,
+            frame.load,
+            frame.credit,
+            frame.input_signal,
+            roles[:, 1],
+            roles[:, 2],
+            substrate.neuron_utility[sites],
+            substrate.genotype[sites].norm(dim=1),
+            substrate.emission_ema[sites],
+        ),
+        dim=1,
+    )
 
     graph = frame.graph
-    destination = graph.destination.clamp_min(0)
-    edge_alive = model.lesion_mask.unsqueeze(1) * model.lesion_mask[destination]
-    active = (graph.destination >= 0) & (graph.strength > 0.18) & (edge_alive > 0.5)
-    positions = active.nonzero(as_tuple=False)
-    if positions.numel():
-        source, slot = positions[:, 0], positions[:, 1]
-        selected_destination = graph.destination[source, slot]
-        effective_weight = graph.weight[source, slot] * graph.strength[source, slot]
+    occupied = torch.zeros(cfg.site_count, dtype=torch.bool, device=experiment.device)
+    occupied[sites] = True
+    safe_source = graph.source.clamp_min(0)
+    active = (graph.source >= 0) & occupied.unsqueeze(1) & occupied[safe_source]
+    target, slot = active.nonzero(as_tuple=True)
+    total_edge_count = int(target.numel())
+    if total_edge_count:
+        weight = graph.weight[target, slot]
+        flow = graph.flow[target, slot]
+        credit = graph.credit[target, slot]
+        utility = graph.utility[target, slot]
+        flow_score = flow.abs() / flow.abs().max().clamp_min(1e-9)
+        credit_score = credit.abs() / credit.abs().max().clamp_min(1e-12)
+        weight_score = weight.abs() / weight.abs().max().clamp_min(1e-9)
+        utility_score = utility.abs() / utility.abs().max().clamp_min(1e-9)
+        importance = flow_score + credit_score + 0.02 * weight_score + 0.01 * utility_score
+        if target.numel() > cfg.max_visible_edges:
+            keep = torch.topk(importance, cfg.max_visible_edges).indices
+            target, slot = target[keep], slot[keep]
+            weight, flow, credit, utility = weight[keep], flow[keep], credit[keep], utility[keep]
+        source = graph.source[target, slot]
         edge_payload = {
             "source": source.detach().cpu().tolist(),
-            "destination": selected_destination.detach().cpu().tolist(),
-            "weight": np.round(effective_weight.detach().cpu().numpy(), 4).tolist(),
-            "age": graph.age[source, slot].detach().cpu().tolist(),
-            "utility": np.round(graph.utility[source, slot].detach().cpu().numpy(), 5).tolist(),
+            "destination": target.detach().cpu().tolist(),
+            "weight": np.round(weight.detach().cpu().numpy(), 5).tolist(),
+            "age": graph.age[target, slot].detach().cpu().tolist(),
+            "utility": np.round(utility.detach().cpu().numpy(), 6).tolist(),
+            "flow": np.round(flow.detach().cpu().numpy(), 6).tolist(),
+            "credit": np.round(credit.detach().cpu().numpy(), 7).tolist(),
         }
-        mean_weight = float(effective_weight.detach().abs().mean())
+        mean_weight = float(graph.weight[active].abs().mean())
     else:
-        edge_payload = {"source": [], "destination": [], "weight": [], "age": [], "utility": []}
+        edge_payload = {
+            "source": [], "destination": [], "weight": [], "age": [],
+            "utility": [], "flow": [], "credit": [],
+        }
         mean_weight = 0.0
+
+    diagnostics = substrate.graph_diagnostics()
+    living_count = int(substrate.occupied.sum())
+    shared_without_site_genotype = sum(
+        parameter.numel()
+        for name, parameter in model.named_parameters()
+        if name not in {"substrate.synapse_weight", "substrate.genotype"}
+    )
+    active_parameters = (
+        shared_without_site_genotype
+        + living_count * cfg.genotype_channels
+        + total_edge_count
+    )
+    stage = experiment.curriculum_stage
+    stage_accuracy = (
+        sum(experiment.stage_accuracy_history) / len(experiment.stage_accuracy_history)
+        if experiment.stage_accuracy_history else 0.0
+    )
 
     return {
         "type": "snapshot",
@@ -65,7 +119,8 @@ def build_mnist_snapshot(experiment: MnistExperiment) -> dict[str, Any]:
             "width": cfg.width,
             "height": cfg.height,
             "channels": CHANNEL_NAMES,
-            "cells": np.round(cells.detach().cpu().numpy(), 4).tolist(),
+            "indices": sites.detach().cpu().tolist(),
+            "cells": np.round(cells.detach().cpu().numpy(), 6).tolist(),
         },
         "edges": edge_payload,
         "events": experiment.events,
@@ -78,22 +133,46 @@ def build_mnist_snapshot(experiment: MnistExperiment) -> dict[str, Any]:
             "testAccuracy": None if experiment.test_accuracy is None else round(experiment.test_accuracy, 4),
             "confidence": round(experiment.last_confidence, 4),
             "loss": round(experiment.last_loss, 5),
+            "reward": round(experiment.last_reward, 5),
             "epoch": round(experiment.epoch, 4),
             "seenExamples": experiment.seen_examples,
             "trainingStep": experiment.training_step,
-            "assemblyStep": frame.step,
-            "assemblySteps": cfg.total_steps,
-            "tokenRow": frame.token_row,
-            "routingRound": 0 if frame.step == 0 else 1 + (frame.step - 1) // cfg.routing_interval,
+            "trialStep": frame.step,
+            "trialSteps": cfg.trace_steps,
+            "generation": substrate.generation,
+            "structuralWarmupRemaining": experiment.structural_warmup_remaining,
+            "learningPhase": experiment.learning_phase,
+            "structureUnlockReason": experiment.structure_unlock_reason,
+            "curriculumStage": experiment.curriculum_stage_index + 1,
+            "curriculumStageCount": len(experiment.curriculum),
+            "curriculumExamples": stage.examples,
+            "curriculumTargetAccuracy": stage.target_accuracy,
+            "curriculumStageAccuracy": round(stage_accuracy, 4),
+            "curriculumStageUpdates": experiment.curriculum_stage_updates,
+            "births": experiment.last_births,
+            "deaths": experiment.last_deaths,
             "image": np.round(experiment.last_image.reshape(-1).numpy(), 4).tolist(),
         },
         "metrics": {
-            "reward": round(-experiment.last_loss, 4),
-            "rollingReward": round(-experiment.rolling_loss, 5),
+            "reward": round(experiment.last_reward, 5),
+            "rollingReward": round(experiment.rolling_reward, 5),
             "loss": round(experiment.rolling_loss, 5),
-            "livingCells": int((model.lesion_mask > 0.5).sum()),
-            "edgeCount": len(edge_payload["source"]),
+            "livingCells": living_count,
+            "edgeCount": total_edge_count,
+            "visibleEdgeCount": len(edge_payload["source"]),
             "meanWeight": round(mean_weight, 5),
-            "device": str(device),
+            "synapseUpdateRatio": round(experiment.last_synapse_update_ratio, 7),
+            "structureLocked": not experiment.structure_unlocked,
+            "meanAttentionEntropy": round(experiment.last_mean_attention_entropy, 5),
+            "minimumOutputHops": diagnostics.minimum_output_hops,
+            "medianOutputHops": diagnostics.median_output_hops,
+            "reachableOutputs": diagnostics.reachable_outputs,
+            "temporallyReachableOutputs": diagnostics.temporally_reachable_outputs,
+            "activeParameters": active_parameters,
+            "parametersPerLivingCell": round(active_parameters / max(1, living_count), 3),
+            "device": str(experiment.device),
+        },
+        "configuration": {
+            "parameters": hyperparameter_payload(cfg),
         },
     }

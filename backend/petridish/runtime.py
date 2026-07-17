@@ -9,6 +9,7 @@ from typing import Any
 from fastapi import WebSocket
 
 from .mnist_experiment import MnistExperiment
+from .mnist_hyperparameters import configured
 from .protocol import build_snapshot
 from .simulation import PetriDishSimulation
 
@@ -149,8 +150,23 @@ class ExperimentRuntime:
                 self.experiment.evaluate(int(message.get("batches", 5)))
             elif command == "rewire":
                 if not isinstance(self.experiment, MnistExperiment):
-                    raise ValueError("new assembly is only available in the MNIST experiment")
+                    raise ValueError("structural cycles are only available in the MNIST experiment")
                 self.experiment.rewire_now()
+            elif command == "configure":
+                current = self.experiment
+                if not isinstance(current, MnistExperiment):
+                    raise ValueError("hyperparameters are only available in the MNIST experiment")
+                values = message.get("values", {})
+                if not isinstance(values, dict):
+                    raise ValueError("hyperparameter values must be an object")
+                next_config = configured(current.config, values)
+                self.experiments["mnist"] = MnistExperiment(
+                    next_config,
+                    seed=current.seed,
+                    device=str(current.device),
+                    train_dataset=current.train_dataset,
+                    test_dataset=current.test_dataset,
+                )
             else:
                 raise ValueError(f"unknown command: {command}")
             snapshot = build_snapshot(self.experiment)

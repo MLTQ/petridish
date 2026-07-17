@@ -1,22 +1,32 @@
+from dataclasses import fields, replace
+
+import pytest
 import torch
 from torch.utils.data import TensorDataset
 
 from petridish.mnist_experiment import MnistExperiment
+from petridish.mnist_curriculum import build_curriculum
 from petridish.mnist_model import CellularGraphClassifier, MnistModelConfig
+from petridish.mnist_hyperparameters import SPECS, configured
 from petridish.protocol import build_snapshot
 
 
 def tiny_config() -> MnistModelConfig:
     return MnistModelConfig(
+        width=24,
+        height=24,
         hidden_channels=8,
-        route_channels=4,
         edge_slots=2,
-        development_steps=1,
-        inference_steps=1,
-        routing_interval=1,
+        candidate_slots=2,
+        candidate_probes=12,
+        initial_density=0.4,
+        local_radius=6,
+        message_steps=4,
         batch_size=4,
+        structural_interval=2,
         evaluation_interval=2,
         evaluation_batches=1,
+        juvenile_trials=1,
     )
 
 
@@ -27,32 +37,73 @@ def synthetic_digits(count: int = 24) -> TensorDataset:
     return TensorDataset(images, labels)
 
 
-def test_cellular_classifier_builds_empty_then_routed_graph_with_gradients() -> None:
+def easy_spatial_digits() -> TensorDataset:
+    images = torch.zeros(16, 1, 28, 28)
+    labels = torch.arange(16) % 4
+    for index, label in enumerate(labels.tolist()):
+        row, column = divmod(label, 2)
+        images[index, 0, row * 14 : (row + 1) * 14, column * 14 : (column + 1) * 14] = 1
+    return TensorDataset(images, labels)
+
+
+def test_default_field_is_compact_and_every_hyperparameter_is_controllable() -> None:
+    config = MnistModelConfig()
+
+    assert (config.width, config.height, config.local_radius) == (64, 64, 8)
+    assert set(SPECS) == {field.name for field in fields(MnistModelConfig)}
+    assert SPECS["local_radius"].minimum == 1
+    assert configured(config, {"local_radius": 1}).local_radius == 1
+
+
+def test_hyperparameter_changes_are_typed_and_cross_validated() -> None:
+    config = configured(
+        MnistModelConfig(),
+        {"width": 80, "height": 80, "local_radius": 10, "learning_rate": 0.0025},
+    )
+
+    assert config.width == 80
+    assert isinstance(config.width, int)
+    assert config.learning_rate == pytest.approx(0.0025)
+    with pytest.raises(ValueError, match="target_stimulation_min"):
+        configured(config, {"target_stimulation_min": 0.5, "target_stimulation_max": 0.1})
+    with pytest.raises(ValueError, match="local_radius"):
+        configured(config, {"width": 32, "height": 32, "local_radius": 16})
+
+
+def test_persistent_spatial_graph_carries_gradients_without_topology_reset() -> None:
     config = tiny_config()
     model = CellularGraphClassifier(config, seed=3)
     images, labels = synthetic_digits(8).tensors
+    before = model.substrate.dendrite_source.clone()
     result = model(images[:4])
-    loss = torch.nn.functional.cross_entropy(result.logits, labels[:4]) + model.regularization(result)
+    loss = torch.nn.functional.cross_entropy(result.logits, labels[:4]) + model.regularization()
     loss.backward()
 
     assert result.logits.shape == (4, 10)
-    assert result.trajectory_logits.shape == (
-        4,
-        config.development_steps + config.inference_steps + 1,
-        10,
-    )
-    assert result.state.shape == (4, 256, 8)
-    assert result.graph.destination.shape == (4, 256, 2)
-    assert len(result.frames) == config.total_steps + 1
-    assert (result.frames[0].graph.destination < 0).all()
-    assert (result.frames[1].graph.destination >= 0).all()
+    assert result.trajectory_logits.shape == (4, config.message_steps, 10)
+    assert result.final_state.shape[1] == model.substrate.occupied.sum()
+    assert len(result.frames) == config.message_steps + 1
+    assert torch.equal(before, model.substrate.dendrite_source)
     assert model.cell_rule.weight_ih.grad is not None
     assert model.patch_encoder[0].weight.grad is not None
-    assert model.router.key.weight.grad is not None
-    assert torch.isfinite(result.state).all()
+    assert model.output_key.weight.grad is not None
+    assert model.readout_scale.grad is not None
+    assert model.readout_scale.grad.abs() > 0
+    assert model.output_bank_readout.weight.grad is not None
+    assert model.output_bank_readout.weight.grad.abs().sum() > 0
+    assert model.message_query.weight.grad is not None
+    assert model.message_query.weight.grad.abs().sum() > 0
+    assert model.substrate.genotype.grad is not None
+    assert model.substrate.genotype.grad.abs().sum() > 0
+    assert model.substrate.synapse_weight.grad is not None
+    assert model.substrate.synapse_weight.grad.abs().sum() > 0
+    assert result.edge_flow.sum() > 0
+    with torch.no_grad():
+        blank_logits = model(torch.zeros_like(images[:4]), capture_trace=False).logits
+    assert (result.logits.detach() - blank_logits).abs().max() > 1e-5
 
 
-def test_mnist_experiment_trains_replays_evaluates_and_serializes() -> None:
+def test_mnist_experiment_emits_real_feedback_and_sparse_snapshot() -> None:
     dataset = synthetic_digits()
     experiment = MnistExperiment(
         tiny_config(),
@@ -61,25 +112,71 @@ def test_mnist_experiment_trains_replays_evaluates_and_serializes() -> None:
         train_dataset=dataset,
         test_dataset=dataset,
     )
-    assert (experiment.last_frame.graph.destination < 0).all()
-    experiment.rewire_now()
-    experiment.step(1)
-    held_out = experiment.evaluate(2)
-    snapshot = build_snapshot(experiment)
-
+    initial_graph = experiment.model.substrate.dendrite_source.clone()
+    experiment.step(len(experiment.last_trace))
     assert experiment.training_step == 1
+    assert torch.equal(initial_graph, experiment.model.substrate.dendrite_source)
+    experiment.step(experiment.config.message_steps + 1)
+    snapshot = build_snapshot(experiment)
+    held_out = experiment.evaluate(2)
+
     assert 0 <= held_out <= 1
     assert snapshot["experiment"] == "mnist"
-    assert snapshot["task"]["kind"] == "mnist"
-    assert snapshot["task"]["phase"] == "sensing"
-    assert snapshot["task"]["assemblyStep"] == 1
+    assert snapshot["task"]["phase"] == "feedback"
+    assert snapshot["task"]["generation"] == 0
+    assert snapshot["task"]["structuralWarmupRemaining"] == experiment.config.structural_warmup_trials - 1
     assert len(snapshot["task"]["image"]) == 784
-    assert len(snapshot["field"]["cells"]) == 256
+    assert len(snapshot["field"]["indices"]) == snapshot["metrics"]["livingCells"]
+    assert len(snapshot["field"]["cells"]) == len(snapshot["field"]["indices"])
+    assert max(abs(row[5]) for row in snapshot["field"]["cells"]) > 0
     assert snapshot["metrics"]["edgeCount"] > 0
+    assert snapshot["metrics"]["structureLocked"] is True
+    assert snapshot["task"]["learningPhase"] == "readout"
+    assert snapshot["task"]["curriculumExamples"] == 20
+    assert snapshot["metrics"]["synapseUpdateRatio"] == 0
+    assert snapshot["metrics"]["minimumOutputHops"] is not None
+    assert snapshot["metrics"]["activeParameters"] > snapshot["metrics"]["edgeCount"]
     assert len({len(values) for values in snapshot["edges"].values()}) == 1
+    assert len(snapshot["configuration"]["parameters"]) == len(fields(MnistModelConfig))
 
 
-def test_mnist_lesion_reassembles_without_incident_edges() -> None:
+def test_fixed_connectome_learns_an_easy_spatial_classification_batch() -> None:
+    dataset = easy_spatial_digits()
+    experiment = MnistExperiment(
+        replace(tiny_config(), readout_only_trials=0, synapse_unlock_trials=0),
+        seed=5,
+        device="cpu",
+        train_dataset=dataset,
+        test_dataset=dataset,
+    )
+    images, labels = dataset.tensors
+
+    with torch.no_grad():
+        initial = torch.nn.functional.cross_entropy(
+            experiment.model(images, capture_trace=False).logits, labels
+        )
+    for _ in range(30):
+        experiment._train_trial()
+    with torch.no_grad():
+        final = torch.nn.functional.cross_entropy(
+            experiment.model(images, capture_trace=False).logits, labels
+        )
+
+    assert float(final) < float(initial) * 0.85
+    assert experiment.model.substrate.generation == 0
+    assert experiment.last_synapse_update_ratio > 0.001
+
+
+def test_curriculum_starts_with_a_balanced_overfit_subset() -> None:
+    stages = build_curriculum(synthetic_digits(100), seed=7)
+    first_labels = torch.tensor([stages[0].dataset[index][1] for index in range(20)])
+
+    assert [stage.examples for stage in stages] == [20, 100]
+    assert stages[0].target_accuracy == pytest.approx(0.98)
+    assert torch.bincount(first_labels, minlength=10).tolist() == [2] * 10
+
+
+def test_mnist_lesion_removes_neurons_and_every_incident_dendrite() -> None:
     dataset = synthetic_digits()
     experiment = MnistExperiment(
         tiny_config(),
@@ -88,14 +185,46 @@ def test_mnist_lesion_reassembles_without_incident_edges() -> None:
         train_dataset=dataset,
         test_dataset=dataset,
     )
-    experiment.step(1)
-    damaged = experiment.lesion(8, 8, 2.5)
-    experiment.step(1)
+    before = int(experiment.model.substrate.occupied.sum())
+    damaged = experiment.lesion(12, 12, 2.5)
     snapshot = build_snapshot(experiment)
+    living = set(snapshot["field"]["indices"])
 
     assert damaged > 0
-    assert snapshot["metrics"]["livingCells"] == 256 - damaged
-    sources = snapshot["edges"]["source"]
-    destinations = snapshot["edges"]["destination"]
-    assert all(experiment.model.lesion_mask[index] > 0.5 for index in sources)
-    assert all(experiment.model.lesion_mask[index] > 0.5 for index in destinations)
+    assert snapshot["metrics"]["livingCells"] == before - damaged
+    assert all(source in living for source in snapshot["edges"]["source"])
+    assert all(destination in living for destination in snapshot["edges"]["destination"])
+
+
+def test_structural_cycle_kills_depleted_nonanchors_but_preserves_interfaces() -> None:
+    model = CellularGraphClassifier(tiny_config(), seed=12)
+    substrate = model.substrate
+    victims = (substrate.occupied & ~substrate.anchor_mask).nonzero(as_tuple=False).squeeze(1)[:5]
+    substrate.neuron_age[victims] = 20
+    substrate.energy[victims] = 0
+    update = substrate.structural_step()
+
+    assert update.deaths >= 5
+    assert not substrate.occupied[victims].any()
+    assert substrate.occupied[substrate.input_sites].all()
+    assert substrate.occupied[substrate.output_sites].all()
+
+
+def test_repeated_local_source_evidence_forms_a_real_dendrite() -> None:
+    model = CellularGraphClassifier(tiny_config(), seed=15)
+    substrate = model.substrate
+    safe_probes = substrate.probe_source.clamp_min(0)
+    possible = substrate.occupied.unsqueeze(1) & substrate.occupied[safe_probes]
+    possible &= substrate.probe_source >= 0
+    possible &= (substrate.roles[:, 1] == 0).unsqueeze(1)
+    target = int(possible.any(dim=1).nonzero(as_tuple=False)[0])
+    source = int(substrate.probe_source[target][possible[target]][0])
+    substrate._clear_edges(torch.nn.functional.one_hot(
+        torch.tensor(target * substrate.config.edge_slots),
+        num_classes=substrate.config.site_count * substrate.config.edge_slots,
+    ).bool().reshape_as(substrate.dendrite_source))
+    substrate.stimulation_ema.zero_()
+    substrate.stimulation_ema[source] = 1
+    substrate.structural_step()
+
+    assert source in substrate.dendrite_source[target].tolist()

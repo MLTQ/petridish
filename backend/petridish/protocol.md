@@ -16,16 +16,20 @@ by the browser.
   edges, events, task status, and metrics to CPU-backed JSON-safe values.
 - **Interacts with**: `ExperimentRuntime.broadcast` and frontend `protocol.ts`.
 - **Rationale**: Snapshotting is the only deliberate accelerator-to-CPU boundary.
+- **Does**: Leaves task-specific configuration payloads intact when dispatching
+  to the MNIST projector.
 
 ## Contracts
 
 | Dependent | Expects | Breaking changes |
 |-----------|---------|------------------|
 | Frontend protocol | `experiment` selects a task union inside a common envelope | Key, type, or union changes |
-| Renderer | Edge arrays have equal length and flattened cell indices | Edge array semantics |
+| Renderer | Edge arrays include measured `flow`/`credit`; sparse fields publish
+  `indices` mapping rows to flattened site IDs | Edge or field semantics |
 | Inspector | Cell rows follow advertised channel order | Channel omission or reorder |
+| Common metrics | XOR publishes null synapse movement and unlocked structure | Removing shared keys |
 
 ## Notes
 
-JSON is sufficient for the 32×32 MVP. This module is the seam for replacing it
-with MessagePack or a custom binary frame when larger fields justify it.
+MNIST transmits only occupied rows and a bounded, importance-ranked subset of
+real edges. This module remains the seam for a later binary transport.

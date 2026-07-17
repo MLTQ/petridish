@@ -26,15 +26,25 @@ and controls, lesioning, digit preview, metrics, and cell inspection.
 - **Interacts with**: Discriminated protocol task union and experiment selector.
 - **Rationale**: Each function accepts the already-narrowed task payload, keeping
   TypeScript's discriminator guarantee local and explicit.
+- **Does**: Shows whether structure is locked for learning warm-up and the
+  measured relative synapse update produced by the latest optimizer step.
+- **Does**: Shows overfit-stage progress, active optimizer family, attention
+  selectivity, effective capacity, directed hop distance, and temporal reachability.
 
 ### `mnistStageLabel`
-- **Does**: Names seed, sensory patch-row, recurrent development, and readout
-  frames independently from optimizer updates.
-- **Interacts with**: MNIST assembly metadata from `protocol.ts`.
+- **Does**: Names input, actual forward traffic, backward gradient credit, and
+  structural lifecycle frames independently from readout/rule/synapse phases.
+- **Interacts with**: Persistent-lifetime metadata from `protocol.ts`.
 
 ### `drawDigit`
 - **Does**: Draws the current 28×28 training example without interpolation.
 - **Interacts with**: External MNIST preview; pixels are not drawn into the dish.
+
+### `renderHyperparameters` / `hyperparameterControl`
+- **Does**: Builds grouped sliders from the backend schema, stages edits without
+  interrupting the run, and submits one atomic apply-and-restart command.
+- **Rationale**: Dragging a slider never creates a sequence of incomparable
+  partial organisms.
 
 ## Contracts
 
@@ -43,7 +53,9 @@ and controls, lesioning, digit preview, metrics, and cell inspection.
 | `index.html` | Referenced IDs retain correct native element types | DOM IDs/types |
 | Backend runtime | Commands match protocol and are safe to repeat | Command semantics |
 | Task union | `kind` narrows before task-specific fields are read | Discriminator semantics |
-| Renderer | Pointer coordinates are expressed in cell-space floats | Callback semantics |
+| Renderer | Pointer coordinates are expressed in cell-space floats; sparse row
+  selection resolves through `field.indices` | Callback semantics |
+| Hyperparameter schema | Every rendered slider is backend-defined and functional | Payload shape changes |
 
 ## Notes
 

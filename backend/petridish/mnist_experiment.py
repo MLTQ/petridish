@@ -1,8 +1,9 @@
-"""Live outer-loop training and micro-step playback for self-assembling MNIST."""
+"""Persistent-lifetime MNIST training with trace playback and structural cycles."""
 
 from __future__ import annotations
 
 from collections import deque
+import math
 from pathlib import Path
 from typing import Any, Iterator
 
@@ -11,12 +12,14 @@ from torch.nn.utils import clip_grad_norm_
 from torch.utils.data import Dataset
 
 from .config import resolve_device
+from .mnist_config import MnistModelConfig
+from .mnist_curriculum import CurriculumStage, build_curriculum
 from .mnist_data import load_mnist_datasets, make_loader
-from .mnist_model import CellularGraphClassifier, MnistForward, MnistFrame, MnistModelConfig
+from .mnist_model import CellularGraphClassifier, MnistForward, MnistFrame
 
 
 class MnistExperiment:
-    """Meta-train one shared cell program while replaying each assembly trace."""
+    """Train one organism whose neurons and connectome persist across digits."""
 
     experiment_name = "mnist"
 
@@ -39,27 +42,55 @@ class MnistExperiment:
             test_dataset = test_dataset or canonical_test
         self.train_dataset = train_dataset
         self.test_dataset = test_dataset
+        self.curriculum: list[CurriculumStage] = build_curriculum(train_dataset, seed=seed)
+        self.curriculum_stage_index = 0
+        self.curriculum_stage_updates = 0
+        self.stage_accuracy_history: deque[float] = deque(
+            maxlen=self.config.curriculum_window_trials
+        )
         self.train_loader = make_loader(
-            train_dataset, batch_size=self.config.batch_size, seed=seed,
-            shuffle=True, device=self.device,
+            self.curriculum[0].dataset,
+            batch_size=self.curriculum[0].examples,
+            seed=seed,
+            shuffle=True,
+            device=self.device,
         )
         self.test_loader = make_loader(
-            test_dataset, batch_size=max(32, self.config.batch_size), seed=seed + 1,
-            shuffle=False, device=self.device,
+            test_dataset,
+            batch_size=max(16, self.config.batch_size),
+            seed=seed + 1,
+            shuffle=False,
+            device=self.device,
         )
         self._train_iterator: Iterator[Any] = iter(self.train_loader)
         self._test_iterator: Iterator[Any] = iter(self.test_loader)
         torch.manual_seed(seed)
         self.model = CellularGraphClassifier(self.config, seed=seed).to(self.device)
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.config.learning_rate)
+        readout_parameters = list(self.model.readout_parameters())
+        readout_ids = {id(parameter) for parameter in readout_parameters}
+        rule_parameters = [
+            parameter for parameter in self.model.shared_parameters()
+            if id(parameter) not in readout_ids
+        ]
+        self.optimizer = torch.optim.Adam(
+            [
+                {"params": readout_parameters, "lr": self.config.readout_learning_rate},
+                {"params": rule_parameters, "lr": self.config.learning_rate},
+            ]
+        )
+        self.synapse_optimizer = torch.optim.Adam(
+            [self.model.substrate.synapse_weight], lr=self.config.synapse_learning_rate
+        )
         self.tick = 0
         self.training_step = 0
         self.seen_examples = 0
         self.last_loss = 0.0
+        self.last_reward = 0.0
         self.last_batch_accuracy = 0.0
         self.test_accuracy: float | None = None
-        self.accuracy_history: deque[float] = deque(maxlen=100)
-        self.loss_history: deque[float] = deque(maxlen=100)
+        self.accuracy_history: deque[float] = deque(maxlen=160)
+        self.loss_history: deque[float] = deque(maxlen=160)
+        self.reward_history: deque[float] = deque(maxlen=160)
         self.events: list[dict[str, Any]] = []
         self.last_trace: list[MnistFrame] = []
         self.visual_cursor = 0
@@ -67,6 +98,14 @@ class MnistExperiment:
         self.last_label = 0
         self.last_prediction = 0
         self.last_confidence = 0.1
+        self.last_births = 0
+        self.last_deaths = 0
+        self.last_synapse_update_ratio = 0.0
+        self.last_mean_attention_entropy = 0.0
+        self.best_rolling_accuracy = 0.0
+        self.last_accuracy_improvement_step = 0
+        self.structure_unlocked = False
+        self.structure_unlock_reason = "minimum learning warm-up"
         self._prime_preview()
 
     def _next_batch(self, *, training: bool) -> tuple[torch.Tensor, torch.Tensor]:
@@ -89,10 +128,29 @@ class MnistExperiment:
         self.model.eval()
         images, labels = self._next_batch(training=True)
         result = self.model(images[:1], capture_trace=True)
+        zero = torch.zeros(result.sites.numel(), device=self.device)
+        result.frames.append(
+            self.model.make_frame(
+                result.sites,
+                result.final_state[0],
+                credit=zero,
+                stage="feedback",
+                step=self.config.message_steps + 1,
+                edge_flow=result.edge_flow,
+            )
+        )
+        result.frames.append(
+            self.model.make_frame(
+                result.sites,
+                result.final_state[0],
+                stage="structural",
+                step=self.config.message_steps + 2,
+            )
+        )
         self._remember(result, images[:1], labels[:1])
 
     def step(self, count: int = 1) -> None:
-        """Advance trace playback; train a new episode after reaching readout."""
+        """Advance measured trace phases and train once the trace is exhausted."""
 
         for _ in range(count):
             self.tick += 1
@@ -100,32 +158,148 @@ class MnistExperiment:
                 self.visual_cursor += 1
                 self._publish_frame_events()
             else:
-                self._train_episode()
+                self._train_trial()
 
-    def _train_episode(self) -> None:
+    def _train_trial(self) -> None:
         self.model.train()
         images, labels = self._next_batch(training=True)
         self.optimizer.zero_grad(set_to_none=True)
+        self.synapse_optimizer.zero_grad(set_to_none=True)
         result = self.model(images, capture_trace=True)
         classification_loss = torch.nn.functional.cross_entropy(result.logits, labels)
-        trajectory_labels = labels.unsqueeze(1).expand(-1, result.trajectory_logits.shape[1]).reshape(-1)
-        trajectory_loss = torch.nn.functional.cross_entropy(
-            result.trajectory_logits.reshape(-1, 10), trajectory_labels
+        tail = result.trajectory_logits[:, -min(4, self.config.message_steps) :]
+        tail_labels = labels[:, None].expand(-1, tail.shape[1]).reshape(-1)
+        trajectory_loss = torch.nn.functional.cross_entropy(tail.reshape(-1, 10), tail_labels)
+        loss = (
+            classification_loss
+            + self.config.trajectory_loss_weight * trajectory_loss
+            + self.model.regularization()
         )
-        loss = classification_loss + 0.45 * trajectory_loss + self.model.regularization(result)
         loss.backward()
-        clip_grad_norm_(self.model.parameters(), max_norm=2.0)
+
+        neuron_credit = torch.zeros(result.sites.numel(), device=self.device)
+        credited_states = 0
+        for state in result.retained_states:
+            if state.grad is not None:
+                neuron_credit += -(state.grad.detach() * state.detach()).mean(dim=(0, 2))
+                credited_states += 1
+        neuron_credit /= max(1, credited_states)
+        edge_gradient = self.model.substrate.synapse_weight.grad
+        if edge_gradient is None:
+            edge_credit = torch.zeros_like(self.model.substrate.synapse_weight)
+        else:
+            edge_credit = -edge_gradient.detach() * self.model.substrate.synapse_weight.detach()
+
+        completed_step = self.training_step + 1
+        optimization_phase = self._optimization_phase(completed_step)
+        if optimization_phase == "readout":
+            allowed = {id(parameter) for parameter in self.model.probe_parameters()}
+            for parameter in self.model.shared_parameters():
+                if id(parameter) not in allowed:
+                    parameter.grad = None
+        if optimization_phase != "synapse":
+            self.model.substrate.synapse_weight.grad = None
+
+        active_edges = self.model.substrate.active_edge_mask
+        weight_before = self.model.substrate.synapse_weight.detach().clone()
+        shared_with_grad = [
+            parameter for parameter in self.model.shared_parameters()
+            if parameter.grad is not None
+        ]
+        if shared_with_grad and optimization_phase != "readout":
+            clip_grad_norm_(shared_with_grad, max_norm=self.config.gradient_clip)
+        if self.model.substrate.synapse_weight.grad is not None:
+            clip_grad_norm_(
+                [self.model.substrate.synapse_weight], max_norm=self.config.gradient_clip
+            )
         self.optimizer.step()
+        if optimization_phase == "synapse":
+            self.synapse_optimizer.step()
+        with torch.no_grad():
+            delta = (self.model.substrate.synapse_weight - weight_before).abs()
+            denominator = weight_before.abs().clamp_min(
+                self.config.initial_weight_scale * 0.1
+            )
+            self.last_synapse_update_ratio = (
+                float((delta[active_edges] / denominator[active_edges]).mean())
+                if active_edges.any() and optimization_phase == "synapse"
+                else 0.0
+            )
 
         predictions = result.logits.argmax(dim=1)
         batch_accuracy = float((predictions == labels).float().mean())
+        reward = max(
+            -1.0,
+            min(1.0, (math.log(10) - float(classification_loss.detach())) / math.log(10)),
+        )
+        self._record_learning_progress(batch_accuracy, completed_step)
+        structure_unlocked = self._should_unlock_structure(completed_step, batch_accuracy)
+        self.model.substrate.record_trial(
+            result.sites,
+            result.stimulation,
+            result.load,
+            neuron_credit,
+            result.edge_flow,
+            edge_credit,
+            result.advertised_query,
+            result.advertised_key,
+            result.emission,
+            reward,
+            homeostasis_active=structure_unlocked,
+        )
+        feedback = self.model.make_frame(
+            result.sites,
+            result.final_state[0],
+            stimulation=result.stimulation,
+            load=result.load,
+            credit=neuron_credit,
+            stage="feedback",
+            step=self.config.message_steps + 1,
+            edge_flow=result.edge_flow,
+            edge_credit=edge_credit,
+        )
+        result.frames.append(feedback)
+
+        structural_events: list[dict[str, Any]] = []
+        self.last_births = 0
+        self.last_deaths = 0
+        if (
+            structure_unlocked
+            and (completed_step - self.config.structural_warmup_trials)
+            % self.config.structural_interval
+            == 0
+        ):
+            update = self.model.substrate.structural_step()
+            self._reset_synapse_optimizer_state(update.changed_edges)
+            structural_events = update.events
+            self.last_births = update.births
+            self.last_deaths = update.deaths
+        current_sites = self.model.substrate.living_sites
+        state_by_site = torch.zeros(
+            self.config.site_count, self.config.hidden_channels, device=self.device
+        )
+        state_by_site[result.sites] = result.final_state[0].detach()
+        result.frames.append(
+            self.model.make_frame(
+                current_sites,
+                state_by_site[current_sites],
+                stage="structural",
+                step=self.config.message_steps + 2,
+                events=structural_events,
+            )
+        )
+
         self.training_step += 1
         self.seen_examples += int(labels.numel())
         self.last_loss = float(classification_loss.detach())
+        self.last_reward = reward
         self.last_batch_accuracy = batch_accuracy
+        self.last_mean_attention_entropy = result.mean_attention_entropy
         self.accuracy_history.append(batch_accuracy)
         self.loss_history.append(self.last_loss)
+        self.reward_history.append(reward)
         self._remember(result, images, labels)
+        self._maybe_advance_curriculum()
         if self.training_step % self.config.evaluation_interval == 0:
             self.evaluate(self.config.evaluation_batches)
 
@@ -143,16 +317,116 @@ class MnistExperiment:
     def _publish_frame_events(self) -> None:
         self.events = [dict(event, tick=self.tick) for event in self.last_frame.events]
 
-    def rewire_now(self) -> None:
-        """Skip to a newly trained episode and restart playback from an empty graph."""
+    def _optimization_phase(self, completed_step: int) -> str:
+        """Return the parameter family allowed to learn on this update."""
 
-        self.tick += 1
-        self._train_episode()
+        if completed_step <= self.config.readout_only_trials:
+            return "readout"
+        if completed_step <= self.config.synapse_unlock_trials:
+            return "rule"
+        return "synapse"
+
+    def _record_learning_progress(self, batch_accuracy: float, completed_step: int) -> None:
+        self.curriculum_stage_updates += 1
+        self.stage_accuracy_history.append(batch_accuracy)
+        history = list(self.accuracy_history) + [batch_accuracy]
+        rolling = sum(history) / len(history)
+        if rolling >= self.best_rolling_accuracy + self.config.structure_plateau_delta:
+            self.best_rolling_accuracy = rolling
+            self.last_accuracy_improvement_step = completed_step
+
+    def _should_unlock_structure(self, completed_step: int, batch_accuracy: float) -> bool:
+        if self.structure_unlocked:
+            return True
+        if completed_step < self.config.structural_warmup_trials:
+            self.structure_unlock_reason = "minimum learning warm-up"
+            return False
+        recent = list(self.accuracy_history) + [batch_accuracy]
+        rolling = sum(recent) / max(1, len(recent))
+        if rolling >= self.config.structure_accuracy_threshold:
+            self.structure_unlocked = True
+            self.structure_unlock_reason = "accuracy competence reached"
+        elif completed_step - self.last_accuracy_improvement_step >= self.config.structure_plateau_trials:
+            self.structure_unlocked = True
+            self.structure_unlock_reason = "learning plateau reached"
+        else:
+            self.structure_unlock_reason = "waiting for competence or plateau"
+        return self.structure_unlocked
+
+    def _maybe_advance_curriculum(self) -> None:
+        stage = self.curriculum[self.curriculum_stage_index]
+        if stage.target_accuracy is None:
+            return
+        if self.curriculum_stage_updates < self.config.curriculum_min_trials:
+            return
+        accuracy = sum(self.stage_accuracy_history) / max(1, len(self.stage_accuracy_history))
+        if accuracy < stage.target_accuracy:
+            return
+        self.curriculum_stage_index += 1
+        self.curriculum_stage_updates = 0
+        self.stage_accuracy_history.clear()
+        next_stage = self.curriculum[self.curriculum_stage_index]
+        self.train_loader = make_loader(
+            next_stage.dataset,
+            batch_size=(
+                next_stage.examples
+                if next_stage.examples <= 20
+                else self.config.batch_size
+            ),
+            seed=self.seed + self.curriculum_stage_index,
+            shuffle=True,
+            device=self.device,
+        )
+        self._train_iterator = iter(self.train_loader)
+
+    def rewire_now(self) -> None:
+        """Force one real structural cycle and replay the current digit."""
+
+        update = self.model.substrate.structural_step()
+        self._reset_synapse_optimizer_state(update.changed_edges)
+        self.last_births = update.births
+        self.last_deaths = update.deaths
+        self._replay_current(events=update.events)
+
+    @torch.no_grad()
+    def _reset_synapse_optimizer_state(self, changed_edges: torch.Tensor) -> None:
+        """Clear Adam moments belonging to dendrite slots that changed identity."""
+
+        parameter = self.model.substrate.synapse_weight
+        state = self.synapse_optimizer.state.get(parameter, {})
+        for key in ("exp_avg", "exp_avg_sq", "max_exp_avg_sq"):
+            value = state.get(key)
+            if isinstance(value, torch.Tensor) and value.shape == changed_edges.shape:
+                value.masked_fill_(changed_edges, 0)
+
+    @torch.no_grad()
+    def _replay_current(self, *, events: list[dict[str, Any]] | None = None) -> None:
+        self.model.eval()
+        image = self.last_image.unsqueeze(0).to(self.device)
+        label = torch.tensor([self.last_label], device=self.device)
+        result = self.model(image, capture_trace=True)
+        result.frames.append(
+            self.model.make_frame(
+                result.sites,
+                result.final_state[0],
+                stage="feedback",
+                step=self.config.message_steps + 1,
+                edge_flow=result.edge_flow,
+            )
+        )
+        result.frames.append(
+            self.model.make_frame(
+                result.sites,
+                result.final_state[0],
+                stage="structural",
+                step=self.config.message_steps + 2,
+                events=events,
+            )
+        )
+        self._remember(result, image, label)
 
     @torch.no_grad()
     def evaluate(self, batches: int = 5) -> float:
-        """Measure a bounded held-out slice without retaining assembly traces."""
-
         self.model.eval()
         correct = 0
         total = 0
@@ -166,31 +440,8 @@ class MnistExperiment:
 
     @torch.no_grad()
     def lesion(self, x: float, y: float, radius: float) -> int:
-        """Mask cells, publish severed current axons, and replay the same digit."""
-
-        before = self.model.lesion_mask.clone()
-        graph = self.last_frame.graph
         count = self.model.lesion(x, y, radius)
-        damaged = (before > 0.5) & (self.model.lesion_mask < 0.5)
-        destination = graph.destination.clamp_min(0)
-        incident = damaged.unsqueeze(1) | damaged[destination]
-        active = (graph.destination >= 0) & (graph.strength > 0.18)
-        severed: list[dict[str, Any]] = []
-        for source, slot in (incident & active).nonzero(as_tuple=False)[:128].tolist():
-            severed.append(
-                {
-                    "type": "pruned",
-                    "source": source,
-                    "destination": int(graph.destination[source, slot]),
-                    "tick": self.tick,
-                }
-            )
-        image = self.last_image.unsqueeze(0).to(self.device)
-        label = torch.tensor([self.last_label], device=self.device)
-        self.model.eval()
-        result = self.model(image, capture_trace=True)
-        self._remember(result, image, label)
-        self.events = severed
+        self._replay_current()
         return count
 
     @property
@@ -210,5 +461,23 @@ class MnistExperiment:
         return sum(self.loss_history) / len(self.loss_history) if self.loss_history else self.last_loss
 
     @property
+    def rolling_reward(self) -> float:
+        return sum(self.reward_history) / len(self.reward_history) if self.reward_history else 0.0
+
+    @property
     def epoch(self) -> float:
         return self.seen_examples / max(1, len(self.train_dataset))
+
+    @property
+    def structural_warmup_remaining(self) -> int:
+        return max(0, self.config.structural_warmup_trials - self.training_step)
+
+    @property
+    def learning_phase(self) -> str:
+        if self.structure_unlocked:
+            return "structure"
+        return self._optimization_phase(self.training_step + 1)
+
+    @property
+    def curriculum_stage(self) -> CurriculumStage:
+        return self.curriculum[self.curriculum_stage_index]

@@ -37,10 +37,15 @@ def build_snapshot(simulation: PetriDishSimulation | MnistExperiment) -> dict[st
             "weight": np.round(weight.detach().cpu().float().numpy(), 4).tolist(),
             "age": age.detach().cpu().tolist(),
             "utility": np.round(utility.detach().cpu().float().numpy(), 5).tolist(),
+            "flow": np.zeros(len(source), dtype=np.float32).tolist(),
+            "credit": np.zeros(len(source), dtype=np.float32).tolist(),
         }
         mean_weight = float(weight.abs().mean())
     else:
-        edge_payload = {"source": [], "destination": [], "weight": [], "age": [], "utility": []}
+        edge_payload = {
+            "source": [], "destination": [], "weight": [], "age": [],
+            "utility": [], "flow": [], "credit": [],
+        }
         mean_weight = 0.0
 
     observation = simulation.last_observation
@@ -52,6 +57,7 @@ def build_snapshot(simulation: PetriDishSimulation | MnistExperiment) -> dict[st
             "width": simulation.config.width,
             "height": simulation.config.height,
             "channels": CHANNEL_NAMES,
+            "indices": None,
             "cells": cells.tolist(),
         },
         "edges": edge_payload,
@@ -71,7 +77,10 @@ def build_snapshot(simulation: PetriDishSimulation | MnistExperiment) -> dict[st
             "loss": None,
             "livingCells": int((state.cells[:, Channel.ALIVE] > 0.5).sum()),
             "edgeCount": len(edge_payload["source"]),
+            "visibleEdgeCount": len(edge_payload["source"]),
             "meanWeight": round(mean_weight, 5),
+            "synapseUpdateRatio": None,
+            "structureLocked": False,
             "device": str(simulation.device),
         },
     }

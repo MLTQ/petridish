@@ -4,10 +4,12 @@ export interface EdgeSnapshot {
   weight: number[];
   age: number[];
   utility: number[];
+  flow: number[];
+  credit: number[];
 }
 
 export interface StructuralEvent {
-  type: "grown" | "pruned";
+  type: "grown" | "pruned" | "born" | "died";
   source: number;
   destination: number;
   tick: number;
@@ -25,24 +27,46 @@ export interface XorTaskSnapshot {
 
 export interface MnistTaskSnapshot {
   kind: "mnist";
-  phase: "seed" | "sensing" | "developing" | "reading";
+  phase: "input" | "forward" | "feedback" | "structural";
   target: number;
   prediction: number;
   accuracy: number;
   testAccuracy: number | null;
   confidence: number;
   loss: number;
+  reward: number;
   epoch: number;
   seenExamples: number;
   trainingStep: number;
-  assemblyStep: number;
-  assemblySteps: number;
-  tokenRow: number;
-  routingRound: number;
+  trialStep: number;
+  trialSteps: number;
+  generation: number;
+  structuralWarmupRemaining: number;
+  learningPhase: "readout" | "rule" | "synapse" | "structure";
+  structureUnlockReason: string;
+  curriculumStage: number;
+  curriculumStageCount: number;
+  curriculumExamples: number;
+  curriculumTargetAccuracy: number | null;
+  curriculumStageAccuracy: number;
+  curriculumStageUpdates: number;
+  births: number;
+  deaths: number;
   image: number[];
 }
 
 export type TaskSnapshot = XorTaskSnapshot | MnistTaskSnapshot;
+
+export interface HyperparameterSnapshot {
+  key: string;
+  label: string;
+  group: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  integer: boolean;
+}
 
 export interface ExperimentSnapshot {
   type: "snapshot";
@@ -52,6 +76,7 @@ export interface ExperimentSnapshot {
     width: number;
     height: number;
     channels: string[];
+    indices: number[] | null;
     cells: number[][];
   };
   edges: EdgeSnapshot;
@@ -63,8 +88,21 @@ export interface ExperimentSnapshot {
     loss: number | null;
     livingCells: number;
     edgeCount: number;
+    visibleEdgeCount: number;
     meanWeight: number;
+    synapseUpdateRatio: number | null;
+    structureLocked: boolean;
+    meanAttentionEntropy?: number;
+    minimumOutputHops?: number | null;
+    medianOutputHops?: number | null;
+    reachableOutputs?: number;
+    temporallyReachableOutputs?: number;
+    activeParameters?: number;
+    parametersPerLivingCell?: number;
     device: string;
+  };
+  configuration?: {
+    parameters: HyperparameterSnapshot[];
   };
 }
 
@@ -78,7 +116,8 @@ export type ExperimentCommand =
   | { type: "stimulate"; region: "sensor_a" | "sensor_b" | "motor_zero" | "motor_one"; amount?: number; duration?: number }
   | { type: "reward"; amount: number }
   | { type: "evaluate"; batches?: number }
-  | { type: "rewire" };
+  | { type: "rewire" }
+  | { type: "configure"; values: Record<string, number> };
 
 export interface ErrorMessage {
   type: "error";

@@ -2,89 +2,142 @@
 
 ## Runtime boundary
 
-The Python process lazily owns named XOR and MNIST experiments, their task state,
-mutation, optimizer state, and history. Switching preserves each experiment
-until explicit reset. The browser is an observer/controller and never mutates a
-local copy of scientific state.
+Python owns learning, neural state, topology, lifecycle, data order, and
+interventions. The browser receives sampled authoritative snapshots and never
+simulates or invents scientific state.
 
-Snapshots are sampled independently of simulation ticks. This lets a GPU run
-many physics steps per rendered frame and keeps a slow browser from changing the
-experiment.
+## Physical substrate
 
-## Cell state
+MNIST defaults to a configurable 64×64 address space. A flattened site ID is always
+`y * width + x`. Empty positions have no neuron row in the sparse protocol.
 
-The field has shape `[height, width, 16]` and stable channel meanings:
+Persistent per-site state includes:
 
-| Channel | Meaning |
-|---------|---------|
-| 0 | viability/alive amount |
-| 1 | signed activation |
-| 2–3 | phase sine and cosine |
-| 4–7 | private recurrent memory |
-| 8 | metabolic energy |
-| 9 | axon growth signal |
-| 10 | dendrite/receptor signal |
-| 11 | XOR reward trace or current MNIST sensory-port pulse |
-| 12–13 | normalized spatial identity |
-| 14 | sensory-cell identity |
-| 15 | motor-cell identity |
+| State | Meaning |
+|-------|---------|
+| Occupancy | Whether a neuron currently inhabits the physical position |
+| Energy | Homeostatic viability reserve |
+| Stimulation EMA | Recent task-varying external and incoming information |
+| Load EMA | Recent incoming message traffic |
+| Neuron credit | Magnitude of retained-state loss gradient |
+| Task utility | Reward/credit-weighted slow value |
+| Age | Trials survived since birth |
+| Candidate IDs/counters | Nearby emitting sources being considered |
+| Genotype | Trainable site-specific identity that FiLM-modulates the shared rule |
+| Query/key/emission EMA | Slow memory of what a neuron requests and advertises |
 
-## Edge state
+Forty-nine immortal-under-homeostasis input roles form a 7×7 patch bank near
+the left boundary. Ten output roles lie near the right boundary. A lesion can
+still physically remove interface neurons.
 
-Every source cell owns a small fixed number of edge slots. XOR slots store a
-destination, signed weight, existence gate, eligibility, age, and utility.
-MNIST episodes begin with empty slots. Recurrent cells broadcast axon keys,
-dendritic queries, and growth strengths; top-k matches create destinations,
-signed weights, strengths, ages, and utilities that persist only for that input
-episode. Fixed slot count preserves bounded tensor shapes without prescribing a
-connectome.
+## Dendrites and axons
 
-## XOR tick order
+Each target neuron owns a fixed number of dendrite slots. A slot stores a source
+site ID, signed weight, age, task utility, measured flow, and measured backward
+credit. The same directed relation is the source's axon and the target's
+dendrite; there is only one edge state. Targets have four dendrite slots and
+sources support at most eight axons by default.
 
-1. The delayed-XOR task produces sensory input and an optional reward pulse.
-2. Local 3×3 perception and sparse axonal messages are computed.
-3. Cell activation, memory, phase, energy, growth signals, and viability update.
-4. Edge eligibility and reward-modulated weights update.
-5. At a slower cadence, old low-utility edges prune and empty slots grow.
-6. A sampled, CPU-safe snapshot is sent to connected observers.
+Initial dendrites are local and preferentially select farther-left sources,
+providing a physically traversable input-to-output bridge without defining a
+task-specific connectome. The default 8-cell discovery radius keeps broadcasts
+local; twelve recurrent steps provide enough depth to cross the smaller field.
 
-## MNIST developmental episode
+For new growth, a target samples a bounded set of physically local sources.
+Repeated emission by the same source increments a target-local candidate
+counter. A free dendrite forms only after the source ID's counter crosses the
+configured threshold.
 
-1. A 28×28 digit becomes a 7×7 sequence of 4×4 patch vectors outside the field.
-2. The 16×16 field starts from shared-rule seed state with no long-range edges.
-3. For seven sensing steps, one patch row enters seven left-border sensory ports.
-4. Every cell applies the same GRU to local 3×3 perception, an all-cell soft
-   broadcast, persistent graph messages, sensory input, weak morphogens,
-   interface role, and episode clock.
-5. Cells advertise keys, receptor queries, values, and growth requests. Soft
-   attention teaches the broadcast language; top-k matches create or retain up
-   to four directed axons per source. Distance and wiring costs discourage
-   gratuitous connections.
-6. Additional development and readout steps run without sensory input. Ten
-   right-border output cells carry one-hot class roles and use one shared scalar
-   readout head. Sensor-column/output-class roles define the external interface,
-   not internal wiring.
-7. Cross-entropy meta-trains the patch projection, shared GRU, broadcast
-   language, synaptic rule, and output scale. Auxiliary loss on the post-sensory
-   readout trajectory shortens the training signal; graph endpoints are not
-   parameters.
+## Differentiable trial
 
-The viewer replays the empty seed and every micro-step before training the next
-episode, so optimizer cadence is deliberately slower than visualization cadence.
+Topology is frozen for one trial:
 
-## Intervention semantics
+1. A digit becomes 49 vectors of 16 pixels outside the substrate.
+2. Patch vectors stimulate the 49 left-side input neurons.
+3. Twenty recurrent message-passing steps run over occupied neurons and active
+   dendrites. Each neuron keeps private fast state, advertises query/key/value
+   projections plus an emit gate, and attends only across its real dendrites.
+   A persistent site genotype FiLM-modulates the shared normalized GRU rule.
+4. Ten right-side neurons receive persistent learned class identities. Those
+   identities query a shared transformer-like attention pool, while a small
+   linear probe over the complete physical output bank verifies separability.
+5. Cross-entropy backpropagates through the exact recurrent graph.
+6. Adam updates shared patch/rule/readout parameters and individual dendrite
+   weights with separately configurable rates.
+7. Retained-state gradients become per-neuron backward credit; synapse
+   gradients times weights become per-edge credit.
 
-A lesion zeros XOR viability/energy or masks MNIST cells. XOR viability can
-regrow through local field dynamics. MNIST immediately replays the same digit
-from an empty graph under the persistent lesion, exposing whether broadcast
-routing can assemble an alternate path.
+Discrete endpoints do not receive gradients and never mutate during these
+steps. This preserves a valid reverse-mode graph while allowing topology to be
+governed by local structural rules afterward.
 
-Manual stimuli are short-lived additions to the task signal. Manual reward uses
-the same scalar third factor as task reward; it does not directly edit weights.
+## Homeostasis and lifecycle
+
+Forward traffic and backward task credit are deliberately separate. Traffic
+updates stimulation/load EMAs and metabolic energy. Credit updates task
+utility. Positive task utility supplies a small bounded energy bonus without
+counting as stimulation. Healthy stimulation recovers energy; starvation,
+overload, and dendrite maintenance consume it.
+
+Load is absolute traffic. Stimulation is the batch-varying component of incoming
+messages and external input. Constant self-exciting loops therefore incur load
+without satisfying the information-stimulation requirement.
+
+At a slower structural cadence:
+
+1. Dead-source and dead-target dendrites are removed.
+2. Old low-utility dendrites prune within a bounded budget.
+3. Depleted non-interface neurons past their juvenile grace period die.
+4. Active neighborhoods may seed neurons into empty sites.
+5. Candidate source counters decay, accumulate new evidence, and form
+   thresholded dendrites.
+
+This order lets overload first create local growth demand and alternate paths;
+death is a sustained outcome rather than an instantaneous response.
+
+Automatic structural mutation and metabolic energy pressure are disabled during
+the initial learning warm-up. Training first fits only the fixed output-bank
+probe, then unlocks the shared cellular rule, then synapses. Structure additionally
+requires accuracy competence or a measured learning plateau. Signed removal
+credit is percentile-normalized, so harmful influence receives no protection.
+
+## Overfit curriculum and diagnostics
+
+Training begins on a deterministic class-balanced 20-example subset, then moves
+to 256 examples, 1,000 examples, and full MNIST only after meeting each stage's
+rolling training-accuracy target. The first stage is a complete batch so failure
+to overfit cannot be blamed on sample omission.
+
+The backend caches directed sensory-to-output hop distances until topology
+changes. Snapshots report minimum/median hops, outputs reachable within the
+message-step budget, local-attention entropy, active parameter count, and
+parameters per living neuron. These metrics distinguish capacity, routing, and
+optimization failures without inferring state in the browser.
+
+## Sparse viewer protocol
+
+MNIST snapshots transmit `field.indices[row]` beside `field.cells[row]` instead
+of dense empty positions. Edge count is authoritative, while rendering defaults
+to the 4,000 edges with greatest measured flow, credit, weight, or utility.
+
+The snapshot also carries one backend-owned numeric control specification for
+every MNIST configuration field. Slider edits remain local until Apply; the
+runtime validates the complete change set and constructs a fresh organism.
+
+Viewer marks are evidentiary:
+
+- Cell color: selected measured channel, autoscaled per frame with raw inspector
+  values.
+- Edge sign: excitatory or inhibitory weight.
+- Edge opacity/width: measured forward flow, or measured gradient credit during
+  feedback.
+- Cyan/red event marks: actual growth/birth or pruning/death reports.
+
+There are no synthetic signal dots, arbitrary moving packets, or inferred
+activity.
 
 ## Reproducibility
 
-Resetting rebuilds the selected experiment, data order, shared model, and task
-generators from one integer seed. There is no MNIST topology to restore: every
-episode assembles its own. Trace frames detach learned state and never retain an
-autograd graph.
+Reset reconstructs model parameters, initial occupancy, local probes,
+connectome, and deterministic data order from one seed. Trace frames detach
+only after a differentiable trial has retained the tensors needed for credit.

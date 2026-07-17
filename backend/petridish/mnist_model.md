@@ -2,64 +2,75 @@
 
 ## Purpose
 
-Defines a 16×16 population of shared recurrent cells that receives MNIST through
-seven sensory ports and assembles a new sparse directed graph for every input.
-The image is an external token stream, never the cellular substrate.
+Defines differentiable recurrent computation over living neurons, persistent
+site genotypes, and dendrites. The image remains external and enters through 49
+position-identified sensory neurons on the left of the default substrate.
 
 ## Components
 
-### `MnistModelConfig`
-- **Does**: Sets cell state, routing width, episode phases, optimizer, and
-  evaluation cadence.
-- **Interacts with**: `CellularGraphClassifier` and `MnistExperiment`.
-
-### `MnistFrame`
-- **Does**: Captures one detached micro-step for live playback, including cell
-  broadcasts, sensory pulses, graph state, and structural events.
-- **Interacts with**: `MnistExperiment` playback and MNIST protocol.
+### `CellularGraphClassifier`
+- **Does**: Patchifies MNIST, combines fast state with persistent site genotype,
+  performs query/key/value messaging over real dendrites, applies a genotype-
+  modulated shared GRU, and reads ten right-side output neurons.
+- **Interacts with**: `SpatialSubstrate` for population and topology.
+- **Rationale**: Computation is compacted to occupied sites while site IDs retain
+  their physical tensor positions.
+- **Rationale**: The message projection begins as an identity, a learned
+  positive gain gates it, and normalized recurrent state carries incoming
+  information through one explicit residual path.
+- **Rationale**: Zero-background hidden state prevents static positional context
+  from drowning sensory differences; spatial/metabolic/type context remains a
+  trainable input to every recurrent update.
+- **Rationale**: Ten learned output identities condition recurrent context and
+  query a shared attention pool over the ten physical output neurons. This
+  breaks class symmetry without replacing the bank with a dense classifier.
+- **Rationale**: A small linear probe over the complete physical output bank is
+  retained in the learned classifier because output-bank separability is a
+  required diagnostic; it cannot access non-output cells or the input image.
+- **Rationale**: Identity-attention readout begins at zero residual scale so it
+  cannot obscure the fixed-bank linear probe before learning proves it useful.
+- **Rationale**: Each neuron keeps private recurrent state while advertising a
+  key, value, and learned emit gate; each target attends only across its real dendrites.
+- **Rationale**: A persistent genotype FiLM-modulates the shared rule, so
+  specialization scales with occupied sites without a full model per cell.
 
 ### `MnistForward`
-- **Does**: Returns final logits/state/graph plus an optional visualization trace
-  differentiable readout trajectory, and wiring cost.
-- **Interacts with**: Training, evaluation, and protocol projection.
+- **Does**: Returns logits, retained recurrent states, advertised query/key/gate
+  statistics, attention entropy, measured traffic, and trace frames.
+- **Interacts with**: `MnistExperiment._train_trial`.
 
-### `CellularGraphClassifier`
-- **Does**: Patchifies a digit, presents seven patch tokens per sensory step,
-  applies one shared GRU to every cell, mixes differentiable broadcasts with
-  persistent sparse axons, and reads ten motor-interface cells.
-- **Interacts with**: `BroadcastRouter` for persistent sparse communication.
-- **Rationale**: Cells collectively implement recurrent sparse attention; no
-  cell owns unique controller weights and no initial long-range graph exists.
-- **Rationale**: Sensory-column and output-class one-hot roles define only the
-  environment interface. They do not prescribe any internal connection.
-- **Rationale**: Sensory, broadcast, and persistent-edge messages have residual
-  paths around the GRU gates so early meta-training cannot silently discard all
-  input before an addressing language emerges.
+### `make_frame`
+- **Does**: Captures measured activation, stimulation, load, gradient credit,
+  edge flow, and structural events without synthesizing visual activity.
 
-### `regularization`
-- **Does**: Charges for strong and long episode edges.
-- **Interacts with**: Cross-entropy in `MnistExperiment`.
+### Stimulation versus load
+- **Does**: Measures load as absolute transmitted traffic and stimulation as
+  batch-varying information carried by that traffic.
+- **Rationale**: Constant self-exciting loops remain metabolically expensive but
+  cannot satisfy the organism merely by circulating an unchanging background.
 
-### `_read_logits`
-- **Does**: Applies one shared scalar head to the ten class-role interface cells.
-- **Interacts with**: Final prediction and trajectory supervision.
+### `shared_parameters`
+- **Does**: Separates globally shared neural-rule parameters from persistent
+  per-dendrite weights, allowing independent optimizers.
 
-### `lesion`
-- **Does**: Masks a circular cell region for subsequent assembly episodes.
-- **Interacts with**: The common lesion brush.
+### `readout_parameters`
+- **Does**: Identifies output-bank parameters assigned the faster optimizer rate.
+
+### `probe_parameters`
+- **Does**: Restricts the initial separability test to a linear output-bank probe
+  and bias, keeping every feature-producing parameter frozen.
 
 ## Contracts
 
 | Dependent | Expects | Breaking changes |
 |-----------|---------|------------------|
-| `mnist_experiment.py` | Trace starts with an empty seed frame and ends at readout | Frame ordering |
-| `mnist_protocol.py` | Sensor/motor identities and current frame tensors are readable | Buffer names or frame shape |
-| Viewer | Field is 16×16; seven left ports sense and ten right ports classify | Interface geometry |
+| `mnist_experiment.py` | Retained states expose gradients after loss backward | Detaching training state |
+| Protocol | Frames carry compact site IDs alongside rows | Removing `sites` |
+| Tests | Every active synapse and shared rule remain differentiable | Message-path changes |
+| Learning regression | Digit-dependent variance reaches outputs within configured message depth | Attenuating the sensory path |
+| `mnist_substrate.py` | Query/key/gate statistics are compact-site aligned | Reordering advertised rows |
 
 ## Notes
 
-The outer loop is supervised meta-training. Within an episode, recurrent cells
-receive only local averages, messages, token input at sensory ports, weak spatial
-morphogens, role signals, and a clock; graph endpoints are not model parameters.
-Optional episode noise is disabled by default so reset and lesion comparisons
-remain deterministic.
+Topology is frozen during each forward/backward trial. Discrete structural
+mutation happens only after gradients have been consumed.

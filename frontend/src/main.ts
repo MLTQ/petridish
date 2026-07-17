@@ -1,7 +1,7 @@
 import "./styles.css";
 
 import { HistoryChart } from "./chart";
-import type { ExperimentSnapshot } from "./protocol";
+import type { ExperimentSnapshot, HyperparameterSnapshot } from "./protocol";
 import { DishRenderer, type FieldLayer } from "./renderer";
 import { ExperimentSocket } from "./socket";
 
@@ -22,11 +22,17 @@ const edgeThresholdValue = required<HTMLOutputElement>("#edge-threshold-value");
 const inspector = required<HTMLElement>("#inspector");
 const experimentSelect = required<HTMLSelectElement>("#experiment-select");
 const speedSelect = required<HTMLSelectElement>("#speed-select");
+const hyperparameterPanel = required<HTMLElement>("#hyperparameter-panel");
+const hyperparameterControls = required<HTMLElement>("#hyperparameter-controls");
+const hyperparameterApply = required<HTMLButtonElement>("#hyperparameter-apply");
+const hyperparameterStatus = required<HTMLOutputElement>("#hyperparameter-status");
 
 let currentSnapshot: ExperimentSnapshot | null = null;
 let playing = true;
 let lesionArmed = false;
 let lastLesionAt = 0;
+let configurationSignature = "";
+const pendingHyperparameters = new Map<string, number>();
 
 const socket = new ExperimentSocket(
   (snapshot) => receiveSnapshot(snapshot),
@@ -37,6 +43,10 @@ const socket = new ExperimentSocket(
   (message) => {
     connection.className = "connection disconnected";
     connection.querySelector("span:last-child")!.textContent = message;
+    if (pendingHyperparameters.size) {
+      hyperparameterStatus.value = message;
+      hyperparameterApply.disabled = false;
+    }
   },
 );
 
@@ -89,6 +99,26 @@ required<HTMLButtonElement>("#evaluate").addEventListener("click", () =>
 required<HTMLButtonElement>("#rewire").addEventListener("click", () =>
   socket.send({ type: "rewire" }),
 );
+hyperparameterControls.addEventListener("input", (event) => {
+  const input = event.target;
+  if (!(input instanceof HTMLInputElement) || input.type !== "range") return;
+  const key = input.dataset.key;
+  if (!key) return;
+  const value = Number(input.value);
+  pendingHyperparameters.set(key, value);
+  const output = input.parentElement?.querySelector("output");
+  if (output instanceof HTMLOutputElement) {
+    output.value = formatHyperparameter(value, Number(input.step), input.dataset.integer === "true");
+  }
+  hyperparameterApply.disabled = false;
+  hyperparameterStatus.value = `${pendingHyperparameters.size} pending change${pendingHyperparameters.size === 1 ? "" : "s"}`;
+});
+hyperparameterApply.addEventListener("click", () => {
+  if (!pendingHyperparameters.size) return;
+  hyperparameterApply.disabled = true;
+  hyperparameterStatus.value = "restarting organism…";
+  socket.send({ type: "configure", values: Object.fromEntries(pendingHyperparameters) });
+});
 experimentSelect.addEventListener("change", () => {
   const name = experimentSelect.value as ExperimentSnapshot["experiment"];
   connection.querySelector("span:last-child")!.textContent = name === "mnist" ? "loading MNIST…" : "switching…";
@@ -142,8 +172,36 @@ function receiveSnapshot(snapshot: ExperimentSnapshot): void {
   text("#metric-device", snapshot.metrics.device);
   text("#metric-cells", snapshot.metrics.livingCells.toLocaleString());
   text("#metric-weight", snapshot.metrics.meanWeight.toFixed(3));
-  if (snapshot.task.kind === "mnist") updateMnistTask(snapshot.task);
-  else updateXorTask(snapshot.task);
+  text(
+    "#metric-synapse-update",
+    snapshot.metrics.synapseUpdateRatio === null
+      ? "—"
+      : `${(snapshot.metrics.synapseUpdateRatio * 100).toFixed(3)}%`,
+  );
+  if (snapshot.task.kind === "mnist") {
+    updateMnistTask(snapshot.task);
+    text("#metric-learning-phase", snapshot.task.learningPhase);
+    const minimumHops = snapshot.metrics.minimumOutputHops;
+    const medianHops = snapshot.metrics.medianOutputHops;
+    text(
+      "#metric-hops",
+      minimumHops === null || minimumHops === undefined
+        ? "unreachable"
+        : `${minimumHops} min · ${medianHops ?? minimumHops} median`,
+    );
+    text(
+      "#metric-reachability",
+      `${snapshot.metrics.temporallyReachableOutputs ?? 0}/${snapshot.metrics.reachableOutputs ?? 0}`,
+    );
+    text("#metric-attention", (snapshot.metrics.meanAttentionEntropy ?? 0).toFixed(3));
+    text(
+      "#metric-parameters",
+      `${(snapshot.metrics.activeParameters ?? 0).toLocaleString()} · ${(snapshot.metrics.parametersPerLivingCell ?? 0).toFixed(1)}/cell`,
+    );
+    if (snapshot.configuration) renderHyperparameters(snapshot.configuration.parameters);
+  } else {
+    updateXorTask(snapshot.task);
+  }
 }
 
 function updateXorTask(task: Extract<ExperimentSnapshot["task"], { kind: "xor" }>): void {
@@ -159,12 +217,19 @@ function updateXorTask(task: Extract<ExperimentSnapshot["task"], { kind: "xor" }
   required<HTMLElement>("#xor-controls").hidden = false;
   required<HTMLElement>("#mnist-controls").hidden = true;
   required<HTMLElement>("#mnist-preview-panel").hidden = true;
+  hyperparameterPanel.hidden = true;
+  text("#metric-structure", "—");
+  text("#metric-learning-phase", "—");
+  text("#metric-hops", "—");
+  text("#metric-reachability", "—");
+  text("#metric-attention", "—");
+  text("#metric-parameters", "—");
   text("#chart-title", "Reward + accuracy");
   text("#chart-objective-label", "reward");
 }
 
 function updateMnistTask(task: Extract<ExperimentSnapshot["task"], { kind: "mnist" }>): void {
-  text("#task-name", "mnist self-assembling cells");
+  text("#task-name", "mnist spatial neural organism");
   const stage = mnistStageLabel(task);
   text("#task-phase", stage);
   text("#phase-badge", task.phase);
@@ -180,21 +245,92 @@ function updateMnistTask(task: Extract<ExperimentSnapshot["task"], { kind: "mnis
   );
   text(
     "#mnist-seen",
-    `assembly ${task.assemblyStep}/${task.assemblySteps} · route ${task.routingRound} · ${task.seenExamples.toLocaleString()} seen`,
+    `curriculum ${task.curriculumStage}/${task.curriculumStageCount}: ${task.curriculumExamples.toLocaleString()} examples · ${(task.curriculumStageAccuracy * 100).toFixed(1)}%${task.curriculumTargetAccuracy === null ? "" : ` / ${(task.curriculumTargetAccuracy * 100).toFixed(0)}%`} · ${task.seenExamples.toLocaleString()} seen`,
   );
   required<HTMLElement>("#xor-controls").hidden = true;
   required<HTMLElement>("#mnist-controls").hidden = false;
   required<HTMLElement>("#mnist-preview-panel").hidden = false;
+  hyperparameterPanel.hidden = false;
+  text(
+    "#metric-structure",
+    task.learningPhase === "structure"
+      ? `plastic · ${task.structureUnlockReason}`
+      : `locked · ${task.structureUnlockReason}`,
+  );
   text("#chart-title", "Loss objective + accuracy");
   text("#chart-objective-label", "loss objective");
   drawDigit(task.image);
 }
 
+function renderHyperparameters(parameters: HyperparameterSnapshot[]): void {
+  const signature = JSON.stringify(parameters.map(({ key, value }) => [key, value]));
+  if (signature === configurationSignature) return;
+  configurationSignature = signature;
+  pendingHyperparameters.clear();
+  hyperparameterApply.disabled = true;
+  hyperparameterStatus.value = "no pending changes";
+  text("#hyperparameter-count", `${parameters.length} parameters`);
+  hyperparameterControls.replaceChildren();
+
+  const groups = new Map<string, HyperparameterSnapshot[]>();
+  for (const parameter of parameters) {
+    const group = groups.get(parameter.group) ?? [];
+    group.push(parameter);
+    groups.set(parameter.group, group);
+  }
+  let firstGroup = true;
+  for (const [name, group] of groups) {
+    const details = document.createElement("details");
+    details.className = "hyperparameter-group";
+    details.open = firstGroup;
+    firstGroup = false;
+    const summary = document.createElement("summary");
+    summary.textContent = `${name} (${group.length})`;
+    details.append(summary);
+    const grid = document.createElement("div");
+    grid.className = "hyperparameter-grid";
+    for (const parameter of group) grid.append(hyperparameterControl(parameter));
+    details.append(grid);
+    hyperparameterControls.append(details);
+  }
+}
+
+function hyperparameterControl(parameter: HyperparameterSnapshot): HTMLLabelElement {
+  const label = document.createElement("label");
+  label.className = "hyperparameter-control";
+  const heading = document.createElement("span");
+  heading.textContent = parameter.label;
+  const output = document.createElement("output");
+  output.value = formatHyperparameter(parameter.value, parameter.step, parameter.integer);
+  heading.append(output);
+  const input = document.createElement("input");
+  input.type = "range";
+  input.min = String(parameter.min);
+  input.max = String(parameter.max);
+  input.step = String(parameter.step);
+  input.value = String(parameter.value);
+  input.setAttribute("aria-label", parameter.label);
+  input.dataset.key = parameter.key;
+  input.dataset.integer = String(parameter.integer);
+  label.append(heading, input);
+  return label;
+}
+
+function formatHyperparameter(value: number, step: number, integer: boolean): string {
+  if (integer) return Math.round(value).toLocaleString();
+  if (value === 0) return "0";
+  const decimals = Math.max(0, Math.min(6, Math.ceil(-Math.log10(step))));
+  return value.toFixed(decimals);
+}
+
 function mnistStageLabel(task: Extract<ExperimentSnapshot["task"], { kind: "mnist" }>): string {
-  if (task.phase === "seed") return "Seed — empty graph";
-  if (task.phase === "sensing") return `Sense patch row ${task.tokenRow + 1}/7`;
-  if (task.phase === "developing") return `Develop — step ${task.assemblyStep}/${task.assemblySteps}`;
-  return `Readout ${task.target} → ${task.prediction}`;
+  if (task.phase === "input") return "Input — 49 patch neurons";
+  if (task.phase === "forward") return `Forward traffic — step ${task.trialStep}/${task.trialSteps}`;
+  if (task.phase === "feedback") return `Backward credit ${task.target} → ${task.prediction}`;
+  if (task.learningPhase !== "structure") {
+    return `Structure locked — ${task.learningPhase} learning phase`;
+  }
+  return `Structural cycle — ${task.births} born, ${task.deaths} died`;
 }
 
 function setTaskLabels(a: string, b: string, target: string, prediction: string): void {
@@ -221,7 +357,8 @@ function drawDigit(pixels: number[]): void {
 }
 
 function showCell(index: number, snapshot: ExperimentSnapshot): void {
-  const cell = snapshot.field.cells[index];
+  const row = snapshot.field.indices === null ? index : snapshot.field.indices.indexOf(index);
+  const cell = row >= 0 ? snapshot.field.cells[row] : undefined;
   if (!cell) return;
   const value = (channel: string): number => {
     const channelIndex = snapshot.field.channels.indexOf(channel);
@@ -234,9 +371,12 @@ function showCell(index: number, snapshot: ExperimentSnapshot): void {
     <span>activation ${value("activation").toFixed(3)}</span>
     <span>energy ${value("energy").toFixed(3)}</span>
     <span>alive ${value("alive").toFixed(3)}</span>
-    <span>sensory ${value("reward_trace").toFixed(3)}</span>
-    <span>axon request ${value("axon_growth").toFixed(3)}</span>
-    <span>receptor ${value("dendrite_growth").toFixed(3)}</span>
+    <span>stimulation ${value("stimulation").toFixed(4)}</span>
+    <span>traffic load ${value("load").toFixed(4)}</span>
+    <span>backward credit ${value("credit").toFixed(6)}</span>
+    <span>task utility ${value("utility").toFixed(4)}</span>
+    <span>genotype magnitude ${value("genotype_norm").toFixed(4)}</span>
+    <span>emit gate ${value("emission").toFixed(4)}</span>
   `;
 }
 

@@ -1,306 +1,420 @@
-"""Self-assembling recurrent cellular graph classifier for MNIST."""
+"""Differentiable recurrent computation over a persistent spatial connectome."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 import math
-from typing import Any
+from typing import Any, Iterable
 
 import torch
 from torch import nn
-import torch.nn.functional as functional
+from torch.nn import functional as F
 
-from .mnist_routing import BroadcastRouter, EpisodeGraph, RoutingUpdate
-
-
-@dataclass(frozen=True, slots=True)
-class MnistModelConfig:
-    width: int = 16
-    height: int = 16
-    hidden_channels: int = 32
-    route_channels: int = 12
-    edge_slots: int = 4
-    sensory_steps: int = 7
-    development_steps: int = 5
-    inference_steps: int = 4
-    routing_interval: int = 2
-    batch_size: int = 16
-    learning_rate: float = 0.0015
-    wiring_cost: float = 0.001
-    length_cost: float = 0.0003
-    route_distance_cost: float = 0.12
-    persistence_bonus: float = 0.22
-    broadcast_temperature: float = 0.35
-    activity_broadcast_bias: float = 1.0
-    evaluation_interval: int = 100
-    evaluation_batches: int = 8
-    episode_noise: float = 0.0
-
-    @property
-    def cell_count(self) -> int:
-        return self.width * self.height
-
-    @property
-    def total_steps(self) -> int:
-        return self.sensory_steps + self.development_steps + self.inference_steps
+from .mnist_config import MnistModelConfig
+from .mnist_substrate import GraphSnapshot, SpatialSubstrate
 
 
 @dataclass(slots=True)
 class MnistFrame:
+    """One evidence-bearing phase of an MNIST trial."""
+
+    sites: torch.Tensor
     state: torch.Tensor
-    sensory_signal: torch.Tensor
-    graph: EpisodeGraph
-    axon_request: torch.Tensor
-    receptor_request: torch.Tensor
+    stimulation: torch.Tensor
+    load: torch.Tensor
+    credit: torch.Tensor
+    input_signal: torch.Tensor
+    graph: GraphSnapshot
     stage: str
     step: int
-    token_row: int
     events: list[dict[str, Any]]
 
 
 @dataclass(slots=True)
 class MnistForward:
+    """Differentiable outputs and measured local quantities from one trial."""
+
     logits: torch.Tensor
     trajectory_logits: torch.Tensor
-    state: torch.Tensor
-    patches: torch.Tensor
-    graph: EpisodeGraph
+    sites: torch.Tensor
+    final_state: torch.Tensor
+    retained_states: list[torch.Tensor]
     frames: list[MnistFrame]
-    routing_cost: torch.Tensor
+    stimulation: torch.Tensor
+    load: torch.Tensor
+    edge_flow: torch.Tensor
+    advertised_query: torch.Tensor
+    advertised_key: torch.Tensor
+    emission: torch.Tensor
+    mean_attention_entropy: float
 
 
 class CellularGraphClassifier(nn.Module):
-    """Let shared recurrent cells assemble a sparse task graph from broadcasts."""
-
-    sensor_count = 7
-    motor_count = 10
+    """Run one shared recurrent neuron rule over the currently living graph."""
 
     def __init__(self, config: MnistModelConfig | None = None, *, seed: int = 1) -> None:
         super().__init__()
         self.config = config or MnistModelConfig()
         cfg = self.config
-        if cfg.width < 12 or cfg.height < 12:
-            raise ValueError("MNIST assembly field must be at least 12 by 12")
-        generator = torch.Generator().manual_seed(seed)
-        (
-            coordinates,
-            sensor_indices,
-            motor_indices,
-            sensor_identity,
-            motor_identity,
-            interface_identity,
-        ) = self._geometry()
-        self.register_buffer("coordinates", coordinates)
-        self.register_buffer("sensor_indices", sensor_indices)
-        self.register_buffer("motor_indices", motor_indices)
-        self.register_buffer("sensor_identity", sensor_identity)
-        self.register_buffer("motor_identity", motor_identity)
-        self.register_buffer("interface_identity", interface_identity)
-        self.register_buffer("cell_noise", torch.randn(cfg.cell_count, 2, generator=generator))
-
-        self.patch_encoder = nn.Sequential(nn.Linear(16, cfg.hidden_channels), nn.Tanh())
-        interface_channels = self.sensor_count + self.motor_count
-        seed_features = 2 + interface_channels + 2
-        self.seed_rule = nn.Sequential(
-            nn.Linear(seed_features, cfg.hidden_channels),
+        if cfg.width < 20 or cfg.height < 20:
+            raise ValueError("MNIST substrate must be at least 20 by 20")
+        torch.manual_seed(seed)
+        self.substrate = SpatialSubstrate(cfg, seed=seed)
+        self.patch_encoder = nn.Sequential(
+            nn.Linear(16, cfg.hidden_channels),
+            nn.LayerNorm(cfg.hidden_channels),
+            nn.GELU(),
+        )
+        persistent_features = 2 + 3 + 4
+        self.context_rule = nn.Sequential(
+            nn.Linear(persistent_features, cfg.hidden_channels),
             nn.Tanh(),
         )
-        rule_input = cfg.hidden_channels * 4 + 2 + interface_channels + 2
-        self.cell_rule = nn.GRUCell(rule_input, cfg.hidden_channels)
-        self.router = BroadcastRouter(
-            cfg.hidden_channels,
-            cfg.route_channels,
-            cfg.edge_slots,
-            coordinates,
-            distance_cost=cfg.route_distance_cost,
-            persistence_bonus=cfg.persistence_bonus,
-            broadcast_temperature=cfg.broadcast_temperature,
-            activity_bias=cfg.activity_broadcast_bias,
-        )
-        self.readout_scale = nn.Parameter(torch.tensor(2.0))
+        self.genotype_context = nn.Linear(cfg.genotype_channels, cfg.hidden_channels)
+        self.genotype_film = nn.Linear(cfg.genotype_channels, cfg.hidden_channels * 2)
+        nn.init.normal_(self.genotype_context.weight, std=0.04)
+        nn.init.normal_(self.genotype_film.weight, std=0.025)
+        nn.init.zeros_(self.genotype_context.bias)
+        nn.init.zeros_(self.genotype_film.bias)
+        self.input_identity = nn.Embedding(49, cfg.hidden_channels)
+        nn.init.normal_(self.input_identity.weight, std=0.12)
+        self.output_identity = nn.Embedding(10, cfg.hidden_channels)
+        nn.init.normal_(self.output_identity.weight, std=0.2)
+        self.message_norm = nn.LayerNorm(cfg.hidden_channels, elementwise_affine=False)
+        self.message_query = nn.Linear(cfg.hidden_channels, cfg.hidden_channels, bias=False)
+        self.message_key = nn.Linear(cfg.hidden_channels, cfg.hidden_channels, bias=False)
+        self.message_value = nn.Linear(cfg.hidden_channels, cfg.hidden_channels, bias=False)
+        self.emit_gate = nn.Linear(cfg.hidden_channels, 1)
+        with torch.no_grad():
+            self.message_value.weight.copy_(torch.eye(cfg.hidden_channels))
+            self.emit_gate.weight.zero_()
+            self.emit_gate.bias.fill_(cfg.emit_gate_bias)
+        self.message_gain_raw = nn.Parameter(torch.tensor(math.log(math.expm1(cfg.message_gain))))
+        self.cell_rule = nn.GRUCell(cfg.hidden_channels * 2, cfg.hidden_channels)
+        nn.init.zeros_(self.cell_rule.bias_ih)
+        nn.init.zeros_(self.cell_rule.bias_hh)
+        with torch.no_grad():
+            self.cell_rule.weight_ih[:, cfg.hidden_channels :].zero_()
+        self.state_norm = nn.LayerNorm(cfg.hidden_channels)
+        self.output_key = nn.Linear(cfg.hidden_channels, cfg.hidden_channels, bias=False)
+        self.output_value = nn.Linear(cfg.hidden_channels, cfg.hidden_channels, bias=False)
+        with torch.no_grad():
+            self.output_key.weight.copy_(torch.eye(cfg.hidden_channels))
+            self.output_value.weight.copy_(torch.eye(cfg.hidden_channels))
         self.output_readout = nn.Linear(cfg.hidden_channels, 1)
+        self.output_bank_readout = nn.Linear(cfg.hidden_channels * 10, 10)
+        nn.init.normal_(self.output_bank_readout.weight, std=0.025)
+        nn.init.zeros_(self.output_bank_readout.bias)
         self.class_bias = nn.Parameter(torch.zeros(10))
-        self.register_buffer("lesion_mask", torch.ones(cfg.cell_count))
+        self.readout_scale = nn.Parameter(torch.tensor(0.0))
 
-    def _geometry(self) -> tuple[torch.Tensor, ...]:
-        cfg = self.config
-        y = torch.arange(cfg.height).repeat_interleave(cfg.width)
-        x = torch.arange(cfg.width).repeat(cfg.height)
-        coordinates = torch.stack(
-            (
-                x.float() / max(1, cfg.width - 1) * 2 - 1,
-                y.float() / max(1, cfg.height - 1) * 2 - 1,
-            ),
-            dim=1,
+    def shared_parameters(self) -> Iterable[nn.Parameter]:
+        """Return learned rule parameters, excluding individually plastic synapses."""
+
+        for name, parameter in self.named_parameters():
+            if name != "substrate.synapse_weight":
+                yield parameter
+
+    def readout_parameters(self) -> Iterable[nn.Parameter]:
+        """Return all output-bank parameters assigned the faster readout rate."""
+
+        modules = (
+            self.output_identity,
+            self.output_key,
+            self.output_value,
+            self.output_readout,
+            self.output_bank_readout,
         )
-        sensor_y = torch.linspace(3, cfg.height - 4, self.sensor_count).round().long()
-        sensor_indices = sensor_y * cfg.width
-        motor_y = torch.linspace(2, cfg.height - 3, self.motor_count).round().long()
-        motor_indices = motor_y * cfg.width + (cfg.width - 1)
-        sensor_identity = torch.zeros(cfg.cell_count)
-        sensor_identity[sensor_indices] = 1
-        motor_identity = torch.zeros(cfg.cell_count)
-        motor_identity[motor_indices] = torch.linspace(0.1, 1.0, self.motor_count)
-        interface_identity = torch.zeros(cfg.cell_count, self.sensor_count + self.motor_count)
-        interface_identity[sensor_indices, torch.arange(self.sensor_count)] = 1
-        interface_identity[motor_indices, self.sensor_count + torch.arange(self.motor_count)] = 1
-        return (
-            coordinates,
-            sensor_indices,
-            motor_indices,
-            sensor_identity,
-            motor_identity,
-            interface_identity,
-        )
+        for module in modules:
+            yield from module.parameters()
+        yield self.class_bias
+        yield self.readout_scale
+
+    def probe_parameters(self) -> Iterable[nn.Parameter]:
+        """Return only the linear bank probe, keeping reservoir features frozen."""
+
+        yield from self.output_bank_readout.parameters()
+        yield self.class_bias
 
     def _patchify(self, images: torch.Tensor) -> torch.Tensor:
         patches = images.unfold(2, 4, 4).unfold(3, 4, 4)
-        return patches[:, 0].reshape(images.shape[0], 7, 7, 16)
+        return patches[:, 0].reshape(images.shape[0], 49, 16)
 
-    def _initial_state(self, batch_size: int, dtype: torch.dtype) -> torch.Tensor:
-        cfg = self.config
-        features = torch.cat((self.coordinates, self.interface_identity, 0.2 * self.cell_noise), dim=1)
-        hidden = self.seed_rule(features).unsqueeze(0).expand(batch_size, -1, -1)
-        if self.training and cfg.episode_noise > 0:
-            hidden = hidden + cfg.episode_noise * torch.randn_like(hidden)
-        return hidden.to(dtype=dtype) * self.lesion_mask.view(1, cfg.cell_count, 1)
+    def _persistent_features(self, sites: torch.Tensor, batch_size: int) -> torch.Tensor:
+        substrate = self.substrate
+        slow = torch.stack(
+            (
+                substrate.energy[sites],
+                substrate.stimulation_ema[sites],
+                substrate.load_ema[sites],
+                substrate.neuron_utility[sites].tanh(),
+            ),
+            dim=1,
+        )
+        features = torch.cat((substrate.coordinates[sites], substrate.roles[sites], slow), dim=1)
+        return features.unsqueeze(0).expand(batch_size, -1, -1)
+
+    def _compact_graph(
+        self, sites: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        substrate = self.substrate
+        site_to_compact = torch.full(
+            (self.config.site_count,), -1, dtype=torch.long, device=sites.device
+        )
+        site_to_compact[sites] = torch.arange(sites.numel(), device=sites.device)
+        target_site, slot, source_site = substrate.edge_list()
+        return (
+            target_site,
+            slot,
+            source_site,
+            site_to_compact[target_site],
+            site_to_compact[source_site],
+        )
 
     def forward(self, images: torch.Tensor, *, capture_trace: bool = True) -> MnistForward:
-        """Present patch rows to sensory ports and recurrently assemble computation."""
+        """Classify a batch while retaining real traffic and gradient endpoints."""
 
         cfg = self.config
+        substrate = self.substrate
         batch_size = images.shape[0]
+        sites = substrate.living_sites
+        site_to_compact = torch.full(
+            (cfg.site_count,), -1, dtype=torch.long, device=images.device
+        )
+        site_to_compact[sites] = torch.arange(sites.numel(), device=images.device)
+        persistent = self._persistent_features(sites, batch_size).to(images.dtype)
+        genotype = substrate.genotype[sites]
+        context = self.context_rule(persistent) + torch.tanh(
+            self.genotype_context(genotype)
+        ).unsqueeze(0)
+        film_scale, film_bias = (
+            0.18 * torch.tanh(self.genotype_film(genotype))
+        ).chunk(2, dim=1)
+        output_compact = site_to_compact[substrate.output_sites]
+        output_alive = output_compact >= 0
+        if output_alive.any():
+            identity = self.output_identity.weight[output_alive]
+            context = context.index_add(
+                1,
+                output_compact[output_alive],
+                identity.unsqueeze(0).expand(batch_size, -1, -1),
+            )
+
         patches = self._patchify(images)
-        encoded_patches = self.patch_encoder(patches)
-        hidden = self._initial_state(batch_size, images.dtype)
-        graph = self.router.empty(batch_size, cfg.cell_count, images.device)
+        encoded = self.patch_encoder(patches)
+        external = torch.zeros_like(context)
+        input_compact = site_to_compact[substrate.input_sites]
+        input_alive = input_compact >= 0
+        if input_alive.any():
+            input_drive = encoded + self.input_identity.weight.unsqueeze(0)
+            external[:, input_compact[input_alive]] = input_drive[:, input_alive]
+        hidden = external
+
+        input_signal = torch.zeros(sites.numel(), device=images.device, dtype=images.dtype)
+        if input_alive.any():
+            patch_strength = patches[:, input_alive].abs().mean(dim=(0, 2))
+            input_signal[input_compact[input_alive]] = patch_strength
+
+        target_site, slot, source_site = substrate.edge_list()
+        target_compact = site_to_compact[target_site]
+        source_compact = site_to_compact[source_site]
+        weights = substrate.synapse_weight[target_site, slot]
+        edge_flow = torch.zeros_like(substrate.synapse_weight)
+        stimulation = torch.zeros(sites.numel(), device=images.device)
+        load = torch.zeros(sites.numel(), device=images.device)
+        advertised_query = torch.zeros(
+            sites.numel(), cfg.hidden_channels, device=images.device
+        )
+        advertised_key = torch.zeros_like(advertised_query)
+        emission = torch.zeros(sites.numel(), device=images.device)
+        attention_entropy = 0.0
+        retained_states: list[torch.Tensor] = []
+        trajectory: list[torch.Tensor] = []
         frames: list[MnistFrame] = []
-        trajectory_logits: list[torch.Tensor] = []
-        axon_request, receptor_request = self.router.signals(hidden)
         if capture_trace:
             frames.append(
-                self._capture_frame(
-                    hidden, torch.zeros(batch_size, cfg.cell_count, device=images.device), graph,
-                    axon_request, receptor_request, "seed", 0, -1, None,
+                self.make_frame(
+                    sites,
+                    hidden[0],
+                    input_signal=input_signal,
+                    stage="input",
+                    step=0,
+                    edge_flow=edge_flow,
                 )
             )
 
-        coordinates = self.coordinates.view(1, cfg.cell_count, 2).expand(batch_size, -1, -1)
-        interfaces = self.interface_identity.view(1, cfg.cell_count, -1).expand(batch_size, -1, -1)
-        lesion = self.lesion_mask.view(1, cfg.cell_count, 1)
-        for step in range(cfg.total_steps):
-            sensory = torch.zeros(
-                batch_size, cfg.cell_count, cfg.hidden_channels,
-                device=images.device, dtype=images.dtype,
-            )
-            sensory_signal = torch.zeros(batch_size, cfg.cell_count, device=images.device, dtype=images.dtype)
-            token_row = step if step < cfg.sensory_steps else -1
-            if token_row >= 0:
-                sensory[:, self.sensor_indices] = encoded_patches[:, token_row]
-                sensory_signal[:, self.sensor_indices] = patches[:, token_row].mean(dim=2)
+        for step in range(cfg.message_steps):
+            normalized = self.message_norm(hidden)
+            query = self.message_query(normalized)
+            key = self.message_key(normalized)
+            value = self.message_value(normalized)
+            emit = torch.sigmoid(self.emit_gate(normalized))
+            advertised_query += query.detach().mean(dim=0) / cfg.message_steps
+            advertised_key += key.detach().mean(dim=0) / cfg.message_steps
+            emission += emit.detach().mean(dim=(0, 2)) / cfg.message_steps
 
-            grid = hidden.transpose(1, 2).reshape(batch_size, cfg.hidden_channels, cfg.height, cfg.width)
-            local = functional.avg_pool2d(grid, kernel_size=3, stride=1, padding=1)
-            local = local.reshape(batch_size, cfg.hidden_channels, cfg.cell_count).transpose(1, 2)
-            graph_message = self.router.messages(hidden, graph)
-            broadcast_message, _, _ = self.router.broadcast(hidden, self.lesion_mask)
-            phase = 2 * math.pi * step / max(1, cfg.total_steps - 1)
-            clock = torch.tensor((math.sin(phase), math.cos(phase)), device=images.device, dtype=images.dtype)
-            clock = clock.view(1, 1, 2).expand(batch_size, cfg.cell_count, -1)
-            rule_input = torch.cat(
-                (local, graph_message, broadcast_message, sensory, coordinates, interfaces, clock), dim=2
+            compatibility = (
+                query[:, target_compact] * key[:, source_compact]
+            ).sum(dim=2) / (math.sqrt(cfg.hidden_channels) * cfg.attention_temperature)
+            compatibility += weights.abs().clamp_min(1e-5).log().unsqueeze(0)
+            attention_score = compatibility.clamp(-12, 12).exp()
+            attention_denominator = torch.zeros(
+                batch_size, sites.numel(), device=images.device, dtype=images.dtype
             )
-            hidden = self.cell_rule(
+            attention_denominator.index_add_(1, target_compact, attention_score)
+            attention = attention_score / attention_denominator[:, target_compact].clamp_min(1e-9)
+            edge_message = (
+                value[:, source_compact]
+                * emit[:, source_compact]
+                * attention.unsqueeze(2)
+                * weights.view(1, -1, 1)
+                * F.softplus(self.message_gain_raw)
+            )
+            incoming = torch.zeros_like(hidden)
+            incoming.index_add_(1, target_compact, edge_message)
+            indegree = torch.zeros(sites.numel(), device=images.device, dtype=images.dtype)
+            indegree.index_add_(0, target_compact, torch.ones_like(target_compact, dtype=images.dtype))
+            if (indegree > 1).any():
+                target_entropy = torch.zeros_like(attention_denominator)
+                target_entropy.index_add_(
+                    1,
+                    target_compact,
+                    -(attention * attention.clamp_min(1e-9).log()),
+                )
+                valid = indegree > 1
+                normalized_entropy = target_entropy[:, valid] / indegree[valid].log().unsqueeze(0)
+                attention_entropy += float(normalized_entropy.detach().mean()) / cfg.message_steps
+
+            step_edge_flow = edge_message.detach().abs().mean(dim=(0, 2))
+            step_flow_matrix = torch.zeros_like(edge_flow)
+            step_flow_matrix[target_site, slot] = step_edge_flow
+            edge_flow += step_flow_matrix / cfg.message_steps
+            step_load = incoming.detach().abs().mean(dim=(0, 2))
+            variable_edge = edge_message.detach().std(dim=0, correction=0).mean(dim=1)
+            step_stimulation = torch.zeros(sites.numel(), device=images.device)
+            step_stimulation.index_add_(0, target_compact, variable_edge)
+            step_stimulation /= indegree.clamp_min(1).sqrt()
+            step_stimulation += external.detach().std(dim=0, correction=0).mean(dim=1)
+            load += step_load / cfg.message_steps
+            stimulation += step_stimulation / cfg.message_steps
+
+            rule_input = torch.cat((external, 0.1 * context), dim=2)
+            updated = self.cell_rule(
                 rule_input.reshape(-1, rule_input.shape[-1]),
                 hidden.reshape(-1, cfg.hidden_channels),
-            ).reshape(batch_size, cfg.cell_count, cfg.hidden_channels)
-            hidden = torch.tanh(
-                hidden + sensory + 0.45 * broadcast_message + 0.25 * graph_message
-            ) * lesion
-
-            update: RoutingUpdate | None = None
-            if step == 0 or (step + 1) % cfg.routing_interval == 0:
-                update = self.router(hidden, graph, self.lesion_mask)
-                graph = update.graph
-                axon_request = update.axon_request
-                receptor_request = update.receptor_request
-            else:
-                axon_request, receptor_request = self.router.signals(hidden)
-
-            if step < cfg.sensory_steps:
-                stage = "sensing"
-            elif step < cfg.sensory_steps + cfg.development_steps:
-                stage = "developing"
-            else:
-                stage = "reading"
+            ).reshape(batch_size, sites.numel(), cfg.hidden_channels)
+            updated = updated * (1 + film_scale.unsqueeze(0)) + film_bias.unsqueeze(0)
+            hidden = self.state_norm(updated + incoming)
+            if hidden.requires_grad:
+                hidden.retain_grad()
+                retained_states.append(hidden)
+            trajectory.append(self._read_logits(hidden, site_to_compact))
             if capture_trace:
                 frames.append(
-                    self._capture_frame(
-                        hidden, sensory_signal, graph, axon_request, receptor_request,
-                        stage, step + 1, token_row, update,
+                    self.make_frame(
+                        sites,
+                        hidden[0],
+                        stimulation=step_stimulation,
+                        load=step_load,
+                        input_signal=input_signal,
+                        stage="forward",
+                        step=step + 1,
+                        edge_flow=step_flow_matrix,
                     )
                 )
-            if step >= cfg.sensory_steps - 1:
-                trajectory_logits.append(self._read_logits(hidden))
 
-        logits = self._read_logits(hidden)
-        trajectory = torch.stack(trajectory_logits, dim=1)
-        selected_distance = self.router.distance.unsqueeze(0).expand(batch_size, -1, -1)
-        selected_distance = selected_distance.gather(2, graph.destination.clamp_min(0))
-        routing_cost = cfg.wiring_cost * graph.strength.mean()
-        routing_cost = routing_cost + cfg.length_cost * (graph.strength * selected_distance).mean()
-        return MnistForward(logits, trajectory, hidden, patches, graph, frames, routing_cost)
+        logits = self._read_logits(hidden, site_to_compact)
+        return MnistForward(
+            logits,
+            torch.stack(trajectory, dim=1),
+            sites,
+            hidden,
+            retained_states,
+            frames,
+            stimulation,
+            load,
+            edge_flow,
+            advertised_query,
+            advertised_key,
+            emission,
+            attention_entropy,
+        )
 
-    def _read_logits(self, hidden: torch.Tensor) -> torch.Tensor:
-        logits = self.readout_scale * self.output_readout(hidden[:, self.motor_indices]).squeeze(-1)
-        return logits + self.class_bias
+    def _read_logits(self, hidden: torch.Tensor, site_to_compact: torch.Tensor) -> torch.Tensor:
+        compact = site_to_compact[self.substrate.output_sites]
+        output_state = torch.zeros(
+            hidden.shape[0], 10, self.config.hidden_channels,
+            device=hidden.device, dtype=hidden.dtype,
+        )
+        alive = compact >= 0
+        if alive.any():
+            output_state[:, alive] = hidden[:, compact[alive]]
+        query = self.output_identity.weight
+        attention = torch.softmax(
+            torch.einsum("kh,bnh->bkn", query, self.output_key(output_state))
+            / math.sqrt(self.config.hidden_channels),
+            dim=2,
+        )
+        pooled = torch.einsum(
+            "bkn,bnh->bkh", attention, self.output_value(output_state)
+        ) + output_state
+        shared = self.output_readout(pooled).squeeze(-1)
+        identity_readout = (
+            pooled * query.unsqueeze(0)
+        ).sum(dim=2) / math.sqrt(self.config.hidden_channels)
+        bank_readout = self.output_bank_readout(output_state.flatten(1))
+        return self.readout_scale * (shared + identity_readout) + bank_readout + self.class_bias
 
-    def _capture_frame(
+    def make_frame(
         self,
-        hidden: torch.Tensor,
-        sensory_signal: torch.Tensor,
-        graph: EpisodeGraph,
-        axon_request: torch.Tensor,
-        receptor_request: torch.Tensor,
+        sites: torch.Tensor,
+        state: torch.Tensor,
+        *,
+        stimulation: torch.Tensor | None = None,
+        load: torch.Tensor | None = None,
+        credit: torch.Tensor | None = None,
+        input_signal: torch.Tensor | None = None,
         stage: str,
         step: int,
-        token_row: int,
-        update: RoutingUpdate | None,
+        edge_flow: torch.Tensor | None = None,
+        edge_credit: torch.Tensor | None = None,
+        events: list[dict[str, Any]] | None = None,
     ) -> MnistFrame:
-        events: list[dict[str, Any]] = []
-        if update is not None:
-            changed = update.replaced[0].nonzero(as_tuple=False)
-            for source, slot in changed[:128].tolist():
-                old_destination = int(update.old_destination[0, source, slot])
-                new_destination = int(update.graph.destination[0, source, slot])
-                if old_destination >= 0:
-                    events.append({"type": "pruned", "source": source, "destination": old_destination})
-                events.append({"type": "grown", "source": source, "destination": new_destination})
-        sample_graph = EpisodeGraph(
-            graph.destination[0].detach(), graph.weight[0].detach(), graph.strength[0].detach(),
-            graph.age[0].detach(), graph.utility[0].detach(),
-        )
+        """Capture only measured values; no presentation-only signal is synthesized."""
+
+        zero = torch.zeros(sites.numel(), device=state.device)
+        graph = self.substrate.graph_snapshot()
+        if edge_flow is not None:
+            graph.flow = edge_flow.detach().clone()
+        if edge_credit is not None:
+            graph.credit = edge_credit.detach().clone()
         return MnistFrame(
-            state=hidden[0].detach(),
-            sensory_signal=sensory_signal[0].detach(),
-            graph=sample_graph,
-            axon_request=axon_request[0].detach(),
-            receptor_request=receptor_request[0].detach(),
-            stage=stage,
-            step=step,
-            token_row=token_row,
-            events=events,
+            sites.detach().clone(),
+            state.detach().clone(),
+            (stimulation if stimulation is not None else zero).detach().clone(),
+            (load if load is not None else zero).detach().clone(),
+            (credit if credit is not None else zero).detach().clone(),
+            (input_signal if input_signal is not None else zero).detach().clone(),
+            graph,
+            stage,
+            step,
+            list(events or []),
         )
 
-    def regularization(self, result: MnistForward) -> torch.Tensor:
-        return result.routing_cost
+    def regularization(self) -> torch.Tensor:
+        active = self.substrate.active_edge_mask
+        if not active.any():
+            return self.substrate.synapse_weight.sum() * 0
+        return self.config.weight_decay * self.substrate.synapse_weight[active].square().mean()
 
     @torch.no_grad()
     def lesion(self, x: float, y: float, radius: float) -> int:
-        cfg = self.config
-        grid_y = torch.arange(cfg.height, device=self.lesion_mask.device).repeat_interleave(cfg.width)
-        grid_x = torch.arange(cfg.width, device=self.lesion_mask.device).repeat(cfg.height)
-        damaged = (grid_x.float() - x).square() + (grid_y.float() - y).square() <= radius**2
-        previously_alive = self.lesion_mask > 0.5
-        self.lesion_mask[damaged] = 0
-        return int((damaged & previously_alive).sum())
+        return self.substrate.lesion(x, y, radius)
+
+
+__all__ = [
+    "CellularGraphClassifier",
+    "MnistForward",
+    "MnistFrame",
+    "MnistModelConfig",
+]

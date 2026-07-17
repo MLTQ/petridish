@@ -2,32 +2,55 @@
 
 ## Purpose
 
-Protects the recurrent self-assembling MNIST path without downloading data by
-injecting deterministic synthetic 28×28 datasets.
+Protects persistent spatial MNIST computation, exact gradient credit, sparse
+serialization, lesions, and lifecycle mutation using a small deterministic
+substrate and synthetic images.
 
 ## Components
 
-### Empty-to-routed graph gradient test
-- **Does**: Verifies the seed frame has no long-range edges, the first broadcast
-  creates bounded directed slots, and gradients reach GRU, patch, and router
-  parameters.
-- **Interacts with**: Final and post-sensory trajectory logits.
-- **Interacts with**: `CellularGraphClassifier` and `BroadcastRouter`.
+### Persistent graph gradient test
+- **Does**: Verifies topology does not reset during a trial while patch, GRU,
+  genotype, local query/key, synapse, output-bank probe, attention-scale, and
+  message-flow gradients remain nonzero.
 
-### Experiment playback integration test
-- **Does**: Starts a new training episode, advances one sensory frame, evaluates,
-  and validates assembly metadata and aligned snapshot arrays.
-- **Interacts with**: `MnistExperiment` and protocol.
+### Feedback/protocol integration test
+- **Does**: Runs one optimizer update, advances to the feedback phase, and
+  verifies real neuron credit and sparse site/edge alignment.
+- **Does**: Verifies the first update is a readout-only reservoir probe and
+  publishes real reachability/capacity diagnostics without moving synapses.
 
-### Lesion reassembly test
-- **Does**: Damages cells, replays the same digit, and verifies no visible axon
-  sends from or terminates on the lesion.
-- **Interacts with**: Lesion mask, router, and snapshot projection.
+### Lesion test
+- **Does**: Removes occupied sites and proves every serialized edge still has a
+  living source and target.
+
+### Lifecycle test
+- **Does**: Forces depleted interior neurons to die while fixed input/output
+  interface neurons survive ordinary homeostasis.
+
+### Candidate-counter growth test
+- **Does**: Supplies repeated local source evidence to a target with a free
+  dendrite and verifies the stored source ID becomes a directed connection.
+
+### Hyperparameter schema tests
+- **Does**: Locks the 64×64/8-cell-radius defaults, requires a control spec for
+  every configuration field, verifies a one-cell direct-neighbor radius, and
+  checks typed and cross-field validation.
+
+### Fixed-connectome learning regression
+- **Does**: Requires the organism to lower loss on an easy spatial digit task,
+  produce measurable synapse updates, and preserve generation zero throughout
+  structural warm-up.
+
+### Curriculum balance test
+- **Does**: Requires the first 20-example overfit stage to contain two examples
+  of every MNIST class and the final stage to cover the source dataset.
 
 ## Contracts
 
 | Dependent | Expects | Breaking changes |
 |-----------|---------|------------------|
-| MNIST model | Shared recurrent/router parameters remain differentiable | Gradient path changes |
-| Viewer | Seed, sensing, and graph arrays retain documented semantics | Protocol changes |
-| Lesion brush | Masked cells cannot participate in reassembled edges | Edge-mask semantics |
+| Model | Topology is frozen within forward/backward | In-trial mutation |
+| Protocol | Compact rows map through physical site IDs | Sparse contract changes |
+| Substrate | Manual lesions remove all incident dendrites | Cleanup changes |
+| Viewer controls | Snapshot publishes exactly one spec per model field | Missing slider metadata |
+| Optimizers | A fixed organism must demonstrate end-to-end supervised learning | Broken credit path |

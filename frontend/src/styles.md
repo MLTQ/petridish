@@ -21,17 +21,22 @@ control states, canvas sizing, metrics, task readouts, and chart encoding.
 
 ### Side panels
 - **Does**: Styles task, MNIST digit preview, interventions, cadence, history,
-  and inspector as compact peers.
+  hyperparameter controls, and inspector as compact peers.
 - **Interacts with**: Semantic sections in `index.html`.
 
-### Development phases
-- **Does**: Gives seed, sensing, developing, and readout badges stable encodings.
+### Trial phases
+- **Does**: Gives input, forward, feedback, and structural badges stable encodings.
 - **Interacts with**: `data-phase` written by `main.ts`.
 
 ### Responsive rules
 - **Does**: Stacks the dish and panels below 980px and simplifies controls below
   620px.
 - **Interacts with**: PixiJS `resizeTo` behavior.
+
+### Hyperparameter controls
+- **Does**: Keeps the full numeric schema compact through native nested details
+  elements while displaying labels, current values, and full-width sliders.
+- **Interacts with**: Generated markup in `main.ts`.
 
 ## Contracts
 

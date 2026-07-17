@@ -1,0 +1,140 @@
+"""Public slider schema and validation for MNIST organism configuration."""
+
+from __future__ import annotations
+
+from dataclasses import asdict, dataclass, fields, replace
+import math
+from typing import Any, Mapping
+
+from .mnist_config import MnistModelConfig
+
+
+@dataclass(frozen=True, slots=True)
+class HyperparameterSpec:
+    """One numeric control exposed by the scientific viewer."""
+
+    label: str
+    group: str
+    minimum: float
+    maximum: float
+    step: float
+
+
+SPECS: dict[str, HyperparameterSpec] = {
+    "width": HyperparameterSpec("substrate width", "geometry & compute", 32, 128, 16),
+    "height": HyperparameterSpec("substrate height", "geometry & compute", 32, 128, 16),
+    "hidden_channels": HyperparameterSpec("state channels", "geometry & compute", 4, 64, 4),
+    "genotype_channels": HyperparameterSpec("persistent genotype channels", "geometry & compute", 4, 64, 4),
+    "edge_slots": HyperparameterSpec("dendrites / neuron", "geometry & compute", 1, 8, 1),
+    "axon_slots": HyperparameterSpec("axons / neuron", "geometry & compute", 1, 16, 1),
+    "candidate_slots": HyperparameterSpec("candidate IDs", "geometry & compute", 1, 8, 1),
+    "candidate_probes": HyperparameterSpec("broadcast probes", "geometry & compute", 8, 128, 4),
+    "initial_density": HyperparameterSpec("initial density", "geometry & compute", 0.1, 0.9, 0.01),
+    "initial_weight_scale": HyperparameterSpec("initial weight scale", "geometry & compute", 0.01, 1, 0.01),
+    "local_radius": HyperparameterSpec("broadcast radius (cells)", "geometry & compute", 1, 32, 1),
+    "message_steps": HyperparameterSpec("message steps", "geometry & compute", 2, 32, 1),
+    "message_gain": HyperparameterSpec("message gain", "geometry & compute", 0.05, 2, 0.05),
+    "attention_temperature": HyperparameterSpec("attention temperature", "geometry & compute", 0.1, 4, 0.1),
+    "emit_gate_bias": HyperparameterSpec("initial emit bias", "geometry & compute", -4, 4, 0.1),
+    "batch_size": HyperparameterSpec("batch size", "geometry & compute", 4, 128, 4),
+    "max_visible_edges": HyperparameterSpec("rendered edge cap", "geometry & compute", 100, 20_000, 100),
+    "learning_rate": HyperparameterSpec("shared-rule learning rate", "learning", 0.0001, 0.01, 0.0001),
+    "readout_learning_rate": HyperparameterSpec("readout learning rate", "learning", 0.0001, 0.05, 0.0001),
+    "synapse_learning_rate": HyperparameterSpec("synapse learning rate", "learning", 0.001, 0.5, 0.001),
+    "trajectory_loss_weight": HyperparameterSpec("early-output loss weight", "learning", 0, 1, 0.01),
+    "readout_only_trials": HyperparameterSpec("readout-only trials", "learning", 0, 1_000, 1),
+    "synapse_unlock_trials": HyperparameterSpec("synapse unlock trial", "learning", 0, 5_000, 1),
+    "curriculum_window_trials": HyperparameterSpec("curriculum accuracy window", "learning", 4, 512, 4),
+    "curriculum_min_trials": HyperparameterSpec("minimum trials / curriculum stage", "learning", 1, 2_000, 10),
+    "gradient_clip": HyperparameterSpec("gradient clip", "learning", 0.1, 10, 0.1),
+    "weight_decay": HyperparameterSpec("synapse weight decay", "learning", 0, 0.01, 0.0001),
+    "max_weight": HyperparameterSpec("maximum |weight|", "learning", 0.1, 5, 0.1),
+    "evaluation_interval": HyperparameterSpec("evaluation interval", "learning", 10, 1_000, 10),
+    "evaluation_batches": HyperparameterSpec("evaluation batches", "learning", 1, 64, 1),
+    "structural_interval": HyperparameterSpec("structural interval", "growth & pruning", 1, 128, 1),
+    "structural_warmup_trials": HyperparameterSpec("structure warm-up", "growth & pruning", 0, 5_000, 1),
+    "structure_accuracy_threshold": HyperparameterSpec("structure competence accuracy", "growth & pruning", 0, 1, 0.01),
+    "structure_plateau_trials": HyperparameterSpec("structure plateau wait", "growth & pruning", 1, 5_000, 1),
+    "structure_plateau_delta": HyperparameterSpec("accuracy improvement delta", "growth & pruning", 0.0001, 0.1, 0.0001),
+    "candidate_decay": HyperparameterSpec("candidate memory decay", "growth & pruning", 0, 1, 0.01),
+    "candidate_threshold": HyperparameterSpec("connection threshold", "growth & pruning", 0.01, 2, 0.01),
+    "emission_threshold": HyperparameterSpec("emission threshold", "growth & pruning", 0, 0.25, 0.001),
+    "edge_utility_decay": HyperparameterSpec("edge utility decay", "growth & pruning", 0, 1, 0.01),
+    "edge_stat_rate": HyperparameterSpec("edge statistic rate", "growth & pruning", 0.001, 0.5, 0.001),
+    "edge_grace_trials": HyperparameterSpec("edge grace trials", "growth & pruning", 1, 512, 1),
+    "prune_utility": HyperparameterSpec("prune utility floor", "growth & pruning", 0, 0.2, 0.001),
+    "max_pruned_per_generation": HyperparameterSpec("prune budget", "growth & pruning", 0, 4_096, 32),
+    "juvenile_trials": HyperparameterSpec("juvenile grace trials", "homeostasis", 1, 1_024, 1),
+    "target_stimulation_min": HyperparameterSpec("stimulation minimum", "homeostasis", 0, 0.5, 0.001),
+    "target_stimulation_max": HyperparameterSpec("traffic maximum", "homeostasis", 0.01, 2, 0.01),
+    "energy_recovery": HyperparameterSpec("energy recovery", "homeostasis", 0, 0.1, 0.001),
+    "starvation_cost": HyperparameterSpec("starvation cost", "homeostasis", 0, 1, 0.01),
+    "overload_cost": HyperparameterSpec("overload cost", "homeostasis", 0, 1, 0.01),
+    "maintenance_cost": HyperparameterSpec("edge maintenance cost", "homeostasis", 0, 0.01, 0.00005),
+    "task_energy_bonus": HyperparameterSpec("task energy bonus", "homeostasis", 0, 0.05, 0.0005),
+    "death_energy": HyperparameterSpec("death energy", "homeostasis", 0, 0.5, 0.005),
+    "max_deaths_per_generation": HyperparameterSpec("death budget", "homeostasis", 0, 2_048, 16),
+    "births_per_generation": HyperparameterSpec("birth budget", "homeostasis", 0, 1_024, 16),
+    "birth_signal": HyperparameterSpec("birth signal", "homeostasis", 0, 0.5, 0.005),
+}
+
+
+def hyperparameter_payload(config: MnistModelConfig) -> list[dict[str, Any]]:
+    """Return the authoritative ordered slider definitions and current values."""
+
+    values = asdict(config)
+    integer_fields = {field.name for field in fields(config) if field.type is int or isinstance(values[field.name], int)}
+    return [
+        {
+            "key": key,
+            "label": spec.label,
+            "group": spec.group,
+            "value": values[key],
+            "min": spec.minimum,
+            "max": spec.maximum,
+            "step": spec.step,
+            "integer": key in integer_fields,
+        }
+        for key, spec in SPECS.items()
+    ]
+
+
+def configured(config: MnistModelConfig, changes: Mapping[str, Any]) -> MnistModelConfig:
+    """Validate numeric viewer changes and return a new immutable configuration."""
+
+    unknown = set(changes) - set(SPECS)
+    if unknown:
+        raise ValueError(f"unknown MNIST hyperparameter: {sorted(unknown)[0]}")
+    current = asdict(config)
+    converted: dict[str, int | float] = {}
+    for key, raw in changes.items():
+        if isinstance(raw, bool) or not isinstance(raw, (int, float)) or not math.isfinite(float(raw)):
+            raise ValueError(f"{key} must be a finite number")
+        spec = SPECS[key]
+        value = float(raw)
+        if value < spec.minimum or value > spec.maximum:
+            raise ValueError(f"{key} must be between {spec.minimum:g} and {spec.maximum:g}")
+        if isinstance(current[key], int):
+            if not value.is_integer():
+                raise ValueError(f"{key} must be an integer")
+            converted[key] = int(value)
+        else:
+            converted[key] = value
+
+    result = replace(config, **converted)
+    if result.candidate_probes < result.edge_slots:
+        raise ValueError("candidate_probes must be at least edge_slots")
+    if result.local_radius >= min(result.width, result.height) / 2:
+        raise ValueError("local_radius must be less than half the smaller field dimension")
+    if result.target_stimulation_min >= result.target_stimulation_max:
+        raise ValueError("target_stimulation_min must be below target_stimulation_max")
+    if result.synapse_unlock_trials < result.readout_only_trials:
+        raise ValueError("synapse_unlock_trials must be at least readout_only_trials")
+    return result
+
+
+if set(SPECS) != {field.name for field in fields(MnistModelConfig)}:
+    raise RuntimeError("every MNIST model field must have one hyperparameter specification")
+
+
+__all__ = ["HyperparameterSpec", "SPECS", "configured", "hyperparameter_payload"]

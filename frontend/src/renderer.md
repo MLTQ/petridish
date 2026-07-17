@@ -2,52 +2,36 @@
 
 ## Purpose
 
-Renders the live field, weighted directed graph, activity pulses, structural
-events, task regions, and selection into one GPU-accelerated PixiJS canvas.
+Renders dense XOR cells or sparse MNIST neurons, persistent dendrites, measured
+forward traffic, measured backward credit, and actual lifecycle events. It does
+not synthesize signal particles or decorative neural activity.
 
 ## Components
 
-### `FieldLayer`
-- **Does**: Enumerates supported scalar and phase field views.
-- **Interacts with**: Layer selector in `main.ts`.
-
 ### `DishRenderer`
-- **Does**: Owns PixiJS lifecycle, draw layers, hit testing, and visual settings.
-- **Interacts with**: Receives snapshots from `main.ts` and emits field pointer
-  coordinates for selection or lesioning.
-- **Rationale**: Requests WebGL explicitly because it is broadly available on
-  CPU and GPU machines and falls back to Canvas2D when context startup fails or
-  stalls, instead of blocking the experiment connection.
+- **Does**: Maps compact protocol rows back into configurable physical site positions,
+  draws occupied neurons and real edges, handles lesions/selections, and falls
+  back to Canvas2D if WebGL is unavailable.
 
-### `render`
-- **Does**: Rebuilds cell, broadcast-halo, edge, event, and message-pulse geometry
-  for an authoritative frame.
-- **Interacts with**: Snapshot protocol.
-- **Rationale**: Cells render beneath connections so growth, pruning, direction,
-  and signal pulses remain inspectable at dense graph states.
+### `drawEdges`
+- **Does**: Uses measured edge flow during forward phases and measured gradient
+  credit during feedback; weight sign determines color.
+- **Rationale**: Line opacity and width encode real values. There are no animated
+  packet proxies.
 
-### Broadcast and structural layers
-- **Does**: Draws cyan axon advertisements, violet receptor advertisements,
-  cyan growth flashes, red pruning flashes, and age-sensitive persistent edges.
-- **Interacts with**: MNIST growth channels and structural events.
-- **Rationale**: The viewer distinguishes asking to connect, forming a new edge,
-  retaining it, transmitting on it, and pruning it.
+### `drawCells`
+- **Does**: Colors occupied sites by a selected raw channel with per-frame scale;
+  input/output outlines represent fixed environmental roles.
+- **Does**: Treats genotype magnitude and measured emit-gate EMA as selectable
+  scientific layers using the same raw-channel contract.
 
-### `setLayer` / `setEdgeThreshold` / `selectCell`
-- **Does**: Applies presentation-only controls without changing simulation state.
-- **Interacts with**: Viewer controls and inspector.
+### `drawEvents`
+- **Does**: Marks only reported dendrite growth/pruning and neuron birth/death.
 
 ## Contracts
 
 | Dependent | Expects | Breaking changes |
 |-----------|---------|------------------|
-| `main.ts` | Initialization is async; render/settings are synchronous | Public API changes |
-| Protocol | Flattened index maps as `y * width + x` | Index semantics |
-| Styling | Host provides bounded dimensions; canvas fills it | Host layout changes |
-| CPU-only browsers | Canvas2D renders the same state and interventions | Fallback removal |
-
-## Notes
-
-Graphics rebuilding is intentionally simple for ≤4,096 edges and 1,024 cells.
-A custom mesh or packed buffers should replace it before substantially larger
-fields are attempted.
+| Protocol | Sparse fields map `cells[row]` to `indices[row]` | Mapping changes |
+| Main | Pointer callbacks remain field-space coordinates | Callback changes |
+| Scientific interpretation | Edge `flow` and `credit` are backend measurements | Synthetic values |

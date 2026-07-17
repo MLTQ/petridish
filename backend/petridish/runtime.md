@@ -22,7 +22,8 @@ training, simulation, switching, and intervention mutations behind one lock.
 
 ### `handle_command`
 - **Does**: Bounds and applies playback, experiment switching, reset, lesion,
-  task-specific stimulus/reward/evaluation/new-assembly, and speed commands.
+  task-specific stimulus/reward/evaluation/structural-cycle, speed, and atomic
+  MNIST hyperparameter-restart commands.
 - **Interacts with**: Frontend `ExperimentSocket`.
 
 ## Contracts
@@ -33,6 +34,7 @@ training, simulation, switching, and intervention mutations behind one lock.
 | Frontend | Command `type` names and payload fields remain stable | Command schema |
 | Scientific state | Commands never race a physics tick | Removing lock discipline |
 | Experiment switching | Previously created experiment state is preserved until explicit reset | Cache semantics |
+| Hyperparameters | Values validate before a new organism replaces the old one | In-place config mutation |
 
 ## Notes
 

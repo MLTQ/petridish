@@ -15,7 +15,7 @@
       Experiment
       <select id="experiment-select">
         <option value="xor">Delayed XOR</option>
-        <option value="mnist">MNIST self-assembler</option>
+        <option value="mnist">MNIST spatial organism</option>
       </select>
     </label>
     <div class="top-metrics" aria-label="Experiment metrics">
@@ -37,12 +37,14 @@
         <label>
           Layer
           <select id="layer-select">
-            <option value="phase">phase + activation</option>
             <option value="activation">activation</option>
             <option value="energy">energy</option>
-            <option value="axon_growth">axon growth</option>
-            <option value="dendrite_growth">dendrite growth</option>
-            <option value="reward_trace">sensory stream / reward</option>
+            <option value="stimulation">stimulation</option>
+            <option value="load">traffic load</option>
+            <option value="credit">backward credit</option>
+            <option value="utility">task utility</option>
+            <option value="genotype_norm">genotype magnitude</option>
+            <option value="emission">emit gate</option>
             <option value="alive">viability</option>
           </select>
         </label>
@@ -55,8 +57,8 @@
       <div class="dish-legend" aria-label="Field legend">
         <span><i class="legend-line excitatory"></i>excitatory</span>
         <span><i class="legend-line inhibitory"></i>inhibitory</span>
-        <span><i class="legend-dot signal"></i>signal</span>
-        <span><i class="legend-line newborn"></i>proposal / new axon</span>
+        <span>opacity = measured flow / credit</span>
+        <span><i class="legend-line newborn"></i>new dendrite</span>
       </div>
     </section>
 
@@ -90,7 +92,7 @@
         </div>
         <div class="button-row two" id="mnist-controls" hidden>
           <button id="evaluate" type="button">Evaluate test set</button>
-          <button id="rewire" type="button">New assembly</button>
+          <button id="rewire" type="button">Structural cycle</button>
         </div>
       </section>
 
@@ -104,7 +106,7 @@
         </div>
         <label class="range-control wide">
           Radius <output id="lesion-radius-value">2.5 cells</output>
-          <input id="lesion-radius" type="range" min="0.5" max="8" value="2.5" step="0.5">
+          <input id="lesion-radius" type="range" min="0.5" max="16" value="2.5" step="0.5">
         </label>
         <p class="hint">Arm, then paint directly onto the dish. Damaged cells lose energy and every incident axon.</p>
       </section>
@@ -126,6 +128,31 @@
         <div class="device-row"><span>compute</span><strong id="metric-device">—</strong></div>
         <div class="device-row"><span>living cells</span><strong id="metric-cells">0</strong></div>
         <div class="device-row"><span>mean |weight|</span><strong id="metric-weight">0.000</strong></div>
+        <div class="device-row"><span>synapse Δ / |w|</span><strong id="metric-synapse-update">—</strong></div>
+        <div class="device-row"><span>learning phase</span><strong id="metric-learning-phase">—</strong></div>
+        <div class="device-row"><span>structure</span><strong id="metric-structure">—</strong></div>
+        <div class="device-row"><span>input → output hops</span><strong id="metric-hops">—</strong></div>
+        <div class="device-row"><span>outputs reachable in time</span><strong id="metric-reachability">—</strong></div>
+        <div class="device-row"><span>attention entropy</span><strong id="metric-attention">—</strong></div>
+        <div class="device-row"><span>effective parameters</span><strong id="metric-parameters">—</strong></div>
+      </section>
+
+      <section class="panel hyperparameter-panel" id="hyperparameter-panel" hidden>
+        <details>
+          <summary>
+            <span>
+              <span class="eyebrow">experiment controls</span>
+              <strong>Hyperparameters</strong>
+            </span>
+            <span id="hyperparameter-count">0 parameters</span>
+          </summary>
+          <p class="hint">Values are staged locally. Applying them restarts the MNIST organism so one run never mixes configurations.</p>
+          <div id="hyperparameter-controls"></div>
+          <div class="hyperparameter-actions">
+            <button id="hyperparameter-apply" type="button" disabled>Apply &amp; restart</button>
+            <output id="hyperparameter-status">no pending changes</output>
+          </div>
+        </details>
       </section>
 
       <section class="panel chart-panel">
