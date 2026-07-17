@@ -187,3 +187,23 @@ wall-clock seconds; both SHA-256 hashes were
 `fc29c30138c1b9780696ce1f1ab09b743072d56855405c9f76f69de94e691783`.
 Future variance studies should use `--deterministic`; older artifacts remain valid
 learning observations but are not bitwise reproduction controls.
+
+## Deterministic three-binding recall — 2026-07-17
+
+The separated-owner GRU was trained from scratch with three simultaneous key/value
+relations, fixed difficulty, seed 11, and deterministic CUDA execution. No vocabulary,
+field, topology, or cell-rule capacity was added relative to the solved two-binding run.
+
+| Update | Training accuracy | Held out | Slot 1 | Slot 2 | Slot 3 | Distractor | Loss |
+|-------:|------------------:|---------:|-------:|-------:|-------:|-----------:|-----:|
+| 580 | 53.61% | 60.42% | 45.71% | 67.69% | 70.18% | 39.58% | 0.85464 |
+| 920 | 90.65% | 95.31% | 90.32% | 96.67% | 98.57% | 4.69% | 0.25753 |
+| 1,280 | 98.23% | 98.96% | 96.88% | 100.00% | 100.00% | 1.04% | 0.06772 |
+| 1,600 | 99.84% | 100.00% | 100.00% | 100.00% | 100.00% | 0.00% | 0.00906 |
+
+The final address map uses 8/10 distinct argmax owners, 94.97% mean peak ownership,
+0.06678 cross-token overlap, and 0.01740 entropy. Perfect three-relation recall does
+not require a rigid one-symbol/one-neuron lookup table; the learned sparse ownership
+distributions retain identity. The next experiment lesions a competent relational
+substrate and compares gradient-only recovery with lifecycle/topology repair from an
+identical pre-lesion state.
