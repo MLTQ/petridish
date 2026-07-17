@@ -20,8 +20,12 @@ from .runtime import ExperimentRuntime
 
 repository_root = Path(__file__).resolve().parents[2]
 runtime = ExperimentRuntime(device=os.getenv("PETRIDISH_DEVICE", "auto"))
+if os.getenv("PETRIDISH_AUTOPLAY", "1") == "0":
+    runtime.running = False
+configured_run_root = os.getenv("PETRIDISH_RUN_ROOT")
 laboratory = Laboratory(
     repository_root,
+    run_root=Path(configured_run_root) if configured_run_root else None,
     control_enabled=os.getenv("PETRIDISH_LAB_CONTROL") == "1",
 )
 

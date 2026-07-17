@@ -50,7 +50,8 @@ From the deployed worktree on Aine:
 cd ~/Code/petridish-lab
 uv sync --extra dev
 cd frontend && npm ci && npm run build && cd ..
-PETRIDISH_DEVICE=cpu PETRIDISH_LAB_CONTROL=1 \
+PETRIDISH_DEVICE=cpu PETRIDISH_AUTOPLAY=0 PETRIDISH_LAB_CONTROL=1 \
+PETRIDISH_RUN_ROOT=/home/m/Code/petridish/runs \
   uv run uvicorn petridish.server:app --app-dir backend \
   --host 127.0.0.1 --port 8000
 ```

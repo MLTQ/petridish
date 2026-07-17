@@ -51,4 +51,7 @@ runtime device is configurable independently from trainer workers.
 ## Notes
 
 - Set `PETRIDISH_DEVICE=cpu` for a monitor-only server beside GPU trainers.
+- Set `PETRIDISH_AUTOPLAY=0` to construct the viewer paused rather than spending
+  CPU continuously, and `PETRIDISH_RUN_ROOT` when deployment uses a worktree
+  separate from the trainer's shared run directory.
 - Mutating laboratory routes require `PETRIDISH_LAB_CONTROL=1` at server startup.
