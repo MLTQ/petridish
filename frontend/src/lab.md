@@ -40,6 +40,9 @@ validated launch or stop requests.
   that measured an owner map.
 - **Does**: Shows recovery intervention identity, final living-cell/edge counts, and
   cumulative births/deaths when matched-recovery artifacts provide them.
+- **Does**: Plots living cells and active edges as fractions of the same unlesioned
+  base directly below accuracy, preserving intervention color while using solid and
+  dashed line style for the two physical measures.
 - **Does**: Marks the measured checkpoint where each run changes curriculum
   difficulty; peak and final values remain separately visible in the table.
 - **Rationale**: A high peak before a curriculum transition must not be mistaken

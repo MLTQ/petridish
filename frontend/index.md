@@ -15,6 +15,8 @@ experiment laboratory above the live organism.
 ### `.laboratory`
 - **Does**: Hosts measured GPU lanes, persisted-run comparison, rolling-loss chart,
   and an explicitly enabled launch form without displacing live dish controls.
+- **Does**: Aligns benchmark accuracy with a second fixed topology-retention plot;
+  solid population and dashed active-edge histories share the unlesioned-base scale.
 - **Interacts with**: `LaboratoryView` in `lab.ts` and `/api/lab`.
 - **Rationale**: Run-level monitoring changes on a slower cadence than organism
   frames and therefore remains independent from the WebSocket renderer.

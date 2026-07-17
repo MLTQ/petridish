@@ -207,3 +207,31 @@ not require a rigid one-symbol/one-neuron lookup table; the learned sparse owner
 distributions retain identity. The next experiment lesions a competent relational
 substrate and compares gradient-only recovery with lifecycle/topology repair from an
 identical pre-lesion state.
+
+## Matched radius-4 lesion and lifecycle recovery — 2026-07-17
+
+A deterministic seed-11 fixed-three organism was trained for 1,200 updates, then
+deep-copied with optimizer, graph, slow statistics, and RNG state intact. The first
+attempt was discarded after the control exposed an isolation bug: zero structural
+warm-up let the already-competent clone silently re-enable topology. The corrected
+run holds control/static topology at generation zero; a unit regression protects
+that condition.
+
+The physical lesion removed 27/250 living cells and 204/867 active edges. It was not
+functionally severe: immediate held-out accuracy was 98.44%, versus 99.22% in the
+unlesioned control.
+
+| Branch | Immediate | Minimum | Final | Final cells | Final edges | Births | Deaths |
+|--------|----------:|--------:|------:|------------:|------------:|-------:|-------:|
+| control | 99.22% | 94.53% | 99.48% | 250 | 867 | 0 | 0 |
+| lesion, static topology | 98.44% | 97.40% | 100.00% | 223 | 663 | 0 | 0 |
+| lesion, default lifecycle | 98.44% | 24.48% | 68.49% | 289 | 808 | 209 | 143 |
+
+The lifecycle branch collapsed to 26.56% by update 20 after 24 births and 45 deaths,
+and reached its 24.48% minimum at update 80. It partially recovered to 84.90% at
+update 220 but ended at 68.49%. Deaths were overwhelmingly overload-classified:
+127 overload, 12 starvation, and 4 maintenance. Thus the current lifecycle repairs
+population count but destroys learned computation faster than gradient learning can
+stabilize it. The next matrix separates lifecycle-without-lesion from lesion effects,
+uses a stronger radius-8 physical intervention, and tests a lower-cadence bounded-
+turnover lifecycle without tuning this recorded baseline.

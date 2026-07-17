@@ -127,6 +127,7 @@ export class LaboratoryView {
   private readonly launchStatus = required<HTMLOutputElement>("#lab-launch-status");
   private readonly benchmarksHost = required<HTMLTableSectionElement>("#laboratory-benchmarks");
   private readonly benchmarkChart = required<SVGSVGElement>("#benchmark-chart");
+  private readonly benchmarkTopologyChart = required<SVGSVGElement>("#benchmark-topology-chart");
   private readonly benchmarkLegend = required<HTMLElement>("#benchmark-chart-legend");
   private readonly benchmarkSummary = required<HTMLOutputElement>("#benchmark-summary");
   private selectedRuns = new Set<string>();
@@ -241,6 +242,7 @@ export class LaboratoryView {
     if (!newest) {
       this.benchmarkSummary.value = "no persisted benchmark artifacts";
       this.drawBenchmarkChart([]);
+      this.drawBenchmarkTopologyChart([]);
       return;
     }
     const cohort = benchmarks.filter((benchmark) => (
@@ -250,7 +252,9 @@ export class LaboratoryView {
       && benchmark.steps === newest.steps
     ));
     this.benchmarkSummary.value = `${newest.profile} · ${newest.recallMode.replace("_", " ")} · seed ${newest.seed ?? "—"} · ${newest.deterministic ? "deterministic" : "seeded"} · ${newest.steps ?? "—"} updates`;
-    this.drawBenchmarkChart(cohort.slice(0, SERIES_CLASSES.length));
+    const visibleCohort = cohort.slice(0, SERIES_CLASSES.length);
+    this.drawBenchmarkChart(visibleCohort);
+    this.drawBenchmarkTopologyChart(visibleCohort);
   }
 
   private drawBenchmarkChart(benchmarks: BenchmarkSnapshot[]): void {
@@ -301,6 +305,68 @@ export class LaboratoryView {
       legend.className = seriesClass;
       legend.textContent = benchmark.id;
       this.benchmarkLegend.append(legend);
+    });
+  }
+
+  private drawBenchmarkTopologyChart(benchmarks: BenchmarkSnapshot[]): void {
+    this.benchmarkTopologyChart.replaceChildren();
+    const measured = benchmarks.filter((benchmark) => benchmark.checkpoints.some(
+      (checkpoint) => checkpoint.livingCells !== undefined && checkpoint.edgeCount !== undefined,
+    ));
+    if (measured.length === 0) {
+      const label = this.svg("text", { x: "360", y: "82", class: "chart-empty" });
+      label.textContent = "No topology history in matched cohort";
+      this.benchmarkTopologyChart.append(label);
+      return;
+    }
+
+    const control = measured.find((benchmark) => benchmark.intervention === "control");
+    const initial = control?.checkpoints[0] ?? measured
+      .flatMap((benchmark) => benchmark.checkpoints)
+      .reduce((best, checkpoint) => (
+        (checkpoint.livingCells ?? 0) > (best.livingCells ?? 0) ? checkpoint : best
+      ));
+    const referenceCells = Math.max(1, initial.livingCells ?? 1);
+    const referenceEdges = Math.max(1, initial.edgeCount ?? 1);
+    const maxUpdate = Math.max(...measured.flatMap(
+      (benchmark) => benchmark.checkpoints.map((checkpoint) => checkpoint.update),
+    ));
+    const ratios = measured.flatMap((benchmark) => benchmark.checkpoints.flatMap((checkpoint) => [
+      (checkpoint.livingCells ?? 0) / referenceCells,
+      (checkpoint.edgeCount ?? 0) / referenceEdges,
+    ]));
+    const ceiling = Math.max(1, Math.ceil(Math.max(...ratios) * 5) / 5);
+    const left = 46; const right = 706; const top = 10; const bottom = 132;
+    const x = (value: number) => left + value / Math.max(1, maxUpdate) * (right - left);
+    const y = (value: number) => bottom - Math.max(0, Math.min(ceiling, value)) / ceiling * (bottom - top);
+    this.benchmarkTopologyChart.append(
+      this.svg("line", { x1: String(left), y1: String(bottom), x2: String(right), y2: String(bottom), class: "lab-axis" }),
+      this.svg("line", { x1: String(left), y1: String(top), x2: String(left), y2: String(bottom), class: "lab-axis" }),
+    );
+    for (const [text, px, py, anchor] of [
+      ["0", left, 152, "start"], [String(maxUpdate), right, 152, "end"],
+      [`${Math.round(ceiling * 100)}%`, left - 6, top + 4, "end"], ["0%", left - 6, bottom + 4, "end"],
+    ] as const) {
+      const label = this.svg("text", { x: String(px), y: String(py), "text-anchor": anchor, class: "lab-axis-label" });
+      label.textContent = text;
+      this.benchmarkTopologyChart.append(label);
+    }
+    measured.forEach((benchmark) => {
+      const index = benchmarks.indexOf(benchmark);
+      const seriesClass: string = SERIES_CLASSES[index] ?? "series-a";
+      const points = benchmark.checkpoints.filter(
+        (checkpoint) => checkpoint.livingCells !== undefined && checkpoint.edgeCount !== undefined,
+      );
+      this.benchmarkTopologyChart.append(
+        this.svg("polyline", {
+          points: points.map((checkpoint) => `${x(checkpoint.update).toFixed(2)},${y((checkpoint.livingCells ?? 0) / referenceCells).toFixed(2)}`).join(" "),
+          class: `lab-series ${seriesClass}`,
+        }),
+        this.svg("polyline", {
+          points: points.map((checkpoint) => `${x(checkpoint.update).toFixed(2)},${y((checkpoint.edgeCount ?? 0) / referenceEdges).toFixed(2)}`).join(" "),
+          class: `lab-series topology-edges ${seriesClass}`,
+        }),
+      );
     });
   }
 
