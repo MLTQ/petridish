@@ -29,6 +29,11 @@ every evaluation checkpoint and replaces it with `complete` at the end. This let
 the laboratory render real progress without parsing process output or accepting
 partially written JSON.
 
+Optimizer updates use the public trace-free training path. Viewer frame capture and
+implicit validation are excluded; only the explicit checkpoint evaluations consume
+the held-out generator, so timing and learning curves are directly attributable to
+the declared protocol.
+
 `compact24_no_broadcast` removes slot broadcasting, while
 `compact24_no_global_memory` removes both slot and fast-weight memory.
 `compact24_fast_weights` enables recurrent linear-attention memory at gain 0.5.

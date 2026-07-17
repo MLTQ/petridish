@@ -107,7 +107,7 @@ def run_benchmark(
         _write_result(output_path, result("running", 0))
     interval = max(1, min(20, steps))
     for update in range(1, steps + 1):
-        experiment._train_trial()
+        experiment.train_updates(1)
         if update % interval == 0 or update == steps:
             held_out = experiment.evaluate_metrics(4)
             checkpoints.append(

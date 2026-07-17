@@ -37,5 +37,42 @@ The live 4090 checkpoint at update 15,300 was loaded read-only on CPU through th
 new architecture wrapper. Model state, all 31 populated optimizer states,
 experiment state, and random-generator state restored successfully as a GRU with
 64 model-state entries and last loss 2.821059. The migration did not write to or
-pause the live trainer. A later checkpoint-and-resume continuation test remains
-necessary to verify the full save/restart boundary.
+pause the live trainer. The separate new-wrapper continuation test below verifies
+the full save/restart boundary without mutating the legacy run.
+
+## Fixed two-binding recall — 2026-07-17
+
+All four architectures were initialized from scratch with `compact24`, seed 11,
+lifecycle and structural mutation disabled, exactly two key/value bindings, and
+800 optimizer updates on the RTX 2070 Super. Chance remains 25% because the response
+is one of four value tokens.
+
+| Cell rule | Time (s) | Held out @ 20 | Held out @ 400 | Final held out | Peak held out | Final loss |
+|-----------|---------:|--------------:|---------------:|---------------:|--------------:|-----------:|
+| GRU | 172.04 | 29.69% | 48.44% | 48.44% | 54.69% | 0.73972 |
+| LSTM | 215.79 | 26.56% | 50.00% | 45.83% | 54.17% | 0.75380 |
+| ESN | 235.69 | 23.44% | 53.65% | 53.65% | 54.17% | 0.73689 |
+| temporal transformer | 310.06 | 29.69% | 54.17% | 48.44% | 54.17% | 0.72139 |
+
+### Interpretation
+
+Every architecture reaches the same roughly 50% attractor by update 400 and fails
+to improve over the next 400 updates. The small peak spread and shared plateau rule
+out ordinary budget shortage and provide no evidence that recurrent gating, a fixed
+reservoir, or four private temporal-attention slots changes retrieval capacity in
+the present substrate. The transformer's lower loss does not translate into higher
+discrete retrieval accuracy and costs 80% more wall time than GRU.
+
+The 50% attractor is consistent with reliably retaining one of two bindings. The
+next instrumented sweep records held-out accuracy by queried binding position to test
+that explanation directly. If confirmed, the next architectural intervention should
+be sparse token-conditioned ownership of memory by physical neurons, not another
+homogeneous recurrent cell replacement.
+
+## New-wrapper checkpoint/resume — 2026-07-17
+
+A fresh CPU GRU corpus organism trained update 0→1, atomically checkpointed, exited,
+then restored in a second Python process and trained update 1→2. The append-only
+metric log contains exactly updates 1 and 2, and the second process reported starting
+at update 1. This verifies the new architecture wrapper's save/restart boundary in
+addition to the read-only legacy-checkpoint migration above.
