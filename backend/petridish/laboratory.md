@@ -40,4 +40,5 @@ bounded metric histories, and supervises explicitly enabled trainer processes.
 
 - Process control is disabled unless `PETRIDISH_LAB_CONTROL=1`.
 - Server shutdown closes log descriptors but deliberately does not terminate trainers.
-- Architectures are advertised only after the corresponding trainer path exists.
+- GRU, LSTM, ESN, and temporal-transformer homogeneous controls share one trainer
+  contract. Mixtures remain unavailable until their type/lifecycle semantics exist.

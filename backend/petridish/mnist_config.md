@@ -45,6 +45,8 @@ optimizer rates, and independently gated lifecycle/topology thresholds.
 - **Rationale**: `max_initial_neurons` caps initial occupancy independently from
   field extent, allowing 128–1024-cell fields without automatically creating a
   dense million-site organism.
+- **Rationale**: `cell_architecture` records the shared sequence-cell family in
+  checkpoints and manifests; it is categorical and therefore not a numeric slider.
 
 ## Contracts
 
@@ -53,5 +55,5 @@ optimizer rates, and independently gated lifecycle/topology thresholds.
 | `mnist_substrate.py` | Spatial and lifecycle fields use field-cell units | Renaming thresholds |
 | `mnist_model.py` | Hidden/genotype widths, message steps, and edge slots are fixed per model | Shape changes |
 | Tests | Tiny configurations can reduce field and population cost | New hard-coded defaults |
-| `mnist_hyperparameters.py` | Every numeric field has a viewer control spec | Adding an undocumented field |
+| `mnist_hyperparameters.py` | Every numeric field has a viewer control spec; categorical fields are excluded | Adding an undocumented numeric field |
 | `mnist_experiment.py` | Phase and curriculum thresholds are ordered and reproducible | Unlock semantics |

@@ -16,6 +16,7 @@ import torch
 from .corpus_task import load_tiny_shakespeare_task
 from .sequence_config import sequence_config
 from .sequence_experiment import SequenceExperiment
+from .sequence_cells import CELL_ARCHITECTURES
 
 
 def _synchronize(device: torch.device) -> None:
@@ -30,6 +31,7 @@ def run_benchmark(
     batch_size: int,
     context_length: int,
     message_steps: int,
+    architecture: str = "gru",
     warmup_updates: int,
     measured_updates: int,
     seed: int,
@@ -47,6 +49,7 @@ def run_benchmark(
         height=field_size,
         batch_size=batch_size,
         message_steps=message_steps,
+        cell_architecture=architecture,
         lifecycle_enabled=0,
         structural_warmup_trials=max(5_000, warmup_updates + measured_updates + 1),
     )
@@ -196,6 +199,7 @@ def main() -> None:
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--context-length", type=int, default=64)
     parser.add_argument("--message-steps", type=int, default=2)
+    parser.add_argument("--architecture", choices=CELL_ARCHITECTURES, default="gru")
     parser.add_argument("--warmup-updates", type=int, default=3)
     parser.add_argument("--measured-updates", type=int, default=5)
     parser.add_argument("--evaluation-batches", type=int, default=2)
@@ -214,6 +218,7 @@ def main() -> None:
         batch_size=args.batch_size,
         context_length=args.context_length,
         message_steps=args.message_steps,
+        architecture=args.architecture,
         warmup_updates=max(0, args.warmup_updates),
         measured_updates=max(1, args.measured_updates),
         seed=args.seed,

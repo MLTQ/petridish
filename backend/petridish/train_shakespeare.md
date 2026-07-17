@@ -6,6 +6,11 @@ path used by live fast training and the CUDA benchmark. It defaults to the requi
 both lifecycle and structural warm-ups set to 5,000 updates. Measured batch/AMP
 choices can be supplied explicitly.
 
+`--architecture` selects a checkpointed homogeneous GRU, LSTM, ESN, or temporal
+transformer population. GRU remains the default and preserves existing checkpoints.
+Version-one GRU checkpoints written before the architecture wrapper are migrated
+from `cell_rule.*` to `cell_rule.rule.*` keys during restore; optimizer ordering is unchanged.
+
 The trainer writes one append-only JSONL record per optimizer update plus separate
 held-out records at an infrequent configurable interval. `latest.pt` is replaced
 atomically and contains model parameters, optimizer moments, all substrate/topology

@@ -7,8 +7,8 @@ evaluation follows it, so neither allocator startup nor validation contaminates 
 training interval.
 
 The CLI controls device, square field size, batch size, corpus context, recurrent
-message steps, warm-up and measured update counts, seed, AMP, and optional compile
-mode. JSON output includes the complete scientific configuration, hardware/software
+message steps, homogeneous cell architecture, warm-up and measured update counts,
+seed, AMP, and optional compile mode. JSON output includes the complete scientific configuration, hardware/software
 identity, population and edge counts, mean/median latency, work-normalized throughput,
 CUDA memory peaks, the measured loss curve, and final held-out loss and accuracy.
 

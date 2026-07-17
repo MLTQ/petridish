@@ -25,3 +25,8 @@ optimizer, local-credit, and lifecycle work and finishes on its measured structu
 frame.
 The backward contract requires an initial phase boundary plus one actual autograd
 hook callback for every retained token state, ending at complete backward progress.
+
+The homogeneous architecture regression runs GRU, LSTM, ESN, and temporal-transformer
+rules through the same physical graph and verifies finite logits plus synaptic gradients.
+Checkpoint migration protects pre-architecture GRU model keys while leaving unrelated
+state untouched.

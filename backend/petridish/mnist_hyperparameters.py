@@ -208,7 +208,12 @@ def configured(
     return result
 
 
-if set(SPECS) != {field.name for field in fields(MnistModelConfig)}:
+numeric_config_fields = {
+    field.name
+    for field in fields(MnistModelConfig)
+    if isinstance(getattr(MnistModelConfig(), field.name), (int, float))
+}
+if set(SPECS) != numeric_config_fields:
     raise RuntimeError("every MNIST model field must have one hyperparameter specification")
 
 

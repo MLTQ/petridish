@@ -18,6 +18,7 @@ from petridish.sequence_tasks import (
     associative_recall_batch,
     resolve_sequence_task,
 )
+from petridish.train_shakespeare import _migrate_model_state
 
 
 def small_config():
@@ -110,6 +111,48 @@ def test_sequence_model_retains_state_and_backpropagates() -> None:
     loss.backward()
     assert model.substrate.synapse_weight.grad is not None
     assert float(model.substrate.synapse_weight.grad.abs().sum()) > 0
+
+
+@pytest.mark.parametrize("architecture", ("gru", "lstm", "esn", "transformer"))
+def test_sequence_cell_architectures_share_graph_and_gradient_contract(
+    architecture: str,
+) -> None:
+    task = resolve_sequence_task("tiny_language")
+    config = sequence_config(
+        width=20, height=20, hidden_channels=8, genotype_channels=6,
+        initial_density=0.30, batch_size=2, message_steps=1,
+        candidate_probes=12, local_radius=4, max_visible_edges=100,
+        cell_architecture=architecture,
+    )
+    batch = task.batch(2, torch.Generator().manual_seed(15))
+    model = CellularSequenceModel(config, layout=task.key, seed=15)
+
+    result = model(batch.tokens, capture_trace=False)
+    loss = torch.nn.functional.cross_entropy(
+        result.logits[batch.loss_mask], batch.targets[batch.loss_mask]
+    )
+    loss.backward()
+
+    assert result.logits.shape == (2, task.sequence_length, 10)
+    assert model.cell_rule.architecture == architecture
+    assert model.substrate.synapse_weight.grad is not None
+    assert torch.isfinite(result.logits).all()
+
+
+def test_legacy_gru_checkpoint_keys_migrate_to_architecture_wrapper() -> None:
+    legacy = {
+        "cell_rule.weight_ih": torch.ones(2, 2),
+        "cell_rule.weight_hh": torch.ones(2, 2),
+        "cell_rule.bias_ih": torch.ones(2),
+        "cell_rule.bias_hh": torch.ones(2),
+        "class_bias": torch.zeros(2),
+    }
+
+    migrated = _migrate_model_state(legacy)
+
+    assert "cell_rule.weight_ih" not in migrated
+    assert "cell_rule.rule.weight_ih" in migrated
+    assert migrated["class_bias"] is legacy["class_bias"]
 
 
 def test_sequence_model_streams_measured_token_frames() -> None:

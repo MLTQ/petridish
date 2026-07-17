@@ -13,6 +13,7 @@ from torch.nn import functional as F
 from .graph_layout import GraphLayout, resolve_layout
 from .mnist_config import MnistModelConfig
 from .mnist_substrate import GraphSnapshot, SpatialSubstrate
+from .sequence_cells import SequenceCellRule
 
 
 @dataclass(slots=True)
@@ -98,7 +99,7 @@ class CellularSequenceModel(nn.Module):
         self.fast_value = nn.Linear(hidden, hidden, bias=False)
         self.fast_write_gate = nn.Linear(hidden, 1)
         self.fast_weight_gain = nn.Parameter(torch.tensor(config.fast_weight_gain))
-        self.cell_rule = nn.GRUCell(hidden * 2, hidden)
+        self.cell_rule = SequenceCellRule(config.cell_architecture, hidden)
         self.state_norm = nn.LayerNorm(hidden)
         self.output_bank_readout = nn.Linear(hidden * vocab_size, vocab_size)
         self.class_bias = nn.Parameter(torch.zeros(vocab_size))
@@ -110,8 +111,6 @@ class CellularSequenceModel(nn.Module):
         nn.init.normal_(self.output_identity.weight, std=0.18)
         nn.init.normal_(self.output_bank_readout.weight, std=0.025)
         nn.init.zeros_(self.output_bank_readout.bias)
-        nn.init.zeros_(self.cell_rule.bias_ih)
-        nn.init.zeros_(self.cell_rule.bias_hh)
         with torch.no_grad():
             self.message_value.weight.copy_(torch.eye(hidden))
             self.emit_gate.weight.zero_()
@@ -184,6 +183,7 @@ class CellularSequenceModel(nn.Module):
                 .expand(batch, -1, -1),
             )
         hidden = context.clone()
+        cell_memory = self.cell_rule.initial_memory(hidden)
         target_site, slot, source_site = substrate.edge_list()
         target_compact = compact[target_site]
         source_compact = compact[source_site]
@@ -348,10 +348,9 @@ class CellularSequenceModel(nn.Module):
                     position_stimulation += step_stimulation / cfg.message_steps
                     position_load += step_load / cfg.message_steps
                 rule_input = torch.cat((external, 0.1 * context), dim=2)
-                updated = self.cell_rule(
-                    rule_input.reshape(-1, cfg.hidden_channels * 2),
-                    hidden.reshape(-1, cfg.hidden_channels),
-                ).reshape(batch, sites.numel(), cfg.hidden_channels)
+                updated, cell_memory = self.cell_rule(
+                    rule_input, hidden, incoming, cell_memory
+                )
                 updated = updated * (1 + film_scale.unsqueeze(0)) + film_bias.unsqueeze(0)
                 hidden = self.state_norm(updated + incoming)
             if hidden.requires_grad:

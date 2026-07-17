@@ -11,6 +11,7 @@ class MnistModelConfig:
 
     width: int = 64
     height: int = 64
+    cell_architecture: str = "gru"
     hidden_channels: int = 16
     genotype_channels: int = 16
     edge_slots: int = 4

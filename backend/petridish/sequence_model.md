@@ -5,7 +5,9 @@ neuron field used by the MNIST experiment. Each vocabulary item owns one semanti
 input port, but `GraphLayout` permutes those ports in space. A token is supplied by
 stimulating its port; the token ID is not broadcast to every cell.
 
-For each token the shared genotype-modulated GRU rule runs several local graph updates.
+For each token the selected shared genotype-modulated recurrent rule runs several
+local graph updates. GRU is the preserved baseline; controlled homogeneous LSTM,
+ESN, and temporal-transformer rules share the same physical graph and readout.
 Queries, keys, values, emission gates, weighted directed dendrites, measured traffic,
 and local attention are identical in spirit to the classifier. Crucially, neuron state
 is retained across token boundaries. The vocabulary-sized output bank is read after every token,
@@ -50,3 +52,8 @@ The documented `fast_weight_gain = 0` ablation bypasses fast-key/value projectio
 outer-product memory updates, and memory reads entirely. Positive configured gains
 retain the original differentiable path; the primary Tiny Shakespeare baseline keeps
 it disabled.
+
+Cell implementations live in `sequence_cells.py`. LSTM neurons retain a protected
+cell state, ESN neurons use a fixed orthogonal reservoir, and transformer neurons
+attend over four private temporal message slots. Those private slots are distinct
+from the field's dendritic and broadcast attention.

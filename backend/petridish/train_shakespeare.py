@@ -21,6 +21,7 @@ from .corpus_task import load_tiny_shakespeare_task
 from .mnist_config import MnistModelConfig
 from .sequence_config import sequence_config
 from .sequence_experiment import SequenceExperiment
+from .sequence_cells import CELL_ARCHITECTURES
 
 
 CHECKPOINT_VERSION = 1
@@ -115,7 +116,7 @@ def load_checkpoint(path: Path, device: torch.device) -> dict[str, Any]:
 def restore_checkpoint(
     experiment: SequenceExperiment, payload: dict[str, Any]
 ) -> None:
-    experiment.model.load_state_dict(payload["model"])
+    experiment.model.load_state_dict(_migrate_model_state(payload["model"]))
     experiment.optimizer.load_state_dict(payload["optimizer"])
     _restore_experiment_state(experiment, dict(payload["experiment"]))
     rng = payload["random"]
@@ -126,6 +127,18 @@ def restore_checkpoint(
         torch.cuda.set_rng_state_all([state.cpu() for state in rng["torch_cuda"]])
     random.setstate(rng["python"])
     np.random.set_state(rng["numpy"])
+
+
+def _migrate_model_state(state: dict[str, Any]) -> dict[str, Any]:
+    """Map pre-architecture GRU keys into the shared cell-rule wrapper."""
+
+    migrated = dict(state)
+    for suffix in ("weight_ih", "weight_hh", "bias_ih", "bias_hh"):
+        legacy = f"cell_rule.{suffix}"
+        current = f"cell_rule.rule.{suffix}"
+        if legacy in migrated and current not in migrated:
+            migrated[current] = migrated.pop(legacy)
+    return migrated
 
 
 def _gradients_finite(experiment: SequenceExperiment) -> bool:
@@ -150,6 +163,7 @@ def main() -> None:
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--context-length", type=int, default=64)
     parser.add_argument("--message-steps", type=int, default=2)
+    parser.add_argument("--architecture", choices=CELL_ARCHITECTURES, default="gru")
     parser.add_argument("--updates", type=int, default=100_000)
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--amp", choices=("off", "bfloat16"), default="off")
@@ -183,6 +197,7 @@ def main() -> None:
             height=args.field_size,
             batch_size=args.batch_size,
             message_steps=args.message_steps,
+            cell_architecture=args.architecture,
             lifecycle_enabled=int(args.lifecycle),
             lifecycle_warmup_trials=5_000,
             structural_warmup_trials=5_000,
@@ -216,7 +231,8 @@ def main() -> None:
     interval_updates = 0
     print(
         f"starting at update {experiment.training_step} on {experiment.device}; "
-        f"batch={config.batch_size} amp={args.amp} compile={args.compile_mode}",
+        f"architecture={config.cell_architecture} batch={config.batch_size} "
+        f"amp={args.amp} compile={args.compile_mode}",
         flush=True,
     )
 

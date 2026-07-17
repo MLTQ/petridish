@@ -42,8 +42,9 @@ substrate and synthetic images.
 
 ### Hyperparameter schema tests
 - **Does**: Locks the 64×64/8-cell-radius defaults, requires a control spec for
-  every configuration field, verifies a one-cell direct-neighbor radius, and
-  checks typed and cross-field validation.
+  every numeric configuration field, keeps categorical architecture out of the
+  slider schema, verifies a one-cell direct-neighbor radius, and checks typed and
+  cross-field validation.
 - **Does**: Requires power-of-two square sizes from 16 through 1024 and a
   field-derived broadcast-radius ceiling.
 - **Does**: Requires the MNIST snapshot to omit sequence-only broadcast and

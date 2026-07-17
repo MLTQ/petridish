@@ -13,6 +13,8 @@ import sys
 import time
 from typing import Any
 
+from .sequence_cells import CELL_ARCHITECTURES
+
 
 RUN_ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
 GPU_QUERY = (
@@ -63,7 +65,7 @@ class Laboratory:
             "controlEnabled": self.control_enabled,
             "capabilities": {
                 "tasks": ["tiny_shakespeare"],
-                "architectures": ["gru"],
+                "architectures": list(CELL_ARCHITECTURES),
                 "ampModes": ["off", "bfloat16"],
             },
             "gpus": gpus,
@@ -168,8 +170,8 @@ class Laboratory:
         self._logs.clear()
 
     def _validate_spec(self, spec: LaunchSpec) -> None:
-        if spec.architecture != "gru":
-            raise ValueError("architecture is not implemented yet")
+        if spec.architecture not in CELL_ARCHITECTURES:
+            raise ValueError("unknown sequence cell architecture")
         if spec.field_size != 68:
             raise ValueError("Tiny Shakespeare laboratory runs require a 68×68 field")
         if spec.context_length < 8 or spec.context_length > 256:
@@ -190,6 +192,7 @@ class Laboratory:
             "--batch-size", str(spec.batch_size),
             "--context-length", str(spec.context_length),
             "--message-steps", str(spec.message_steps),
+            "--architecture", spec.architecture,
             "--amp", spec.amp, "--compile", "off",
             "--updates", str(spec.updates), "--seed", str(spec.seed),
             "--checkpoint-dir", str(directory), "--checkpoint-interval", "100",

@@ -4,6 +4,8 @@
 
 Defines the authoritative numeric control schema for the MNIST organism and
 validates user-selected configurations before a new organism is constructed.
+Categorical experiment identity such as sequence cell architecture is recorded
+in configuration but selected through the laboratory, not represented as a slider.
 
 ## Components
 
@@ -50,6 +52,6 @@ validates user-selected configurations before a new organism is constructed.
 
 | Dependent | Expects | Breaking changes |
 |-----------|---------|------------------|
-| `mnist_config.py` | Every dataclass field has exactly one spec | Adding a field without a spec |
+| `mnist_config.py` | Every numeric dataclass field has exactly one spec | Adding a numeric field without a spec |
 | Frontend | Payload keys, bounds, and integer flags are authoritative | Payload field renames |
 | Runtime | Validation completes before replacing the live organism | In-place mutation |

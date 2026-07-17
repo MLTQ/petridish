@@ -55,7 +55,13 @@ def test_default_field_is_compact_and_every_hyperparameter_is_controllable() -> 
     config = MnistModelConfig()
 
     assert (config.width, config.height, config.local_radius) == (64, 64, 8)
-    assert set(SPECS) == {field.name for field in fields(MnistModelConfig)}
+    numeric_fields = {
+        field.name
+        for field in fields(MnistModelConfig)
+        if isinstance(getattr(config, field.name), (int, float))
+    }
+    assert set(SPECS) == numeric_fields
+    assert config.cell_architecture == "gru"
     assert SPECS["local_radius"].minimum == 1
     assert configured(config, {"local_radius": 1}).local_radius == 1
     local_radius = next(
@@ -163,7 +169,12 @@ def test_mnist_experiment_emits_real_feedback_and_sparse_snapshot() -> None:
     mnist_parameter_keys = {
         parameter["key"] for parameter in snapshot["configuration"]["parameters"]
     }
-    assert len(mnist_parameter_keys) == len(fields(MnistModelConfig)) - 6
+    expected_parameter_keys = (
+        set(SPECS)
+        - {"width", "height", "broadcast_slots", "broadcast_gain", "broadcast_decay",
+           "fast_weight_gain", "fast_weight_decay"}
+    ) | {"field_size"}
+    assert mnist_parameter_keys == expected_parameter_keys
     assert "broadcast_slots" not in mnist_parameter_keys
     assert "broadcast_gain" not in mnist_parameter_keys
     assert "broadcast_decay" not in mnist_parameter_keys

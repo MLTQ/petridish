@@ -8,6 +8,7 @@ import time
 from typing import Any
 
 from .sequence_config import sequence_config
+from .sequence_cells import CELL_ARCHITECTURES
 from .sequence_experiment import SequenceExperiment
 
 
@@ -38,13 +39,15 @@ PROFILES: dict[str, dict[str, Any]] = {
 
 
 def run_benchmark(
-    task: str, profile: str, *, steps: int, seed: int, device: str
+    task: str, profile: str, *, steps: int, seed: int, device: str,
+    architecture: str = "gru",
 ) -> dict[str, Any]:
     """Train one controlled run and return checkpointed held-out metrics."""
 
     if profile not in PROFILES:
         raise ValueError(f"unknown profile: {profile}")
     config = sequence_config(
+        cell_architecture=architecture,
         lifecycle_enabled=0,
         structural_warmup_trials=max(steps + 1, 10_000),
         **PROFILES[profile],
@@ -67,7 +70,8 @@ def run_benchmark(
             )
     diagnostics = experiment.model.substrate.graph_diagnostics()
     return {
-        "task": task, "profile": profile, "seed": seed, "device": str(experiment.device),
+        "task": task, "profile": profile, "architecture": architecture,
+        "seed": seed, "device": str(experiment.device),
         "steps": steps, "seconds": round(time.perf_counter() - started, 2),
         "livingCells": int(experiment.model.substrate.occupied.sum()),
         "edgeCount": int(experiment.model.substrate.active_edge_mask.sum()),
@@ -84,9 +88,11 @@ def main() -> None:
     parser.add_argument("--steps", type=int, default=80)
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--device", default="auto")
+    parser.add_argument("--architecture", choices=CELL_ARCHITECTURES, default="gru")
     args = parser.parse_args()
     result = run_benchmark(
-        args.task, args.profile, steps=max(1, args.steps), seed=args.seed, device=args.device
+        args.task, args.profile, steps=max(1, args.steps), seed=args.seed,
+        device=args.device, architecture=args.architecture,
     )
     print(json.dumps(result, indent=2))
 

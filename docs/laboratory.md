@@ -76,5 +76,7 @@ exist:
 4. metrics that distinguish its scientific behavior;
 5. laboratory capability advertisement.
 
-The initial capability is `gru`. ESN, LSTM-like memory, and sparse transformer
-attention will be added as explicit variants rather than cosmetic labels.
+The first homogeneous capabilities are `gru`, `lstm`, `esn`, and `transformer`.
+The transformer gives every neuron four private temporal memory slots; it does not
+replace the physical field's sparse dendritic attention. Heterogeneous mixtures
+remain unavailable until type inheritance, energy cost, and mutation are explicit.
