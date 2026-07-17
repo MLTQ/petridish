@@ -36,6 +36,10 @@ implicit validation are excluded; only the explicit checkpoint evaluations consu
 the held-out generator, so timing and learning curves are directly attributable to
 the declared protocol.
 
+`--deterministic` enables PyTorch deterministic algorithms and the required cuBLAS
+workspace configuration before model construction. Artifacts record the flag so
+bitwise reproductions cannot be confused with ordinary seeded CUDA executions.
+
 `compact24_no_broadcast` removes slot broadcasting, while
 `compact24_no_global_memory` removes both slot and fast-weight memory.
 `compact24_fast_weights` enables recurrent linear-attention memory at gain 0.5.

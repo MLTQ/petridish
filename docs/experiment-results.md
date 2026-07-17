@@ -162,3 +162,18 @@ cross-token overlap, and 0.00929 entropy. Perfect binding therefore does not req
 one unique argmax neuron per symbol; the full sparse ownership distribution retains
 enough identity. A 1,200-update seed-12 replication is running to distinguish variable
 convergence speed from lucky initialization.
+
+The second long execution also solved the task: it reached 100% held out by update
+760 and remained perfect through update 1,200 with loss 0.00033. Its final owner map
+has 9/10 distinct argmax owners, 99.78% peak ownership, 0.02225 overlap, and 0.00381
+entropy. Two independent long executions therefore converge to reliable relational
+binding, while 400 updates are insufficient for a robust conclusion.
+
+### Reproducibility caveat
+
+Two nominally identical seed-12 CUDA executions diverged before update 400: the short
+run ended at 44.79%, while the long execution had reached 59.38% by update 320. Python,
+Torch, task, and evaluation generators are seeded, but CUDA indexed/scatter reductions
+are not forced deterministic. The two successful long executions are independent
+behavioral replications, not bitwise deterministic reproductions. A deterministic-mode
+audit remains required before tight seed-to-seed variance claims.

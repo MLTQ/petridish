@@ -66,11 +66,15 @@ def run_benchmark(
     architecture: str = "gru",
     fixed_recall_pairs: int | None = None,
     output_path: Path | None = None,
+    deterministic: bool = False,
 ) -> dict[str, Any]:
     """Train one controlled run and return checkpointed held-out metrics."""
 
     if profile not in PROFILES:
         raise ValueError(f"unknown profile: {profile}")
+    if deterministic:
+        os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
+        torch.use_deterministic_algorithms(True)
     config = sequence_config(
         cell_architecture=architecture,
         lifecycle_enabled=0,
@@ -107,6 +111,7 @@ def run_benchmark(
                 if fixed_recall_pairs is not None else "adaptive"
             ),
             "seed": seed, "device": str(experiment.device), "steps": steps,
+            "deterministic": deterministic,
             "completedSteps": completed_steps, "status": status,
             "seconds": round(time.perf_counter() - started, 2),
             "parameterCount": parameter_count,
@@ -179,12 +184,14 @@ def main() -> None:
     parser.add_argument("--architecture", choices=CELL_ARCHITECTURES, default="gru")
     parser.add_argument("--fixed-recall-pairs", type=int, choices=(1, 2, 3))
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--deterministic", action="store_true")
     args = parser.parse_args()
     result = run_benchmark(
         args.task, args.profile, steps=max(1, args.steps), seed=args.seed,
         device=args.device, architecture=args.architecture,
         fixed_recall_pairs=args.fixed_recall_pairs,
         output_path=args.output,
+        deterministic=args.deterministic,
     )
     print(json.dumps(result, indent=2))
 

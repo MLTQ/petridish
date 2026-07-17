@@ -281,6 +281,7 @@ class Laboratory:
                     "architecture": payload.get("architecture", "unknown"),
                     "recallMode": payload.get("recallMode", "adaptive"),
                     "seed": payload.get("seed"),
+                    "deterministic": payload.get("deterministic", False),
                     "device": payload.get("device"),
                     "steps": payload.get("steps"),
                     "seconds": payload.get("seconds"),
