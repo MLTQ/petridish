@@ -9,6 +9,11 @@ Types every server snapshot and viewer command at the Python/TypeScript boundary
 ### `ExperimentSnapshot`
 - **Does**: Describes aligned cell, edge, event, task, and metric payloads.
 - **Interacts with**: Backend `build_snapshot`, renderer, charts, and main UI.
+- **Does**: Carries runtime visualization/headless mode, running state, last
+  optimizer latency, measured update/sequence throughput, and the active compute
+  phase with numeric progress.
+- **Does**: Carries a monotonic control revision used to reject pre-command
+  snapshots that arrive after an immediate acknowledgement.
 
 ### `MnistTaskSnapshot`
 - **Does**: Provides the sole task status inside the field and graph envelope.
@@ -40,6 +45,7 @@ Types every server snapshot and viewer command at the Python/TypeScript boundary
   interventions, and atomic configuration changes.
 - **Interacts with**: Backend `ExperimentRuntime.handle_command`.
 - **Does**: Includes corpus prompt replacement and single-token generation.
+- **Does**: Includes explicit entry to and exit from headless trace-free sequence training.
 
 ### `ServerMessage`
 - **Does**: Discriminates snapshots from command errors.

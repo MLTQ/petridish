@@ -22,6 +22,9 @@ not synthesize signal particles or decorative neural activity.
 ### `drawCells`
 - **Does**: Colors occupied sites by a selected raw channel with per-frame scale;
   input/output outlines represent fixed environmental roles.
+- **Does**: The default phase-signal layer resolves to activation during forward
+  computation and measured neuron credit during feedback. Explicit activation
+  and credit choices remain raw, phase-independent views.
 - **Does**: Treats genotype magnitude and measured emit-gate EMA as selectable
   scientific layers using the same raw-channel contract.
 - **Does**: Exposes measured homeostatic stress, neuron age, and lineage depth

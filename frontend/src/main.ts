@@ -31,6 +31,9 @@ const hyperparameterApply = required<HTMLButtonElement>("#hyperparameter-apply")
 const hyperparameterStatus = required<HTMLOutputElement>("#hyperparameter-status");
 const experimentSelect = required<HTMLSelectElement>("#experiment-select");
 const generationPrompt = required<HTMLTextAreaElement>("#generation-prompt");
+const fastTraining = required<HTMLButtonElement>("#fast-training");
+const trainingStatus = required<HTMLOutputElement>("#training-status");
+const sequenceTrainingControls = required<HTMLElement>("#sequence-training-controls");
 
 let currentSnapshot: ExperimentSnapshot | null = null;
 let playing = true;
@@ -38,11 +41,25 @@ let lesionArmed = false;
 let lastLesionAt = 0;
 let configurationSignature = "";
 let currentExperiment: ExperimentSnapshot["experiment"] | null = null;
+let pendingTrainingMode: boolean | null = null;
+let pendingPlayback: boolean | null = null;
+let pendingExperiment: ExperimentSnapshot["experiment"] | null = null;
+let pendingSpeed: number | null = null;
+let lastControlRevision = -1;
+let cadenceKind: ExperimentSnapshot["task"]["kind"] | null = null;
 const pendingHyperparameters = new Map<string, number>();
 
 const socket = new ExperimentSocket(
   (snapshot) => receiveSnapshot(snapshot),
   (status) => {
+    if (status === "connecting") lastControlRevision = -1;
+    if (status !== "connected") {
+      pendingPlayback = null;
+      playPause.disabled = false;
+      pendingExperiment = null;
+      experimentSelect.disabled = false;
+      pendingSpeed = null;
+    }
     connection.className = `connection ${status}`;
     connection.querySelector("span:last-child")!.textContent = status;
   },
@@ -53,6 +70,13 @@ const socket = new ExperimentSocket(
       hyperparameterStatus.value = message;
       hyperparameterApply.disabled = false;
     }
+    pendingTrainingMode = null;
+    fastTraining.disabled = false;
+    pendingPlayback = null;
+    playPause.disabled = false;
+    pendingExperiment = null;
+    experimentSelect.disabled = false;
+    pendingSpeed = null;
   },
 );
 
@@ -84,8 +108,11 @@ await renderer.initialize();
 socket.connect();
 
 playPause.addEventListener("click", () => {
-  playing = !playing;
+  if (pendingPlayback !== null) return;
+  pendingPlayback = !playing;
+  playing = pendingPlayback;
   playPause.textContent = playing ? "Pause" : "Play";
+  playPause.disabled = true;
   socket.send({ type: playing ? "play" : "pause" });
 });
 required<HTMLButtonElement>("#step").addEventListener("click", () => socket.send({ type: "step" }));
@@ -96,20 +123,33 @@ required<HTMLButtonElement>("#evaluate").addEventListener("click", () =>
 required<HTMLButtonElement>("#lifecycle-cycle").addEventListener("click", () =>
   socket.send({ type: "lifecycle" }),
 );
+fastTraining.addEventListener("click", () => {
+  const enabled = currentSnapshot?.runtime.mode !== "headless";
+  pendingTrainingMode = enabled;
+  fastTraining.disabled = true;
+  trainingStatus.value = "finishing current update…";
+  socket.send({ type: "training", enabled });
+});
 required<HTMLButtonElement>("#prompt-apply").addEventListener("click", () => {
+  pendingPlayback = false;
   playing = false;
   playPause.textContent = "Play";
+  playPause.disabled = true;
   socket.send({ type: "prompt", text: generationPrompt.value });
 });
 required<HTMLButtonElement>("#generate-token").addEventListener("click", () => {
+  pendingPlayback = false;
   playing = false;
   playPause.textContent = "Play";
+  playPause.disabled = true;
   socket.send({ type: "generate" });
 });
 experimentSelect.addEventListener("change", () => {
+  pendingExperiment = experimentSelect.value as ExperimentSnapshot["experiment"];
+  experimentSelect.disabled = true;
   socket.send({
     type: "experiment",
-    name: experimentSelect.value as ExperimentSnapshot["experiment"],
+    name: pendingExperiment,
   });
 });
 hyperparameterControls.addEventListener("input", (event) => {
@@ -134,7 +174,8 @@ hyperparameterApply.addEventListener("click", () => {
   socket.send({ type: "configure", values: Object.fromEntries(pendingHyperparameters) });
 });
 speedSelect.addEventListener("change", (event) => {
-  socket.send({ type: "speed", steps: Number((event.currentTarget as HTMLSelectElement).value) });
+  pendingSpeed = Number((event.currentTarget as HTMLSelectElement).value);
+  socket.send({ type: "speed", steps: pendingSpeed });
 });
 required<HTMLSelectElement>("#layer-select").addEventListener("change", (event) => {
   renderer.setLayer((event.currentTarget as HTMLSelectElement).value as FieldLayer);
@@ -156,6 +197,8 @@ lesionToggle.addEventListener("click", () => {
 window.addEventListener("beforeunload", () => socket.close());
 
 function receiveSnapshot(snapshot: ExperimentSnapshot): void {
+  if (snapshot.runtime.controlRevision < lastControlRevision) return;
+  lastControlRevision = snapshot.runtime.controlRevision;
   if (snapshot.experiment !== currentExperiment) {
     currentExperiment = snapshot.experiment;
     history.reset();
@@ -163,14 +206,36 @@ function receiveSnapshot(snapshot: ExperimentSnapshot): void {
     pendingHyperparameters.clear();
   }
   currentSnapshot = snapshot;
-  experimentSelect.value = snapshot.experiment;
+  if (pendingExperiment === snapshot.experiment) {
+    pendingExperiment = null;
+    experimentSelect.disabled = false;
+  }
+  experimentSelect.value = pendingExperiment ?? snapshot.experiment;
   connection.className = "connection connected";
   connection.querySelector("span:last-child")!.textContent = "connected";
   host.setAttribute(
     "aria-label",
     `Interactive ${snapshot.field.width} by ${snapshot.field.height} cellular field`,
   );
-  renderer.render(snapshot);
+  if (pendingPlayback === snapshot.runtime.running) pendingPlayback = null;
+  playing = pendingPlayback ?? snapshot.runtime.running;
+  playPause.textContent = playing ? "Pause" : "Play";
+  playPause.disabled = pendingPlayback !== null;
+  const headlessMode = snapshot.runtime.mode === "headless";
+  if (pendingTrainingMode === headlessMode) pendingTrainingMode = null;
+  fastTraining.disabled = pendingTrainingMode !== null;
+  fastTraining.textContent = headlessMode ? "Stop headless" : "Train headless";
+  if (speedSelect.disabled !== headlessMode) speedSelect.disabled = headlessMode;
+  if (pendingSpeed === snapshot.runtime.stepsPerFrame) pendingSpeed = null;
+  if (document.activeElement !== speedSelect) {
+    speedSelect.value = String(pendingSpeed ?? snapshot.runtime.stepsPerFrame);
+  }
+  trainingStatus.value = pendingTrainingMode !== null
+    ? "finishing current update…"
+    : headlessMode
+      ? `${playing ? "running" : "paused"} · traces suspended`
+      : computeStatus(snapshot.runtime);
+  if (!headlessMode) renderer.render(snapshot);
   history.update(snapshot);
   text("#metric-tick", snapshot.tick.toLocaleString());
   text("#metric-objective-label", "loss");
@@ -178,6 +243,13 @@ function receiveSnapshot(snapshot: ExperimentSnapshot): void {
   text("#metric-accuracy", `${Math.round(snapshot.task.accuracy * 100)}%`);
   text("#metric-edges", snapshot.metrics.edgeCount.toLocaleString());
   text("#metric-device", snapshot.metrics.device);
+  text("#metric-compute-time", `${snapshot.runtime.lastComputeSeconds.toFixed(2)} s`);
+  text(
+    "#metric-throughput",
+    snapshot.runtime.trainingUpdatesPerSecond > 0
+      ? `${snapshot.runtime.trainingUpdatesPerSecond.toFixed(3)} upd/s · ${snapshot.runtime.trainingExamplesPerSecond.toFixed(2)} seq/s`
+      : "—",
+  );
   text("#metric-cells", snapshot.metrics.livingCells.toLocaleString());
   text("#metric-weight", snapshot.metrics.meanWeight.toFixed(3));
   text(
@@ -187,7 +259,8 @@ function receiveSnapshot(snapshot: ExperimentSnapshot): void {
       : `${(snapshot.metrics.synapseUpdateRatio * 100).toFixed(3)}%`,
   );
   if (snapshot.task.kind === "mnist") updateMnistTask(snapshot.task);
-  else updateSequenceTask(snapshot.task);
+  else updateSequenceTask(snapshot.task, snapshot.runtime);
+  updateCadenceLabels(snapshot.task.kind);
   text("#metric-learning-phase", snapshot.task.learningPhase);
   text(
     "#metric-lifecycle",
@@ -232,6 +305,7 @@ function updateMnistTask(task: MnistTaskSnapshot): void {
   required<HTMLElement>("#mnist-preview-panel").hidden = false;
   required<HTMLElement>("#sequence-preview-panel").hidden = true;
   required<HTMLElement>("#generation-panel").hidden = true;
+  sequenceTrainingControls.hidden = true;
   text("#task-name", "mnist spatial neural organism");
   const stage = mnistStageLabel(task);
   text("#task-phase", stage);
@@ -261,12 +335,21 @@ function updateMnistTask(task: MnistTaskSnapshot): void {
   drawDigit(task.image);
 }
 
-function updateSequenceTask(task: SequenceTaskSnapshot): void {
+function updateSequenceTask(
+  task: SequenceTaskSnapshot,
+  runtime: ExperimentSnapshot["runtime"],
+): void {
   required<HTMLElement>("#mnist-preview-panel").hidden = true;
   required<HTMLElement>("#sequence-preview-panel").hidden = false;
   required<HTMLElement>("#generation-panel").hidden = !task.interactive;
+  sequenceTrainingControls.hidden = false;
   text("#task-name", `${task.title.toLowerCase()} organism`);
-  text("#task-phase", sequenceStageLabel(task));
+  text(
+    "#task-phase",
+    runtime.computePhase === "idle"
+      ? sequenceStageLabel(task)
+      : computePhaseLabel(runtime),
+  );
   text("#phase-badge", task.phase);
   required<HTMLElement>("#phase-badge").dataset.phase = task.phase;
   text("#sequence-description", task.description);
@@ -418,6 +501,38 @@ function sequenceStageLabel(task: SequenceTaskSnapshot): string {
   }
   if (task.phase === "feedback") return "Gradient credit through the consumed sequence";
   return `Lifecycle cycle — ${task.births} born, ${task.deaths} died`;
+}
+
+function computeStatus(runtime: ExperimentSnapshot["runtime"]): string {
+  if (runtime.computePhase === "idle") return "measured trace active";
+  return computePhaseLabel(runtime).toLowerCase();
+}
+
+function computePhaseLabel(runtime: ExperimentSnapshot["runtime"]): string {
+  const progress = runtime.computeTotal > 1
+    ? ` ${runtime.computeProgress}/${runtime.computeTotal}`
+    : "";
+  if (runtime.computePhase === "forward") return `Forward — token${progress}`;
+  if (runtime.computePhase === "backward") return `Backward credit — token${progress}`;
+  if (runtime.computePhase === "optimizer") return "Optimizer — applying gradients";
+  if (runtime.computePhase === "credit") return "Local credit — eligibility and homeostasis";
+  if (runtime.computePhase === "lifecycle") return "Lifecycle — growth and pruning";
+  if (runtime.computePhase === "evaluation") return `Evaluation — batch${progress}`;
+  if (runtime.computePhase === "headless") return "Headless optimizer update";
+  return "Measured trace active";
+}
+
+function updateCadenceLabels(kind: ExperimentSnapshot["task"]["kind"]): void {
+  if (kind === cadenceKind) return;
+  cadenceKind = kind;
+  const sequence = kind === "sequence";
+  text("#cadence-title", sequence ? "Trace sampling" : "Simulation speed");
+  for (const option of speedSelect.options) {
+    const value = Number(option.value);
+    option.textContent = sequence
+      ? (value === 1 ? "every token" : `every ${value} tokens`)
+      : `${value}×`;
+  }
 }
 
 function setTaskLabels(a: string, b: string, target: string, prediction: string): void {

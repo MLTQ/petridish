@@ -184,6 +184,20 @@ Viewer marks are evidentiary:
 There are no synthetic signal dots, arbitrary moving packets, or inferred
 activity.
 
+## Training and visualization cadence
+
+Visualization cadence and optimizer cadence are separate. Ordinary playback walks
+through stored token, feedback, and structural frames, then performs one optimizer
+update when that trace is exhausted. Fast training calls the same differentiable
+update directly with trace capture disabled, removes the 15 Hz presentation delay,
+and suppresses automatic validation sweeps. Aggregate flow, stimulation, credit,
+homeostasis, and topology still update; only token-local graph copies are omitted.
+
+Heavy PyTorch work runs in a worker thread so it cannot block WebSocket processing.
+Fast mode reports at most once per second and the browser deliberately leaves the
+field unchanged while continuing to update metrics. Exiting the mode replays the
+latest sequence with current weights and restores an authoritative visual trace.
+
 ## Reproducibility
 
 Reset reconstructs model parameters, initial occupancy, local probes,

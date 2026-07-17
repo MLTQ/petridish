@@ -25,6 +25,23 @@ The displayed trial advances through token frames, feedback, then structural cha
 All edge flow and neuron stimulation in those frames comes from the actual forward
 pass.
 
+`train_visual_update` performs one complete optimizer update and exposes progress as
+it happens. Token callbacks install the current batch, prediction, confidence, and
+measured frame. Autograd hooks on retained token states expose gradient×state neuron
+credit as differentiation reaches each token in reverse traversal order. These are
+real backward measurements; edge credit remains unavailable until the leaf synaptic
+gradient is complete. Optimizer status therefore retains the last measured field,
+while credit and lifecycle callbacks install their actual terminal frames. Completed
+streamed updates remain on the structural frame instead of replaying already-seen
+token states.
+
+`train_updates` is the headless path: it bypasses frame playback and asks the model for no token-local graph
+copies. It still performs the full forward/backward optimizer, local credit,
+homeostasis, and scheduled structural work, but deliberately suppresses automatic
+validation so throughput runs are interrupted only by explicit evaluation. The last
+visible trace remains stable until `refresh_visual_trace` replays the most recent
+training sequence with current weights.
+
 Corpus tasks expose `set_prompt` and `generate_token`. Prompt installation encodes
 only the trailing context window and replays it without training. Each generate call
 samples one character at temperature 0.85, appends it, and recomputes the visible

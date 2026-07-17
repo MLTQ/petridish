@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import math
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable
 
 import torch
 from torch import nn
@@ -48,6 +48,9 @@ class SequenceForward:
     advertised_key: torch.Tensor
     emission: torch.Tensor
     mean_attention_entropy: float
+
+
+SequenceFrameCallback = Callable[[SequenceFrame, torch.Tensor], None]
 
 
 class CellularSequenceModel(nn.Module):
@@ -144,8 +147,17 @@ class CellularSequenceModel(nn.Module):
             output[:, alive] = hidden[:, positions[alive]]
         return self.output_bank_readout(output.flatten(1)) + self.class_bias
 
-    def forward(self, tokens: torch.Tensor, *, capture_trace: bool = True) -> SequenceForward:
+    def forward(
+        self,
+        tokens: torch.Tensor,
+        *,
+        capture_trace: bool = True,
+        frame_callback: SequenceFrameCallback | None = None,
+    ) -> SequenceForward:
         """Consume discrete tokens one at a time without clearing neuron state."""
+
+        if frame_callback is not None and not capture_trace:
+            raise ValueError("frame callbacks require trace capture")
 
         cfg = self.config
         substrate = self.substrate
@@ -179,7 +191,7 @@ class CellularSequenceModel(nn.Module):
         frames: list[SequenceFrame] = []
         retained: list[torch.Tensor] = []
         logits: list[torch.Tensor] = []
-        entropy_total = 0.0
+        entropy_total = torch.zeros((), device=tokens.device)
         observations = max(1, length * cfg.message_steps)
         workspace_state = torch.zeros(
             batch, cfg.broadcast_slots, cfg.hidden_channels,
@@ -205,9 +217,10 @@ class CellularSequenceModel(nn.Module):
                     0, token_compact[alive_batch], torch.ones_like(token_compact[alive_batch], dtype=hidden.dtype)
                 )
                 input_signal /= batch
-            position_stimulation = torch.zeros_like(stimulation)
-            position_load = torch.zeros_like(load)
-            position_edge_flow = torch.zeros_like(edge_flow)
+            if capture_trace:
+                position_stimulation = torch.zeros_like(stimulation)
+                position_load = torch.zeros_like(load)
+                position_edge_flow = torch.zeros_like(edge_flow)
 
             for _ in range(cfg.message_steps):
                 normalized = self.message_norm(hidden)
@@ -276,24 +289,23 @@ class CellularSequenceModel(nn.Module):
                         1, target_compact, -(attention * attention.clamp_min(1e-9).log())
                     )
                     valid = indegree > 1
-                    entropy_total += float(
-                        (target_entropy[:, valid] / indegree[valid].log()).detach().mean()
-                    ) / observations
+                    entropy_total += (
+                        target_entropy[:, valid] / indegree[valid].log()
+                    ).detach().mean() / observations
                 flow = edge_message.detach().abs().mean(dim=(0, 2))
-                flow_matrix = torch.zeros_like(edge_flow)
-                flow_matrix[target_site, slot] = flow
                 step_load = incoming.detach().abs().mean(dim=(0, 2))
                 variable = edge_message.detach().std(dim=0, correction=0).mean(dim=1)
                 step_stimulation = torch.zeros_like(stimulation)
                 step_stimulation.index_add_(0, target_compact, variable)
                 step_stimulation /= indegree.clamp_min(1).sqrt()
                 step_stimulation += external.detach().std(dim=0, correction=0).mean(dim=1)
-                edge_flow += flow_matrix / observations
+                edge_flow[target_site, slot] += flow / observations
                 stimulation += step_stimulation / observations
                 load += step_load / observations
-                position_edge_flow += flow_matrix / cfg.message_steps
-                position_stimulation += step_stimulation / cfg.message_steps
-                position_load += step_load / cfg.message_steps
+                if capture_trace:
+                    position_edge_flow[target_site, slot] += flow / cfg.message_steps
+                    position_stimulation += step_stimulation / cfg.message_steps
+                    position_load += step_load / cfg.message_steps
                 rule_input = torch.cat((external, 0.1 * context), dim=2)
                 updated = self.cell_rule(
                     rule_input.reshape(-1, cfg.hidden_channels * 2),
@@ -304,21 +316,23 @@ class CellularSequenceModel(nn.Module):
             if hidden.requires_grad:
                 hidden.retain_grad()
                 retained.append(hidden)
-            logits.append(self._read_logits(hidden, compact))
+            position_logits = self._read_logits(hidden, compact)
+            logits.append(position_logits)
             if capture_trace:
-                frames.append(
-                    self.make_frame(
-                        sites, hidden[0], stimulation=position_stimulation,
-                        load=position_load, input_signal=input_signal,
-                        edge_flow=position_edge_flow, stage="token", step=position,
-                        token_position=position,
-                    )
+                frame = self.make_frame(
+                    sites, hidden[0], stimulation=position_stimulation,
+                    load=position_load, input_signal=input_signal,
+                    edge_flow=position_edge_flow, stage="token", step=position,
+                    token_position=position,
                 )
+                frames.append(frame)
+                if frame_callback is not None:
+                    frame_callback(frame, position_logits.detach())
 
         return SequenceForward(
             torch.stack(logits, dim=1), sites, hidden, retained, frames,
             stimulation, load, edge_flow, advertised_query, advertised_key,
-            emission, entropy_total,
+            emission, float(entropy_total),
         )
 
     def make_frame(
@@ -359,4 +373,7 @@ class CellularSequenceModel(nn.Module):
         return self.config.weight_decay * self.substrate.synapse_weight[active].square().mean()
 
 
-__all__ = ["CellularSequenceModel", "SequenceForward", "SequenceFrame"]
+__all__ = [
+    "CellularSequenceModel", "SequenceForward", "SequenceFrame",
+    "SequenceFrameCallback",
+]

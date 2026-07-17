@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import deque
 import math
-from typing import Any
+from typing import Any, Callable
 
 import torch
 from torch.nn import functional as F
@@ -148,14 +148,78 @@ class SequenceExperiment:
             else:
                 self._train_trial()
 
-    def _train_trial(self) -> None:
+    def _train_trial(
+        self,
+        *,
+        capture_trace: bool = True,
+        auto_evaluate: bool = True,
+        progress_callback: Callable[[str, int, int], None] | None = None,
+    ) -> None:
         self.model.train()
         batch = self._batch(self.config.batch_size)
+        if progress_callback is not None:
+            self._begin_visible_trial(batch)
+
+        def observe_frame(frame: SequenceFrame, logits: torch.Tensor) -> None:
+            probabilities = logits[0].softmax(dim=0)
+            position = frame.token_position
+            self.last_predictions[position] = int(probabilities.argmax().cpu())
+            self.last_confidences[position] = float(probabilities.max().cpu())
+            self.last_trace = [frame]
+            self.visual_cursor = 0
+            self.events = [dict(event, tick=self.tick) for event in frame.events]
+            progress_callback("forward", position + 1, batch.tokens.shape[1])
+
         self.optimizer.zero_grad(set_to_none=True)
-        result = self.model(batch.tokens, capture_trace=True)
+        result = self.model(
+            batch.tokens,
+            capture_trace=capture_trace,
+            frame_callback=observe_frame if progress_callback is not None else None,
+        )
         task_loss, accuracy = self._masked_loss_accuracy(result.logits, batch)
         loss = task_loss + self.model.regularization()
-        loss.backward()
+        gradient_hooks: list[torch.utils.hooks.RemovableHandle] = []
+        if progress_callback is not None:
+            backward_total = max(1, len(result.retained_states))
+            backward_progress = 0
+            progress_callback("backward", 0, backward_total)
+
+            def observe_gradient(
+                position: int, state: torch.Tensor
+            ) -> Callable[[torch.Tensor], torch.Tensor]:
+                def hook(gradient: torch.Tensor) -> torch.Tensor:
+                    nonlocal backward_progress
+                    backward_progress += 1
+                    credit = -(gradient.detach() * state.detach()).mean(dim=(0, 2))
+                    forward_frame = result.frames[position]
+                    frame = self.model.make_frame(
+                        result.sites,
+                        state[0],
+                        stimulation=forward_frame.stimulation,
+                        load=forward_frame.load,
+                        credit=credit,
+                        input_signal=forward_frame.input_signal,
+                        edge_flow=forward_frame.graph.flow,
+                        stage="feedback",
+                        step=batch.tokens.shape[1] + backward_progress - 1,
+                        token_position=position,
+                    )
+                    self.last_trace = [frame]
+                    self.visual_cursor = 0
+                    progress_callback("backward", backward_progress, backward_total)
+                    return gradient
+
+                return hook
+
+            gradient_hooks = [
+                state.register_hook(observe_gradient(position, state))
+                for position, state in enumerate(result.retained_states)
+            ]
+        try:
+            loss.backward()
+        finally:
+            for handle in gradient_hooks:
+                handle.remove()
         neuron_credit = torch.zeros(result.sites.numel(), device=self.device)
         credited = 0
         for state in result.retained_states:
@@ -171,6 +235,8 @@ class SequenceExperiment:
         )
         active = self.model.substrate.active_edge_mask
         before = self.model.substrate.synapse_weight.detach().clone()
+        if progress_callback is not None:
+            progress_callback("optimizer", 0, 1)
         clip_grad_norm_(self.model.parameters(), self.config.gradient_clip)
         self.optimizer.step()
         with torch.no_grad():
@@ -187,19 +253,25 @@ class SequenceExperiment:
         )
         lifecycle_active = self._should_activate_lifecycle(completed)
         structure_unlocked = self._should_unlock_structure(completed, accuracy)
+        if progress_callback is not None:
+            progress_callback("credit", 0, 1)
         self.model.substrate.record_trial(
             result.sites, result.stimulation, result.load, neuron_credit,
             result.edge_flow, edge_credit, result.advertised_query,
             result.advertised_key, result.emission, reward,
             homeostasis_active=lifecycle_active,
         )
-        result.frames.append(
-            self.model.make_frame(
+        if capture_trace:
+            feedback_frame = self.model.make_frame(
                 result.sites, result.final_state[0], stimulation=result.stimulation,
                 load=result.load, credit=neuron_credit, edge_flow=result.edge_flow,
                 edge_credit=edge_credit, stage="feedback", step=self.task.sequence_length,
             )
-        )
+            result.frames.append(feedback_frame)
+            if progress_callback is not None:
+                self.last_trace = [feedback_frame]
+                self.visual_cursor = 0
+                progress_callback("credit", 1, 1)
         events: list[dict[str, Any]] = []
         self.last_births = 0
         self.last_deaths = 0
@@ -210,6 +282,8 @@ class SequenceExperiment:
         structure_due = structure_unlocked and (
             completed - self.config.structural_warmup_trials
         ) % self.config.structural_interval == 0
+        if progress_callback is not None:
+            progress_callback("lifecycle", 0, 1)
         if lifecycle_due or structure_due:
             update = self.model.substrate.structural_step(
                 apply_lifecycle=lifecycle_due, apply_topology=structure_due
@@ -223,17 +297,22 @@ class SequenceExperiment:
             self.cumulative_deaths += update.deaths
             for cause, count in update.death_causes.items():
                 self.cumulative_death_causes[cause] += count
-        current_sites = self.model.substrate.living_sites
-        state_by_site = torch.zeros(
-            self.config.site_count, self.config.hidden_channels, device=self.device
-        )
-        state_by_site[result.sites] = result.final_state[0].detach()
-        result.frames.append(
-            self.model.make_frame(
+        if capture_trace:
+            current_sites = self.model.substrate.living_sites
+            state_by_site = torch.zeros(
+                self.config.site_count, self.config.hidden_channels, device=self.device
+            )
+            state_by_site[result.sites] = result.final_state[0].detach()
+            structural_frame = self.model.make_frame(
                 current_sites, state_by_site[current_sites], stage="structural",
                 step=self.task.sequence_length + 1, events=events,
             )
-        )
+            result.frames.append(structural_frame)
+            if progress_callback is not None:
+                self.last_trace = [structural_frame]
+                self.visual_cursor = 0
+                self.events = [dict(event, tick=self.tick) for event in events]
+                progress_callback("lifecycle", 1, 1)
         self.training_step = completed
         self.seen_examples += self.config.batch_size
         self.last_loss = float(task_loss.detach())
@@ -248,10 +327,47 @@ class SequenceExperiment:
         if rolling >= self.best_rolling_accuracy + self.config.structure_plateau_delta:
             self.best_rolling_accuracy = rolling
             self.last_accuracy_improvement_step = completed
-        self._remember(result, batch)
+        self._remember(
+            result, batch, replace_trace=capture_trace,
+            cursor_at_end=progress_callback is not None,
+        )
         self._maybe_advance_recall_curriculum()
-        if completed % self.config.evaluation_interval == 0:
-            self.evaluate(self.config.evaluation_batches)
+        if auto_evaluate and completed % self.config.evaluation_interval == 0:
+            self.evaluate(
+                self.config.evaluation_batches,
+                progress_callback=progress_callback,
+            )
+
+    def train_visual_update(
+        self, progress_callback: Callable[[str, int, int], None]
+    ) -> None:
+        """Run one optimizer update while exposing measured intermediate states."""
+
+        self.tick += 1
+        self._train_trial(progress_callback=progress_callback)
+
+    def train_updates(self, count: int = 1) -> None:
+        """Run optimizer updates directly without constructing viewer traces."""
+
+        for _ in range(max(1, count)):
+            self.tick += 1
+            self._train_trial(capture_trace=False, auto_evaluate=False)
+
+    def _begin_visible_trial(self, batch: SequenceBatch) -> None:
+        """Align visible tokens before streamed forward frames arrive."""
+
+        length = batch.tokens.shape[1]
+        self.last_tokens = batch.tokens[0].detach().cpu()
+        self.last_targets = batch.targets[0].detach().cpu()
+        self.last_predictions = torch.full((length,), -1, dtype=torch.long)
+        self.last_confidences = torch.zeros(length)
+        self.events = []
+
+    @torch.no_grad()
+    def refresh_visual_trace(self) -> None:
+        """Rebuild one authoritative trace after trace-free training."""
+
+        self._replay_current()
 
     def _terminal_frames(self, result: SequenceForward) -> list[SequenceFrame]:
         length = result.logits.shape[1]
@@ -267,11 +383,19 @@ class SequenceExperiment:
         ]
 
     @torch.no_grad()
-    def _remember(self, result: SequenceForward, batch: SequenceBatch) -> None:
+    def _remember(
+        self,
+        result: SequenceForward,
+        batch: SequenceBatch,
+        *,
+        replace_trace: bool = True,
+        cursor_at_end: bool = False,
+    ) -> None:
         probabilities = result.logits[0].softmax(dim=1)
-        self.last_trace = result.frames
-        self.visual_cursor = 0
-        self.events = []
+        if replace_trace:
+            self.last_trace = result.frames
+            self.visual_cursor = len(result.frames) - 1 if cursor_at_end else 0
+            self.events = []
         self.last_tokens = batch.tokens[0].detach().cpu()
         self.last_targets = batch.targets[0].detach().cpu()
         self.last_predictions = probabilities.argmax(dim=1).detach().cpu()
@@ -379,11 +503,17 @@ class SequenceExperiment:
                         value[changed] = 0
 
     @torch.no_grad()
-    def evaluate(self, batches: int = 8) -> float:
+    def evaluate(
+        self,
+        batches: int = 8,
+        *,
+        progress_callback: Callable[[str, int, int], None] | None = None,
+    ) -> float:
         self.model.eval()
         correct = 0
         total = 0
-        for _ in range(max(1, min(50, batches))):
+        batch_count = max(1, min(50, batches))
+        for index in range(batch_count):
             batch = self._batch(self.config.batch_size, evaluation=True)
             logits = self.model(batch.tokens, capture_trace=False).logits
             metric_mask = batch.loss_mask
@@ -392,6 +522,8 @@ class SequenceExperiment:
                 metric_mask[:, 2:4] = True
             correct += int((logits.argmax(dim=2)[metric_mask] == batch.targets[metric_mask]).sum())
             total += int(metric_mask.sum())
+            if progress_callback is not None:
+                progress_callback("evaluation", index + 1, batch_count)
         self.test_accuracy = correct / max(1, total)
         return self.test_accuracy
 

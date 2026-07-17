@@ -20,7 +20,8 @@
   </header>
 
   <main>
-    <section class="dish-panel" aria-label="Live neural cellular field">
+    <div class="visual-column">
+      <section class="dish-panel" aria-label="Live neural cellular field">
       <div class="dish-toolbar">
         <div class="transport" role="group" aria-label="Playback">
           <button id="play-pause" class="primary" type="button">Pause</button>
@@ -39,6 +40,7 @@
         <label>
           Layer
           <select id="layer-select">
+            <option value="phase" selected>phase signal (activation / credit)</option>
             <option value="activation">activation</option>
             <option value="energy">energy</option>
             <option value="stimulation">stimulation</option>
@@ -65,9 +67,8 @@
         <span>opacity = measured flow / credit</span>
         <span><i class="legend-line newborn"></i>new dendrite</span>
       </div>
-    </section>
+      </section>
 
-    <aside>
       <section class="panel task-panel">
         <div class="section-heading">
           <div>
@@ -113,7 +114,9 @@
           <button id="lifecycle-cycle" type="button">Lifecycle cycle</button>
         </div>
       </section>
+    </div>
 
+    <aside>
       <section class="panel">
         <div class="section-heading">
           <div>
@@ -133,7 +136,7 @@
         <div class="section-heading compact">
           <div>
             <span class="eyebrow">cadence</span>
-            <h2>Simulation speed</h2>
+            <h2 id="cadence-title">Simulation speed</h2>
           </div>
           <select id="speed-select" aria-label="Simulation steps per frame">
             <option value="1" selected>1×</option>
@@ -143,7 +146,13 @@
             <option value="16">16×</option>
           </select>
         </div>
+        <div class="training-control" id="sequence-training-controls" hidden>
+          <button id="fast-training" type="button">Train headless</button>
+          <output id="training-status">measured trace active</output>
+        </div>
         <div class="device-row"><span>compute</span><strong id="metric-device">—</strong></div>
+        <div class="device-row"><span>last update</span><strong id="metric-compute-time">—</strong></div>
+        <div class="device-row"><span>training throughput</span><strong id="metric-throughput">—</strong></div>
         <div class="device-row"><span>living cells</span><strong id="metric-cells">0</strong></div>
         <div class="device-row"><span>mean |weight|</span><strong id="metric-weight">0.000</strong></div>
         <div class="device-row"><span>synapse Δ / |w|</span><strong id="metric-synapse-update">—</strong></div>

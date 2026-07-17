@@ -11,10 +11,30 @@ controls, scientific diagnostics, history, and inspection.
 - **Does**: Hosts the PixiJS canvas and pointer interventions.
 - **Interacts with**: `DishRenderer` in `renderer.ts`.
 
+### `.visual-column` / `.task-panel`
+- **Does**: Keeps the dynamic task/context readout directly below the network
+  visualization instead of above the side-column controls.
+- **Rationale**: Live token and phase changes cannot displace intervention,
+  cadence, or hyperparameter controls while the user is editing them.
+- **Does**: Uses a stable desktop height and wider two-column sequence/generation
+  layout; narrow screens return to a natural single-column flow.
+
 ### Control elements
 - **Does**: Expose experiment selection, playback, measured field layers, edge threshold, evaluation,
   forced lifecycle cycles, lesioning, and speed inputs.
 - **Interacts with**: Event wiring in `main.ts`.
+- **Does**: Defaults the field to a phase-aware signal layer: activation during
+  forward computation and measured gradient credit during feedback.
+
+### Headless training control
+- **Does**: Lets sequence experiments run optimizer updates without token-frame
+  capture and states plainly that traces are suspended.
+- **Does**: Shows measured update latency and updates per second rather than an
+  arbitrary speed multiplier.
+
+### Cadence control
+- **Does**: Selects simulation steps per MNIST frame or measured token-frame
+  sampling stride for sequence organisms.
 
 ### Metric and task elements
 - **Does**: Provide stable targets for image or token-sequence task diagnostics and history rendering.

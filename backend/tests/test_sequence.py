@@ -65,6 +65,26 @@ def test_sequence_model_retains_state_and_backpropagates() -> None:
     assert float(model.substrate.synapse_weight.grad.abs().sum()) > 0
 
 
+def test_sequence_model_streams_measured_token_frames() -> None:
+    task = resolve_sequence_task("tiny_language")
+    batch = task.batch(2, torch.Generator().manual_seed(12))
+    model = CellularSequenceModel(small_config(), layout=task.key, seed=12)
+    observed: list[tuple[int, str, tuple[int, ...]]] = []
+
+    result = model(
+        batch.tokens,
+        frame_callback=lambda frame, logits: observed.append(
+            (frame.token_position, frame.stage, tuple(logits.shape))
+        ),
+    )
+
+    assert len(observed) == task.sequence_length
+    assert [position for position, _, _ in observed] == list(range(task.sequence_length))
+    assert all(stage == "token" for _, stage, _ in observed)
+    assert all(shape == (2, 10) for _, _, shape in observed)
+    assert len(result.frames) == task.sequence_length
+
+
 def test_sequence_snapshot_reports_tokens_curriculum_and_real_graph() -> None:
     experiment = SequenceExperiment(
         "associative_recall", small_config(), seed=3, device="cpu"
@@ -81,6 +101,47 @@ def test_sequence_snapshot_reports_tokens_curriculum_and_real_graph() -> None:
         if parameter["key"] == "field_size"
     )
     assert field_control["choices"] == [16, 32, 64, 128, 256, 512, 1024]
+
+
+def test_trace_free_training_updates_metrics_without_replacing_visible_frames() -> None:
+    experiment = SequenceExperiment(
+        "tiny_language", small_config(), seed=8, device="cpu"
+    )
+    original_trace = experiment.last_trace
+
+    experiment.train_updates(2)
+
+    assert experiment.training_step == 2
+    assert experiment.tick == 2
+    assert experiment.last_trace is original_trace
+    assert experiment.seen_examples == experiment.config.batch_size * 2
+    experiment.refresh_visual_trace()
+    assert experiment.last_trace is not original_trace
+    assert len(experiment.last_trace) == experiment.task.sequence_length + 2
+
+
+def test_visual_training_reports_real_compute_phases_and_finishes_on_structure() -> None:
+    experiment = SequenceExperiment(
+        "tiny_language", small_config(), seed=9, device="cpu"
+    )
+    progress: list[tuple[str, int, int]] = []
+
+    experiment.train_visual_update(
+        lambda phase, current, total: progress.append((phase, current, total))
+    )
+
+    phases = [phase for phase, _, _ in progress]
+    assert phases.count("forward") == experiment.task.sequence_length
+    backward = [item for item in progress if item[0] == "backward"]
+    assert len(backward) == experiment.task.sequence_length + 1
+    assert backward[-1] == (
+        "backward", experiment.task.sequence_length, experiment.task.sequence_length
+    )
+    assert "optimizer" in phases
+    assert ("credit", 1, 1) in progress
+    assert ("lifecycle", 1, 1) in progress
+    assert experiment.training_step == 1
+    assert experiment.last_frame.stage == "structural"
 
 
 def test_corpus_prompt_can_generate_one_more_character() -> None:

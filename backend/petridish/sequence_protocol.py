@@ -107,7 +107,9 @@ def build_sequence_snapshot(experiment: SequenceExperiment) -> dict[str, Any]:
             "tokenIds": experiment.last_tokens.tolist(),
             "targets": [None if index < 0 else vocabulary[index] for index in target_ids],
             "targetIds": target_ids,
-            "predictions": [vocabulary[index] for index in prediction_ids],
+            "predictions": [
+                "—" if index < 0 else vocabulary[index] for index in prediction_ids
+            ],
             "predictionIds": prediction_ids, "position": position,
             "accuracy": round(experiment.rolling_accuracy, 4),
             "testAccuracy": None if experiment.test_accuracy is None else round(experiment.test_accuracy, 4),

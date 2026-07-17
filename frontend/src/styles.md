@@ -17,10 +17,13 @@ control states, canvas sizing, metrics, task readouts, and chart encoding.
 - **Interacts with**: `.dish-panel`, `.dish-toolbar`, and `#dish-host`.
 - **Rationale**: Desktop dish height is bounded by both viewport height and the
   available left-column width, avoiding unused bars around the square field.
+- **Does**: Groups the dish and task readout in `.visual-column`; the desktop
+  task panel has a fixed 390px block size and internal overflow so live content
+  cannot reflow the side controls.
 
 ### Side panels
-- **Does**: Styles task, image/token previews, interventions, cadence, history,
-  hyperparameter controls, and inspector as compact peers.
+- **Does**: Styles interventions, cadence, history, hyperparameter controls, and
+  inspector as compact peers independent of the dynamic task readout.
 - **Interacts with**: Semantic sections in `index.html`.
 
 ### Trial phases
@@ -43,6 +46,10 @@ control states, canvas sizing, metrics, task readouts, and chart encoding.
 - **Does**: Keeps the prompt editor, explicit token-generation actions, generated
   text, and next-token diagnostic readable without decorative marks.
 - **Interacts with**: `#generation-panel` and sequence updates in `main.ts`.
+
+### Fast training status
+- **Does**: Aligns the single training action with a terse authoritative mode
+  status; no animation or decorative progress is implied while traces are disabled.
 
 ## Contracts
 

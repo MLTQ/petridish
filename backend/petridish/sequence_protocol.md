@@ -13,3 +13,6 @@ sequence length.
 The frontend can therefore compare tasks with one renderer while presenting the
 diagnostic that matters for sequences: what has been consumed, what prediction is
 being judged, and whether delayed or autoregressive accuracy improves.
+During a streamed forward pass, not-yet-computed predictions are represented by an
+explicit em dash and zero confidence. They are never populated from stale or guessed
+values.

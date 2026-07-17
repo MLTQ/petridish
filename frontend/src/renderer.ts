@@ -3,6 +3,7 @@ import { Application, Container, Graphics } from "pixi.js";
 import type { ExperimentSnapshot } from "./protocol";
 
 export type FieldLayer =
+  | "phase"
   | "activation"
   | "energy"
   | "stimulation"
@@ -38,7 +39,7 @@ export class DishRenderer {
   private readonly cellLayer = new Graphics();
   private readonly markerLayer = new Graphics();
   private snapshot: ExperimentSnapshot | null = null;
-  private layer: FieldLayer = "activation";
+  private layer: FieldLayer = "phase";
   private edgeThreshold = 0.08;
   private selectedCell: number | null = null;
   private pixiReady = false;
@@ -237,8 +238,9 @@ export class DishRenderer {
   }
 
   private layerScale(snapshot: ExperimentSnapshot): number {
-    const index = this.channelIndex(snapshot, this.layer);
-    if (index < 0 || this.layer === "alive" || this.layer === "energy") return 1;
+    const layer = this.resolvedLayer(snapshot);
+    const index = this.channelIndex(snapshot, layer);
+    if (index < 0 || layer === "alive" || layer === "energy") return 1;
     let maximum = 0;
     for (const cell of snapshot.field.cells) maximum = Math.max(maximum, Math.abs(cell[index] ?? 0));
     return Math.max(1e-9, maximum);
@@ -249,19 +251,25 @@ export class DishRenderer {
       const index = this.channelIndex(snapshot, name);
       return index >= 0 ? (cell[index] ?? 0) : 0;
     };
-    const raw = value(this.layer);
-    if (this.layer === "energy") return blend(COLORS.neutral, 0x7ee787, clamp01(raw));
-    if (this.layer === "alive") return blend(COLORS.neutral, 0xd8f7ee, clamp01(raw));
+    const layer = this.resolvedLayer(snapshot);
+    const raw = value(layer);
+    if (layer === "energy") return blend(COLORS.neutral, 0x7ee787, clamp01(raw));
+    if (layer === "alive") return blend(COLORS.neutral, 0xd8f7ee, clamp01(raw));
     if (
-      this.layer === "stimulation"
-      || this.layer === "load"
-      || this.layer === "emission"
-      || this.layer === "stress"
+      layer === "stimulation"
+      || layer === "load"
+      || layer === "emission"
+      || layer === "stress"
     ) {
       return blend(COLORS.neutral, COLORS.traffic, clamp01(raw / scale));
     }
     const magnitude = clamp01(Math.abs(raw) / scale);
     return blend(COLORS.neutral, raw >= 0 ? COLORS.positive : COLORS.negative, 0.12 + 0.88 * magnitude);
+  }
+
+  private resolvedLayer(snapshot: ExperimentSnapshot): Exclude<FieldLayer, "phase"> {
+    if (this.layer !== "phase") return this.layer;
+    return snapshot.task.phase === "feedback" ? "credit" : "activation";
   }
 
   private channelIndex(snapshot: ExperimentSnapshot, name: string): number {

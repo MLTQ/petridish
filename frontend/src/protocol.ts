@@ -121,6 +121,19 @@ export interface ExperimentSnapshot {
   type: "snapshot";
   experiment: "mnist" | "associative_recall" | "tiny_language" | "tiny_shakespeare";
   tick: number;
+  runtime: {
+    mode: "visualization" | "headless";
+    running: boolean;
+    stepsPerFrame: number;
+    lastComputeSeconds: number;
+    trainingUpdatesPerSecond: number;
+    trainingExamplesPerSecond: number;
+    reportIntervalSeconds: number;
+    computePhase: "idle" | "forward" | "backward" | "optimizer" | "credit" | "lifecycle" | "evaluation" | "headless";
+    computeProgress: number;
+    computeTotal: number;
+    controlRevision: number;
+  };
   field: {
     width: number;
     height: number;
@@ -164,6 +177,7 @@ export type ExperimentCommand =
   | { type: "step"; count?: number }
   | { type: "reset"; seed?: number }
   | { type: "speed"; steps: number }
+  | { type: "training"; enabled: boolean }
   | { type: "lesion"; x: number; y: number; radius: number }
   | { type: "evaluate"; batches?: number }
   | { type: "lifecycle" }

@@ -97,6 +97,10 @@ for measured results and negative findings.
 
 - **Pause / Step**: inspect input, recurrent forward traffic, backward credit,
   and structural phases independently.
+- **Train fast**: sequence organisms run full optimizer, local-credit,
+  homeostasis, and structural updates without building or replaying token traces.
+  The viewer remains responsive and reports measured updates/second; stopping
+  fast training rebuilds one current trace before visualization resumes.
 - **Evaluate test set**: evaluate without weight or topology mutation.
 - **Lifecycle cycle**: force pruning, candidate accumulation, growth, death,
   inheritance, and birth once.
@@ -118,6 +122,8 @@ for measured results and negative findings.
   and starvation/overload/maintenance death causes.
 - **Diagnostics**: report learning phase, hop distance, outputs reachable within
   the recurrent time budget, attention entropy, and effective parameter count.
+- **Performance diagnostics**: report actual update latency and trace-free
+  optimizer throughput instead of treating visualization-frame speed as training speed.
 
 ## Verification
 

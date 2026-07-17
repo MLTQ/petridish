@@ -26,3 +26,12 @@ between examples, while axons, genotypes, rule parameters, and lifecycle state p
 
 Frames contain one measured state per token rather than every microstep. This makes the
 live sequence causally readable without inventing presentation-only traffic.
+An optional frame callback fires immediately after each such frame and its aligned
+logits exist. The callback cannot be used when trace capture is disabled; this keeps
+the live stream tied to measured model state rather than synthesized progress.
+
+When trace capture is disabled, the model omits token-local frame accumulators and
+full graph copies while retaining aggregate stimulation, load, edge flow, and gradient
+state required by learning and lifecycle rules. Attention entropy remains on the
+accelerator throughout the recurrent loop and crosses to the CPU only once, avoiding
+one synchronization stall per microstep.

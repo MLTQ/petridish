@@ -11,11 +11,22 @@ interactive corpus generation, metrics, and cell inspection for every organism.
 - **Does**: Resolves required DOM contracts, initializes PixiJS, opens the stream,
   and attaches native control handlers.
 - **Interacts with**: `DishRenderer`, `ExperimentSocket`, and `HistoryChart`.
+- **Does**: Disables a stateful control only while its single requested state is
+  pending, preventing repeated clicks from queuing contradictory commands.
+- **Does**: Clears pending controls and revision history on reconnect so a
+  restarted server can establish a fresh authoritative stream.
 
 ### `receiveSnapshot`
 - **Does**: Applies one authoritative MNIST frame, clears transient loading
   status, and updates learning, routing, metabolism, and turnover metrics.
 - **Interacts with**: All snapshot-bound elements in `index.html`.
+- **Does**: Suppresses renderer work during headless training while continuing
+  to update loss, accuracy, optimizer and sequence throughput, and lifecycle diagnostics.
+- **Does**: During visual sequence updates, renders each streamed authoritative
+  snapshot and names forward, backward, optimizer, local-credit, lifecycle, and
+  evaluation work without manufacturing animation.
+- **Does**: Rejects snapshots older than the latest control revision and keeps
+  optimistic playback/experiment choices stable until the backend confirms them.
 
 ### `showCell`
 - **Does**: Renders a concise state readout for a selected field coordinate.
@@ -38,11 +49,27 @@ interactive corpus generation, metrics, and cell inspection for every organism.
   the authoritative generated suffix plus next greedy-token diagnostic.
 - **Rationale**: Whitespace tokens receive explicit visible labels so newlines
   and spaces cannot masquerade as missing data.
+- **Does**: Exposes headless training only for sequence organisms; stopping it asks
+  the backend to rebuild a current trace before rendering resumes.
+- **Rationale**: Mode switches remain pending and disable the action until the
+  current indivisible optimizer update finishes and the backend confirms the state.
 
 ### `mnistStageLabel`
 - **Does**: Names input, actual forward traffic, backward gradient credit, and
   structural lifecycle frames independently from readout/rule/synapse phases.
 - **Interacts with**: Persistent-lifetime metadata from `protocol.ts`.
+
+### `computePhaseLabel` / `updateCadenceLabels`
+- **Does**: Names the currently measured sequence operation and its real progress.
+- **Does**: During backward traversal, reports the measured token-credit position
+  rather than a generic blocking status.
+- **Does**: Describes sequence cadence as token-frame sampling rather than a
+  misleading simulation speed multiplier; MNIST retains step-speed labels.
+- **Rationale**: Rewrites native option labels only when the task kind changes;
+  mutating options on every training snapshot prevents an open macOS menu from
+  accepting or dismissing a selection.
+- **Does**: Leaves the cadence select untouched while focused and preserves a
+  selected speed until its revised backend snapshot confirms the value.
 
 ### `drawDigit`
 - **Does**: Draws the current 28×28 training example without interpolation.
