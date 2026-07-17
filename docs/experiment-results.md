@@ -177,3 +177,13 @@ Torch, task, and evaluation generators are seeded, but CUDA indexed/scatter redu
 are not forced deterministic. The two successful long executions are independent
 behavioral replications, not bitwise deterministic reproductions. A deterministic-mode
 audit remains required before tight seed-to-seed variance claims.
+
+### Deterministic-mode audit
+
+PyTorch deterministic algorithms plus `CUBLAS_WORKSPACE_CONFIG=:4096:8` executed the
+complete CUDA forward/backward path without unsupported-operation errors. Two fresh
+100-update seed-11 runs produced identical canonical result JSON after removing only
+wall-clock seconds; both SHA-256 hashes were
+`fc29c30138c1b9780696ce1f1ab09b743072d56855405c9f76f69de94e691783`.
+Future variance studies should use `--deterministic`; older artifacts remain valid
+learning observations but are not bitwise reproduction controls.
