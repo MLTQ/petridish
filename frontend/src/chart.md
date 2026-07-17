@@ -2,14 +2,14 @@
 
 ## Purpose
 
-Maintains bounded viewer-local objective and accuracy histories for the selected
-experiment and renders both into the compact SVG.
+Maintains bounded viewer-local MNIST objective and accuracy histories and
+renders both into the compact SVG.
 
 ## Components
 
 ### `HistoryChart`
-- **Does**: Resets on experiment switches, appends snapshots, normalizes MNIST
-  loss into a rising objective, trims to 160 frames, and updates lines/summary.
+- **Does**: Normalizes MNIST loss into a rising objective, appends accuracy,
+  trims both to 160 frames, and updates lines/summary.
 - **Interacts with**: `main.ts` and snapshot metrics.
 
 ## Contracts

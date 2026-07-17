@@ -8,8 +8,7 @@ control states, canvas sizing, metrics, task readouts, and chart encoding.
 ## Components
 
 ### Shell and top bar
-- **Does**: Establishes identity, connection state, experiment selector, and
-  always-visible metrics.
+- **Does**: Establishes identity, connection state, and always-visible MNIST metrics.
 - **Interacts with**: `.topbar`, `.brand`, `.connection`, and `.top-metrics`.
 
 ### Dish layout

@@ -3,8 +3,8 @@
 ## Purpose
 
 Projects the persistent configurable organism into a sparse JSON snapshot containing
-only occupied sites and measured neural, metabolic, edge-flow, gradient-credit,
-and structural state.
+only occupied sites and measured neural, metabolic, lineage, edge-flow,
+gradient-credit, and structural state.
 
 ## Components
 
@@ -23,6 +23,8 @@ and structural state.
 - **Does**: Reports optimizer phase, overfit-curriculum progress, genotype and
   emission channels, local-attention entropy, effective parameter count, and
   cached sensory-to-output reachability.
+- **Does**: Reports age, stress, lineage, parent ID, lifecycle activation,
+  population turnover, and starvation/overload/maintenance death counts.
 
 ## Contracts
 

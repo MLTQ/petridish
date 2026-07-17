@@ -20,9 +20,7 @@ const lesionRadiusValue = required<HTMLOutputElement>("#lesion-radius-value");
 const edgeThreshold = required<HTMLInputElement>("#edge-threshold");
 const edgeThresholdValue = required<HTMLOutputElement>("#edge-threshold-value");
 const inspector = required<HTMLElement>("#inspector");
-const experimentSelect = required<HTMLSelectElement>("#experiment-select");
 const speedSelect = required<HTMLSelectElement>("#speed-select");
-const hyperparameterPanel = required<HTMLElement>("#hyperparameter-panel");
 const hyperparameterControls = required<HTMLElement>("#hyperparameter-controls");
 const hyperparameterApply = required<HTMLButtonElement>("#hyperparameter-apply");
 const hyperparameterStatus = required<HTMLOutputElement>("#hyperparameter-status");
@@ -84,20 +82,11 @@ playPause.addEventListener("click", () => {
 });
 required<HTMLButtonElement>("#step").addEventListener("click", () => socket.send({ type: "step" }));
 required<HTMLButtonElement>("#reset").addEventListener("click", () => socket.send({ type: "reset" }));
-required<HTMLButtonElement>("#stim-a").addEventListener("click", () =>
-  socket.send({ type: "stimulate", region: "sensor_a" }),
-);
-required<HTMLButtonElement>("#stim-b").addEventListener("click", () =>
-  socket.send({ type: "stimulate", region: "sensor_b" }),
-);
-required<HTMLButtonElement>("#reward").addEventListener("click", () =>
-  socket.send({ type: "reward", amount: 1 }),
-);
 required<HTMLButtonElement>("#evaluate").addEventListener("click", () =>
   socket.send({ type: "evaluate", batches: 8 }),
 );
-required<HTMLButtonElement>("#rewire").addEventListener("click", () =>
-  socket.send({ type: "rewire" }),
+required<HTMLButtonElement>("#lifecycle-cycle").addEventListener("click", () =>
+  socket.send({ type: "lifecycle" }),
 );
 hyperparameterControls.addEventListener("input", (event) => {
   const input = event.target;
@@ -118,11 +107,6 @@ hyperparameterApply.addEventListener("click", () => {
   hyperparameterApply.disabled = true;
   hyperparameterStatus.value = "restarting organism…";
   socket.send({ type: "configure", values: Object.fromEntries(pendingHyperparameters) });
-});
-experimentSelect.addEventListener("change", () => {
-  const name = experimentSelect.value as ExperimentSnapshot["experiment"];
-  connection.querySelector("span:last-child")!.textContent = name === "mnist" ? "loading MNIST…" : "switching…";
-  socket.send({ type: "experiment", name });
 });
 speedSelect.addEventListener("change", (event) => {
   socket.send({ type: "speed", steps: Number((event.currentTarget as HTMLSelectElement).value) });
@@ -147,26 +131,18 @@ lesionToggle.addEventListener("click", () => {
 window.addEventListener("beforeunload", () => socket.close());
 
 function receiveSnapshot(snapshot: ExperimentSnapshot): void {
-  const switched = currentSnapshot?.experiment !== snapshot.experiment;
   currentSnapshot = snapshot;
   connection.className = "connection connected";
   connection.querySelector("span:last-child")!.textContent = "connected";
-  experimentSelect.value = snapshot.experiment;
   host.setAttribute(
     "aria-label",
     `Interactive ${snapshot.field.width} by ${snapshot.field.height} cellular field`,
   );
-  if (switched) speedSelect.value = snapshot.experiment === "mnist" ? "1" : "2";
   renderer.render(snapshot);
   history.update(snapshot);
   text("#metric-tick", snapshot.tick.toLocaleString());
-  text("#metric-objective-label", snapshot.experiment === "mnist" ? "loss" : "reward");
-  text(
-    "#metric-reward",
-    snapshot.experiment === "mnist"
-      ? (snapshot.metrics.loss ?? 0).toFixed(3)
-      : snapshot.metrics.rollingReward.toFixed(3),
-  );
+  text("#metric-objective-label", "loss");
+  text("#metric-reward", (snapshot.metrics.loss ?? 0).toFixed(3));
   text("#metric-accuracy", `${Math.round(snapshot.task.accuracy * 100)}%`);
   text("#metric-edges", snapshot.metrics.edgeCount.toLocaleString());
   text("#metric-device", snapshot.metrics.device);
@@ -178,57 +154,48 @@ function receiveSnapshot(snapshot: ExperimentSnapshot): void {
       ? "—"
       : `${(snapshot.metrics.synapseUpdateRatio * 100).toFixed(3)}%`,
   );
-  if (snapshot.task.kind === "mnist") {
-    updateMnistTask(snapshot.task);
-    text("#metric-learning-phase", snapshot.task.learningPhase);
-    const minimumHops = snapshot.metrics.minimumOutputHops;
-    const medianHops = snapshot.metrics.medianOutputHops;
-    text(
-      "#metric-hops",
-      minimumHops === null || minimumHops === undefined
-        ? "unreachable"
-        : `${minimumHops} min · ${medianHops ?? minimumHops} median`,
-    );
-    text(
-      "#metric-reachability",
-      `${snapshot.metrics.temporallyReachableOutputs ?? 0}/${snapshot.metrics.reachableOutputs ?? 0}`,
-    );
-    text("#metric-attention", (snapshot.metrics.meanAttentionEntropy ?? 0).toFixed(3));
-    text(
-      "#metric-parameters",
-      `${(snapshot.metrics.activeParameters ?? 0).toLocaleString()} · ${(snapshot.metrics.parametersPerLivingCell ?? 0).toFixed(1)}/cell`,
-    );
-    if (snapshot.configuration) renderHyperparameters(snapshot.configuration.parameters);
-  } else {
-    updateXorTask(snapshot.task);
-  }
+  updateMnistTask(snapshot.task);
+  text("#metric-learning-phase", snapshot.task.learningPhase);
+  text(
+    "#metric-lifecycle",
+    snapshot.task.lifecycleActive
+      ? `active · ${snapshot.task.lifecycleReason}`
+      : `locked · ${snapshot.task.lifecycleReason}`,
+  );
+  text(
+    "#metric-homeostasis",
+    `${snapshot.metrics.meanEnergy.toFixed(3)} · ${snapshot.metrics.stressedCells.toLocaleString()} stressed`,
+  );
+  text("#metric-age", `${snapshot.metrics.meanAge.toFixed(1)} trials`);
+  text(
+    "#metric-turnover",
+    `${snapshot.task.cumulativeBirths.toLocaleString()} born · ${snapshot.task.cumulativeDeaths.toLocaleString()} died`,
+  );
+  text(
+    "#metric-death-causes",
+    `${snapshot.task.deathCauses.starvation} starved · ${snapshot.task.deathCauses.overload} overloaded · ${snapshot.task.deathCauses.maintenance} maintenance`,
+  );
+  const minimumHops = snapshot.metrics.minimumOutputHops;
+  const medianHops = snapshot.metrics.medianOutputHops;
+  text(
+    "#metric-hops",
+    minimumHops === null || minimumHops === undefined
+      ? "unreachable"
+      : `${minimumHops} min · ${medianHops ?? minimumHops} median`,
+  );
+  text(
+    "#metric-reachability",
+    `${snapshot.metrics.temporallyReachableOutputs ?? 0}/${snapshot.metrics.reachableOutputs ?? 0}`,
+  );
+  text("#metric-attention", (snapshot.metrics.meanAttentionEntropy ?? 0).toFixed(3));
+  text(
+    "#metric-parameters",
+    `${(snapshot.metrics.activeParameters ?? 0).toLocaleString()} · ${(snapshot.metrics.parametersPerLivingCell ?? 0).toFixed(1)}/cell`,
+  );
+  if (snapshot.configuration) renderHyperparameters(snapshot.configuration.parameters);
 }
 
-function updateXorTask(task: Extract<ExperimentSnapshot["task"], { kind: "xor" }>): void {
-  text("#task-name", "delayed xor");
-  text("#task-phase", task.phase[0]!.toUpperCase() + task.phase.slice(1));
-  text("#phase-badge", task.phase);
-  required<HTMLElement>("#phase-badge").dataset.phase = task.phase;
-  setTaskLabels("A", "B", "target", "guess");
-  text("#task-a", String(task.bitA));
-  text("#task-b", String(task.bitB));
-  text("#task-target", String(task.target));
-  text("#task-prediction", task.prediction === null ? "—" : String(task.prediction));
-  required<HTMLElement>("#xor-controls").hidden = false;
-  required<HTMLElement>("#mnist-controls").hidden = true;
-  required<HTMLElement>("#mnist-preview-panel").hidden = true;
-  hyperparameterPanel.hidden = true;
-  text("#metric-structure", "—");
-  text("#metric-learning-phase", "—");
-  text("#metric-hops", "—");
-  text("#metric-reachability", "—");
-  text("#metric-attention", "—");
-  text("#metric-parameters", "—");
-  text("#chart-title", "Reward + accuracy");
-  text("#chart-objective-label", "reward");
-}
-
-function updateMnistTask(task: Extract<ExperimentSnapshot["task"], { kind: "mnist" }>): void {
+function updateMnistTask(task: ExperimentSnapshot["task"]): void {
   text("#task-name", "mnist spatial neural organism");
   const stage = mnistStageLabel(task);
   text("#task-phase", stage);
@@ -247,10 +214,6 @@ function updateMnistTask(task: Extract<ExperimentSnapshot["task"], { kind: "mnis
     "#mnist-seen",
     `curriculum ${task.curriculumStage}/${task.curriculumStageCount}: ${task.curriculumExamples.toLocaleString()} examples · ${(task.curriculumStageAccuracy * 100).toFixed(1)}%${task.curriculumTargetAccuracy === null ? "" : ` / ${(task.curriculumTargetAccuracy * 100).toFixed(0)}%`} · ${task.seenExamples.toLocaleString()} seen`,
   );
-  required<HTMLElement>("#xor-controls").hidden = true;
-  required<HTMLElement>("#mnist-controls").hidden = false;
-  required<HTMLElement>("#mnist-preview-panel").hidden = false;
-  hyperparameterPanel.hidden = false;
   text(
     "#metric-structure",
     task.learningPhase === "structure"
@@ -323,14 +286,14 @@ function formatHyperparameter(value: number, step: number, integer: boolean): st
   return value.toFixed(decimals);
 }
 
-function mnistStageLabel(task: Extract<ExperimentSnapshot["task"], { kind: "mnist" }>): string {
+function mnistStageLabel(task: ExperimentSnapshot["task"]): string {
   if (task.phase === "input") return "Input — 49 patch neurons";
   if (task.phase === "forward") return `Forward traffic — step ${task.trialStep}/${task.trialSteps}`;
   if (task.phase === "feedback") return `Backward credit ${task.target} → ${task.prediction}`;
   if (task.learningPhase !== "structure") {
     return `Structure locked — ${task.learningPhase} learning phase`;
   }
-  return `Structural cycle — ${task.births} born, ${task.deaths} died`;
+  return `Lifecycle cycle — ${task.births} born, ${task.deaths} died`;
 }
 
 function setTaskLabels(a: string, b: string, target: string, prediction: string): void {
@@ -377,6 +340,10 @@ function showCell(index: number, snapshot: ExperimentSnapshot): void {
     <span>task utility ${value("utility").toFixed(4)}</span>
     <span>genotype magnitude ${value("genotype_norm").toFixed(4)}</span>
     <span>emit gate ${value("emission").toFixed(4)}</span>
+    <span>age ${value("age").toFixed(0)} trials</span>
+    <span>homeostatic stress ${value("stress").toFixed(3)}</span>
+    <span>lineage depth ${value("lineage").toFixed(0)}</span>
+    <span>parent site ${value("parent").toFixed(0)}</span>
   `;
 }
 

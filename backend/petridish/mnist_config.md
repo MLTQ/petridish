@@ -3,7 +3,7 @@
 ## Purpose
 
 Defines physical dimensions, persistent neuronal capacity, curriculum phases,
-optimizer rates, and lifecycle thresholds of the MNIST organism.
+optimizer rates, and independently gated lifecycle/topology thresholds.
 
 ## Components
 
@@ -30,6 +30,14 @@ optimizer rates, and lifecycle thresholds of the MNIST organism.
   determine cell specialization and content-addressed communication capacity.
 - **Rationale**: Readout, rule, synapse, and structural unlock controls separate
   moving optimization targets; structure requires competence or a measured plateau.
+- **Rationale**: Lifecycle enable/warm-up/cadence controls activate metabolic
+  pressure independently from learned topology growth.
+- **Rationale**: The default lifecycle warm-up ends with the readout-only probe,
+  so metabolism begins when the shared cellular rule starts adapting.
+- **Rationale**: Newborn energy and genotype mutation noise make replacement
+  and inherited specialization explicit, reproducible variables.
+- **Rationale**: A local-density ceiling prevents birth from simply filling an
+  already dense field before death or lesioning creates genuine vacancies.
 
 ## Contracts
 

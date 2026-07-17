@@ -25,7 +25,16 @@ substrate and synthetic images.
 
 ### Lifecycle test
 - **Does**: Forces depleted interior neurons to die while fixed input/output
-  interface neurons survive ordinary homeostasis.
+  interface neurons survive ordinary homeostasis, and verifies starvation is
+  reported as the dominant cause.
+
+### Birth inheritance test
+- **Does**: Requires a newborn to record a local parent, inherit its genotype,
+  increment lineage depth, and enter the graph through one real parent dendrite.
+
+### Lifecycle staging test
+- **Does**: Activates metabolic pressure and a turnover generation while
+  competence-gated topology plasticity remains locked.
 
 ### Candidate-counter growth test
 - **Does**: Supplies repeated local source evidence to a target with a free

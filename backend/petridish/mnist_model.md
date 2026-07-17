@@ -4,7 +4,7 @@
 
 Defines differentiable recurrent computation over living neurons, persistent
 site genotypes, and dendrites. The image remains external and enters through 49
-position-identified sensory neurons on the left of the default substrate.
+semantic sensory ports supplied by the graph layout.
 
 ## Components
 
@@ -13,6 +13,7 @@ position-identified sensory neurons on the left of the default substrate.
   performs query/key/value messaging over real dendrites, applies a genotype-
   modulated shared GRU, and reads ten right-side output neurons.
 - **Interacts with**: `SpatialSubstrate` for population and topology.
+- **Interacts with**: `GraphLayout` for semantic-to-physical patch/class ports.
 - **Rationale**: Computation is compacted to occupied sites while site IDs retain
   their physical tensor positions.
 - **Rationale**: The message projection begins as an identity, a learned
@@ -59,6 +60,10 @@ position-identified sensory neurons on the left of the default substrate.
 ### `probe_parameters`
 - **Does**: Restricts the initial separability test to a linear output-bank probe
   and bias, keeping every feature-producing parameter frozen.
+
+### `reservoir_features`
+- **Does**: Returns the flattened physical output-bank state for controlled
+  frozen-reservoir hyperparameter benchmarks.
 
 ## Contracts
 

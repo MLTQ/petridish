@@ -51,18 +51,24 @@ class MnistModelConfig:
     edge_grace_trials: int = 32
     prune_utility: float = 0.012
     max_pruned_per_generation: int = 384
+    lifecycle_enabled: int = 1
+    lifecycle_warmup_trials: int = 128
+    lifecycle_interval: int = 16
     juvenile_trials: int = 64
     target_stimulation_min: float = 0.018
     target_stimulation_max: float = 0.42
     energy_recovery: float = 0.012
-    starvation_cost: float = 0.11
-    overload_cost: float = 0.16
+    starvation_cost: float = 0.30
+    overload_cost: float = 0.30
     maintenance_cost: float = 0.00035
     task_energy_bonus: float = 0.006
     death_energy: float = 0.035
     max_deaths_per_generation: int = 192
-    births_per_generation: int = 96
-    birth_signal: float = 0.035
+    births_per_generation: int = 32
+    birth_signal: float = 0.08
+    birth_local_density_max: float = 0.38
+    birth_energy: float = 0.65
+    inheritance_noise: float = 0.035
     max_visible_edges: int = 4_000
 
     @property

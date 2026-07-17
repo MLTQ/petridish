@@ -21,6 +21,8 @@ validates user-selected configurations before a new organism is constructed.
   unreachable pre-arrival steps cannot train the classifier toward uniform guesses.
 - **Rationale**: Genotype capacity, local-attention temperature, staged optimizer
   unlocks, curriculum windows, and competence-gated structure remain viewer-tunable.
+- **Rationale**: Lifecycle activation, cadence, local birth-density ceiling,
+  newborn reserve, and inheritance noise are controls rather than hidden constants.
 
 ### `hyperparameter_payload`
 - **Does**: Serializes ordered slider definitions with current values.

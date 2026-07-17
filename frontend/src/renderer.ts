@@ -11,6 +11,9 @@ export type FieldLayer =
   | "utility"
   | "genotype_norm"
   | "emission"
+  | "stress"
+  | "age"
+  | "lineage"
   | "alive";
 
 type DishPointerHandler = (x: number, y: number, painting: boolean) => void;
@@ -249,7 +252,12 @@ export class DishRenderer {
     const raw = value(this.layer);
     if (this.layer === "energy") return blend(COLORS.neutral, 0x7ee787, clamp01(raw));
     if (this.layer === "alive") return blend(COLORS.neutral, 0xd8f7ee, clamp01(raw));
-    if (this.layer === "stimulation" || this.layer === "load" || this.layer === "emission") {
+    if (
+      this.layer === "stimulation"
+      || this.layer === "load"
+      || this.layer === "emission"
+      || this.layer === "stress"
+    ) {
       return blend(COLORS.neutral, COLORS.traffic, clamp01(raw / scale));
     }
     const magnitude = clamp01(Math.abs(raw) / scale);

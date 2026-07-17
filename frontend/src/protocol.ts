@@ -13,16 +13,7 @@ export interface StructuralEvent {
   source: number;
   destination: number;
   tick: number;
-}
-
-export interface XorTaskSnapshot {
-  kind: "xor";
-  phase: "cue" | "delay" | "response" | "rest";
-  bitA: number;
-  bitB: number;
-  target: number;
-  prediction: number | null;
-  accuracy: number;
+  cause?: "starvation" | "overload" | "maintenance";
 }
 
 export interface MnistTaskSnapshot {
@@ -42,6 +33,9 @@ export interface MnistTaskSnapshot {
   trialSteps: number;
   generation: number;
   structuralWarmupRemaining: number;
+  lifecycleWarmupRemaining: number;
+  lifecycleActive: boolean;
+  lifecycleReason: string;
   learningPhase: "readout" | "rule" | "synapse" | "structure";
   structureUnlockReason: string;
   curriculumStage: number;
@@ -52,10 +46,14 @@ export interface MnistTaskSnapshot {
   curriculumStageUpdates: number;
   births: number;
   deaths: number;
+  deathCauses: Record<"starvation" | "overload" | "maintenance", number>;
+  cumulativeBirths: number;
+  cumulativeDeaths: number;
+  cumulativeDeathCauses: Record<"starvation" | "overload" | "maintenance", number>;
   image: number[];
 }
 
-export type TaskSnapshot = XorTaskSnapshot | MnistTaskSnapshot;
+export type TaskSnapshot = MnistTaskSnapshot;
 
 export interface HyperparameterSnapshot {
   key: string;
@@ -70,7 +68,7 @@ export interface HyperparameterSnapshot {
 
 export interface ExperimentSnapshot {
   type: "snapshot";
-  experiment: "xor" | "mnist";
+  experiment: "mnist";
   tick: number;
   field: {
     width: number;
@@ -87,6 +85,10 @@ export interface ExperimentSnapshot {
     rollingReward: number;
     loss: number | null;
     livingCells: number;
+    meanEnergy: number;
+    meanAge: number;
+    stressedCells: number;
+    turnoverEvents: number;
     edgeCount: number;
     visibleEdgeCount: number;
     meanWeight: number;
@@ -108,15 +110,12 @@ export interface ExperimentSnapshot {
 
 export type ExperimentCommand =
   | { type: "play" | "pause" }
-  | { type: "experiment"; name: "xor" | "mnist" }
   | { type: "step"; count?: number }
   | { type: "reset"; seed?: number }
   | { type: "speed"; steps: number }
   | { type: "lesion"; x: number; y: number; radius: number }
-  | { type: "stimulate"; region: "sensor_a" | "sensor_b" | "motor_zero" | "motor_one"; amount?: number; duration?: number }
-  | { type: "reward"; amount: number }
   | { type: "evaluate"; batches?: number }
-  | { type: "rewire" }
+  | { type: "lifecycle" }
   | { type: "configure"; values: Record<string, number> };
 
 export interface ErrorMessage {

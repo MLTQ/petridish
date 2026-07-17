@@ -2,8 +2,8 @@
 
 ## Purpose
 
-Composes transport, renderer, chart, experiment switching, task-adaptive status
-and controls, lesioning, digit preview, metrics, and cell inspection.
+Composes the MNIST transport, renderer, chart, lifecycle controls, lesioning,
+digit preview, metrics, and cell inspection.
 
 ## Components
 
@@ -13,23 +13,23 @@ and controls, lesioning, digit preview, metrics, and cell inspection.
 - **Interacts with**: `DishRenderer`, `ExperimentSocket`, and `HistoryChart`.
 
 ### `receiveSnapshot`
-- **Does**: Applies one authoritative frame, switches task presentation safely by
-  discriminator, clears transient loading status, and updates common metrics.
+- **Does**: Applies one authoritative MNIST frame, clears transient loading
+  status, and updates learning, routing, metabolism, and turnover metrics.
 - **Interacts with**: All snapshot-bound elements in `index.html`.
 
 ### `showCell`
 - **Does**: Renders a concise state readout for a selected field coordinate.
 - **Interacts with**: Renderer hit testing and advertised channel names.
 
-### `updateXorTask` / `updateMnistTask`
-- **Does**: Present task-specific labels, controls, metrics, and chart meaning.
-- **Interacts with**: Discriminated protocol task union and experiment selector.
-- **Rationale**: Each function accepts the already-narrowed task payload, keeping
-  TypeScript's discriminator guarantee local and explicit.
+### `updateMnistTask`
+- **Does**: Presents digit, curriculum, learning phase, and structure state.
+- **Interacts with**: The MNIST-only protocol payload.
 - **Does**: Shows whether structure is locked for learning warm-up and the
   measured relative synapse update produced by the latest optimizer step.
 - **Does**: Shows overfit-stage progress, active optimizer family, attention
   selectivity, effective capacity, directed hop distance, and temporal reachability.
+- **Does**: Shows lifecycle activation, energy/stress, cumulative turnover, and
+  the latest measured death-cause split.
 
 ### `mnistStageLabel`
 - **Does**: Names input, actual forward traffic, backward gradient credit, and
@@ -52,7 +52,6 @@ and controls, lesioning, digit preview, metrics, and cell inspection.
 |-----------|---------|------------------|
 | `index.html` | Referenced IDs retain correct native element types | DOM IDs/types |
 | Backend runtime | Commands match protocol and are safe to repeat | Command semantics |
-| Task union | `kind` narrows before task-specific fields are read | Discriminator semantics |
 | Renderer | Pointer coordinates are expressed in cell-space floats; sparse row
   selection resolves through `field.indices` | Callback semantics |
 | Hyperparameter schema | Every rendered slider is backend-defined and functional | Payload shape changes |

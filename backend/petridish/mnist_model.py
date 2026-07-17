@@ -10,6 +10,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
+from .graph_layout import GraphLayout, resolve_layout
 from .mnist_config import MnistModelConfig
 from .mnist_substrate import GraphSnapshot, SpatialSubstrate
 
@@ -52,14 +53,23 @@ class MnistForward:
 class CellularGraphClassifier(nn.Module):
     """Run one shared recurrent neuron rule over the currently living graph."""
 
-    def __init__(self, config: MnistModelConfig | None = None, *, seed: int = 1) -> None:
+    def __init__(
+        self,
+        config: MnistModelConfig | None = None,
+        *,
+        layout: str | GraphLayout = "mnist",
+        seed: int = 1,
+    ) -> None:
         super().__init__()
         self.config = config or MnistModelConfig()
+        self.layout = resolve_layout(layout)
         cfg = self.config
         if cfg.width < 20 or cfg.height < 20:
             raise ValueError("MNIST substrate must be at least 20 by 20")
+        if (self.layout.input_count, self.layout.output_count) != (49, 10):
+            raise ValueError("MNIST classifier requires a 49-input, 10-output layout")
         torch.manual_seed(seed)
-        self.substrate = SpatialSubstrate(cfg, seed=seed)
+        self.substrate = SpatialSubstrate(cfg, layout=self.layout, seed=seed)
         self.patch_encoder = nn.Sequential(
             nn.Linear(16, cfg.hidden_channels),
             nn.LayerNorm(cfg.hidden_channels),
@@ -341,14 +351,8 @@ class CellularGraphClassifier(nn.Module):
         )
 
     def _read_logits(self, hidden: torch.Tensor, site_to_compact: torch.Tensor) -> torch.Tensor:
-        compact = site_to_compact[self.substrate.output_sites]
-        output_state = torch.zeros(
-            hidden.shape[0], 10, self.config.hidden_channels,
-            device=hidden.device, dtype=hidden.dtype,
-        )
-        alive = compact >= 0
-        if alive.any():
-            output_state[:, alive] = hidden[:, compact[alive]]
+        output_state = self._output_state(hidden, site_to_compact)
+
         query = self.output_identity.weight
         attention = torch.softmax(
             torch.einsum("kh,bnh->bkn", query, self.output_key(output_state))
@@ -364,6 +368,34 @@ class CellularGraphClassifier(nn.Module):
         ).sum(dim=2) / math.sqrt(self.config.hidden_channels)
         bank_readout = self.output_bank_readout(output_state.flatten(1))
         return self.readout_scale * (shared + identity_readout) + bank_readout + self.class_bias
+
+    def _output_state(
+        self, hidden: torch.Tensor, site_to_compact: torch.Tensor
+    ) -> torch.Tensor:
+        """Gather semantic output ports from compact recurrent state."""
+
+        compact = site_to_compact[self.substrate.output_sites]
+        output_state = torch.zeros(
+            hidden.shape[0], 10, self.config.hidden_channels,
+            device=hidden.device, dtype=hidden.dtype,
+        )
+        alive = compact >= 0
+        if alive.any():
+            output_state[:, alive] = hidden[:, compact[alive]]
+        return output_state
+
+    @torch.no_grad()
+    def reservoir_features(self, images: torch.Tensor) -> torch.Tensor:
+        """Return the frozen physical output bank for separability benchmarks."""
+
+        result = self(images, capture_trace=False)
+        site_to_compact = torch.full(
+            (self.config.site_count,), -1, dtype=torch.long, device=images.device
+        )
+        site_to_compact[result.sites] = torch.arange(
+            result.sites.numel(), device=images.device
+        )
+        return self._output_state(result.final_state, site_to_compact).flatten(1)
 
     def make_frame(
         self,

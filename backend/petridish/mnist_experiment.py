@@ -12,6 +12,7 @@ from torch.nn.utils import clip_grad_norm_
 from torch.utils.data import Dataset
 
 from .config import resolve_device
+from .graph_layout import GraphLayout, resolve_layout
 from .mnist_config import MnistModelConfig
 from .mnist_curriculum import CurriculumStage, build_curriculum
 from .mnist_data import load_mnist_datasets, make_loader
@@ -27,6 +28,7 @@ class MnistExperiment:
         self,
         config: MnistModelConfig | None = None,
         *,
+        layout: str | GraphLayout = "mnist",
         seed: int = 1,
         device: str = "auto",
         train_dataset: Dataset | None = None,
@@ -34,6 +36,8 @@ class MnistExperiment:
         data_root: Path | None = None,
     ) -> None:
         self.config = config or MnistModelConfig()
+        self.layout = resolve_layout(layout)
+        self.experiment_name = self.layout.key
         self.seed = seed
         self.device = resolve_device(device)
         if train_dataset is None or test_dataset is None:
@@ -65,7 +69,9 @@ class MnistExperiment:
         self._train_iterator: Iterator[Any] = iter(self.train_loader)
         self._test_iterator: Iterator[Any] = iter(self.test_loader)
         torch.manual_seed(seed)
-        self.model = CellularGraphClassifier(self.config, seed=seed).to(self.device)
+        self.model = CellularGraphClassifier(
+            self.config, layout=self.layout, seed=seed
+        ).to(self.device)
         readout_parameters = list(self.model.readout_parameters())
         readout_ids = {id(parameter) for parameter in readout_parameters}
         rule_parameters = [
@@ -100,12 +106,26 @@ class MnistExperiment:
         self.last_confidence = 0.1
         self.last_births = 0
         self.last_deaths = 0
+        self.last_death_causes = {"starvation": 0, "overload": 0, "maintenance": 0}
+        self.cumulative_births = 0
+        self.cumulative_deaths = 0
+        self.cumulative_death_causes = {
+            "starvation": 0,
+            "overload": 0,
+            "maintenance": 0,
+        }
         self.last_synapse_update_ratio = 0.0
         self.last_mean_attention_entropy = 0.0
         self.best_rolling_accuracy = 0.0
         self.last_accuracy_improvement_step = 0
         self.structure_unlocked = False
         self.structure_unlock_reason = "minimum learning warm-up"
+        self.lifecycle_active = False
+        self.lifecycle_reason = (
+            "waiting for lifecycle warm-up"
+            if self.config.lifecycle_enabled
+            else "disabled by configuration"
+        )
         self._prime_preview()
 
     def _next_batch(self, *, training: bool) -> tuple[torch.Tensor, torch.Tensor]:
@@ -233,6 +253,7 @@ class MnistExperiment:
             min(1.0, (math.log(10) - float(classification_loss.detach())) / math.log(10)),
         )
         self._record_learning_progress(batch_accuracy, completed_step)
+        lifecycle_active = self._should_activate_lifecycle(completed_step)
         structure_unlocked = self._should_unlock_structure(completed_step, batch_accuracy)
         self.model.substrate.record_trial(
             result.sites,
@@ -245,7 +266,7 @@ class MnistExperiment:
             result.advertised_key,
             result.emission,
             reward,
-            homeostasis_active=structure_unlocked,
+            homeostasis_active=lifecycle_active,
         )
         feedback = self.model.make_frame(
             result.sites,
@@ -263,17 +284,35 @@ class MnistExperiment:
         structural_events: list[dict[str, Any]] = []
         self.last_births = 0
         self.last_deaths = 0
-        if (
+        self.last_death_causes = {"starvation": 0, "overload": 0, "maintenance": 0}
+        lifecycle_due = (
+            lifecycle_active
+            and (completed_step - self.config.lifecycle_warmup_trials)
+            % self.config.lifecycle_interval
+            == 0
+        )
+        structure_due = (
             structure_unlocked
             and (completed_step - self.config.structural_warmup_trials)
             % self.config.structural_interval
             == 0
-        ):
-            update = self.model.substrate.structural_step()
-            self._reset_synapse_optimizer_state(update.changed_edges)
+        )
+        if lifecycle_due or structure_due:
+            update = self.model.substrate.structural_step(
+                apply_lifecycle=lifecycle_due,
+                apply_topology=structure_due,
+            )
+            self._reset_mutation_optimizer_state(
+                update.changed_edges, update.changed_sites
+            )
             structural_events = update.events
             self.last_births = update.births
             self.last_deaths = update.deaths
+            self.last_death_causes.update(update.death_causes)
+            self.cumulative_births += update.births
+            self.cumulative_deaths += update.deaths
+            for cause, count in update.death_causes.items():
+                self.cumulative_death_causes[cause] += count
         current_sites = self.model.substrate.living_sites
         state_by_site = torch.zeros(
             self.config.site_count, self.config.hidden_channels, device=self.device
@@ -353,6 +392,17 @@ class MnistExperiment:
             self.structure_unlock_reason = "waiting for competence or plateau"
         return self.structure_unlocked
 
+    def _should_activate_lifecycle(self, completed_step: int) -> bool:
+        if not self.config.lifecycle_enabled:
+            self.lifecycle_reason = "disabled by configuration"
+            return False
+        if completed_step < self.config.lifecycle_warmup_trials:
+            self.lifecycle_reason = "waiting for lifecycle warm-up"
+            return False
+        self.lifecycle_active = True
+        self.lifecycle_reason = "energy pressure and turnover active"
+        return True
+
     def _maybe_advance_curriculum(self) -> None:
         stage = self.curriculum[self.curriculum_stage_index]
         if stage.target_accuracy is None:
@@ -379,18 +429,39 @@ class MnistExperiment:
         )
         self._train_iterator = iter(self.train_loader)
 
-    def rewire_now(self) -> None:
-        """Force one real structural cycle and replay the current digit."""
+    def lifecycle_now(self) -> None:
+        """Force one lifecycle plus topology cycle and replay the current digit."""
 
-        update = self.model.substrate.structural_step()
-        self._reset_synapse_optimizer_state(update.changed_edges)
+        update = self.model.substrate.structural_step(
+            apply_lifecycle=True, apply_topology=True
+        )
+        self._reset_mutation_optimizer_state(
+            update.changed_edges, update.changed_sites
+        )
         self.last_births = update.births
         self.last_deaths = update.deaths
+        self.last_death_causes = {
+            "starvation": 0,
+            "overload": 0,
+            "maintenance": 0,
+            **update.death_causes,
+        }
+        self.cumulative_births += update.births
+        self.cumulative_deaths += update.deaths
+        for cause, count in update.death_causes.items():
+            self.cumulative_death_causes[cause] += count
         self._replay_current(events=update.events)
 
+    def rewire_now(self) -> None:
+        """Compatibility alias for the former structural-cycle command."""
+
+        self.lifecycle_now()
+
     @torch.no_grad()
-    def _reset_synapse_optimizer_state(self, changed_edges: torch.Tensor) -> None:
-        """Clear Adam moments belonging to dendrite slots that changed identity."""
+    def _reset_mutation_optimizer_state(
+        self, changed_edges: torch.Tensor, changed_sites: torch.Tensor
+    ) -> None:
+        """Clear Adam moments for dendrite identities and inherited genotypes."""
 
         parameter = self.model.substrate.synapse_weight
         state = self.synapse_optimizer.state.get(parameter, {})
@@ -398,6 +469,12 @@ class MnistExperiment:
             value = state.get(key)
             if isinstance(value, torch.Tensor) and value.shape == changed_edges.shape:
                 value.masked_fill_(changed_edges, 0)
+        genotype = self.model.substrate.genotype
+        genotype_state = self.optimizer.state.get(genotype, {})
+        for key in ("exp_avg", "exp_avg_sq", "max_exp_avg_sq"):
+            value = genotype_state.get(key)
+            if isinstance(value, torch.Tensor) and value.shape == genotype.shape:
+                value[changed_sites] = 0
 
     @torch.no_grad()
     def _replay_current(self, *, events: list[dict[str, Any]] | None = None) -> None:
@@ -471,6 +548,12 @@ class MnistExperiment:
     @property
     def structural_warmup_remaining(self) -> int:
         return max(0, self.config.structural_warmup_trials - self.training_step)
+
+    @property
+    def lifecycle_warmup_remaining(self) -> int:
+        if not self.config.lifecycle_enabled:
+            return 0
+        return max(0, self.config.lifecycle_warmup_trials - self.training_step)
 
     @property
     def learning_phase(self) -> str:

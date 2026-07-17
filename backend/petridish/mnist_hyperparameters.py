@@ -64,6 +64,9 @@ SPECS: dict[str, HyperparameterSpec] = {
     "edge_grace_trials": HyperparameterSpec("edge grace trials", "growth & pruning", 1, 512, 1),
     "prune_utility": HyperparameterSpec("prune utility floor", "growth & pruning", 0, 0.2, 0.001),
     "max_pruned_per_generation": HyperparameterSpec("prune budget", "growth & pruning", 0, 4_096, 32),
+    "lifecycle_enabled": HyperparameterSpec("lifecycle enabled (0/1)", "homeostasis", 0, 1, 1),
+    "lifecycle_warmup_trials": HyperparameterSpec("lifecycle warm-up", "homeostasis", 0, 5_000, 1),
+    "lifecycle_interval": HyperparameterSpec("lifecycle interval", "homeostasis", 1, 128, 1),
     "juvenile_trials": HyperparameterSpec("juvenile grace trials", "homeostasis", 1, 1_024, 1),
     "target_stimulation_min": HyperparameterSpec("stimulation minimum", "homeostasis", 0, 0.5, 0.001),
     "target_stimulation_max": HyperparameterSpec("traffic maximum", "homeostasis", 0.01, 2, 0.01),
@@ -76,6 +79,9 @@ SPECS: dict[str, HyperparameterSpec] = {
     "max_deaths_per_generation": HyperparameterSpec("death budget", "homeostasis", 0, 2_048, 16),
     "births_per_generation": HyperparameterSpec("birth budget", "homeostasis", 0, 1_024, 16),
     "birth_signal": HyperparameterSpec("birth signal", "homeostasis", 0, 0.5, 0.005),
+    "birth_local_density_max": HyperparameterSpec("birth local density ceiling", "homeostasis", 0, 1, 0.01),
+    "birth_energy": HyperparameterSpec("newborn energy", "homeostasis", 0.05, 1, 0.05),
+    "inheritance_noise": HyperparameterSpec("genotype mutation noise", "homeostasis", 0, 0.5, 0.005),
 }
 
 

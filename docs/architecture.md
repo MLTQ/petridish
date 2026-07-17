@@ -22,6 +22,8 @@ Persistent per-site state includes:
 | Neuron credit | Magnitude of retained-state loss gradient |
 | Task utility | Reward/credit-weighted slow value |
 | Age | Trials survived since birth |
+| Homeostatic stress | Normalized starvation or overload pressure |
+| Parent / lineage | Reproductive source site and inherited generation depth |
 | Candidate IDs/counters | Nearby emitting sources being considered |
 | Genotype | Trainable site-specific identity that FiLM-modulates the shared rule |
 | Query/key/emission EMA | Slow memory of what a neuron requests and advertises |
@@ -41,7 +43,7 @@ sources support at most eight axons by default.
 Initial dendrites are local and preferentially select farther-left sources,
 providing a physically traversable input-to-output bridge without defining a
 task-specific connectome. The default 8-cell discovery radius keeps broadcasts
-local; twelve recurrent steps provide enough depth to cross the smaller field.
+local; twenty recurrent steps provide enough depth to cross the field.
 
 For new growth, a target samples a bounded set of physically local sources.
 Repeated emission by the same source increments a target-local candidate
@@ -95,11 +97,17 @@ At a slower structural cadence:
 This order lets overload first create local growth demand and alternate paths;
 death is a sustained outcome rather than an instantaneous response.
 
-Automatic structural mutation and metabolic energy pressure are disabled during
-the initial learning warm-up. Training first fits only the fixed output-bank
-probe, then unlocks the shared cellular rule, then synapses. Structure additionally
-requires accuracy competence or a measured learning plateau. Signed removal
+Metabolic pressure and population turnover have their own activation warm-up.
+Training first fits the fixed output-bank probe, then unlocks the shared cellular
+rule and synapses. Free-form pruning and candidate-based growth additionally
+require accuracy competence or a measured learning plateau. Signed removal
 credit is percentile-normalized, so harmful influence receives no protection.
+
+Newborn sites select a locally active parent with available axon capacity,
+inherit its genotype with configurable Gaussian mutation, and begin with one
+parent-to-child dendrite. Adam moments for replaced genotype rows and changed
+dendrite slots are cleared so inheritance is not contaminated by a prior occupant.
+Deaths are classified by dominant starvation, overload, or maintenance pressure.
 
 ## Overfit curriculum and diagnostics
 

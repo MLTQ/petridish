@@ -11,13 +11,6 @@
       <span class="status-dot"></span>
       <span>connecting</span>
     </div>
-    <label class="experiment-control">
-      Experiment
-      <select id="experiment-select">
-        <option value="xor">Delayed XOR</option>
-        <option value="mnist">MNIST spatial organism</option>
-      </select>
-    </label>
     <div class="top-metrics" aria-label="Experiment metrics">
       <div><span>tick</span><strong id="metric-tick">0</strong></div>
       <div><span id="metric-objective-label">reward</span><strong id="metric-reward">0.000</strong></div>
@@ -45,6 +38,9 @@
             <option value="utility">task utility</option>
             <option value="genotype_norm">genotype magnitude</option>
             <option value="emission">emit gate</option>
+            <option value="stress">homeostatic stress</option>
+            <option value="age">neuron age</option>
+            <option value="lineage">lineage depth</option>
             <option value="alive">viability</option>
           </select>
         </label>
@@ -66,12 +62,12 @@
       <section class="panel task-panel">
         <div class="section-heading">
           <div>
-            <span class="eyebrow" id="task-name">delayed xor</span>
-            <h2 id="task-phase">Cue</h2>
+            <span class="eyebrow" id="task-name">mnist spatial neural organism</span>
+            <h2 id="task-phase">Input — 49 patch neurons</h2>
           </div>
           <span class="phase-badge" id="phase-badge">cue</span>
         </div>
-        <div class="mnist-preview" id="mnist-preview-panel" hidden>
+        <div class="mnist-preview" id="mnist-preview-panel">
           <canvas id="mnist-preview" width="28" height="28" aria-label="Current MNIST digit"></canvas>
           <div>
             <span>held-out accuracy</span>
@@ -80,19 +76,14 @@
           </div>
         </div>
         <div class="task-state">
-          <div><span id="task-label-a">A</span><strong id="task-a">0</strong></div>
-          <div><span id="task-label-b">B</span><strong id="task-b">0</strong></div>
-          <div><span id="task-label-target">target</span><strong id="task-target">0</strong></div>
-          <div><span id="task-label-prediction">guess</span><strong id="task-prediction">—</strong></div>
+          <div><span id="task-label-a">label</span><strong id="task-a">0</strong></div>
+          <div><span id="task-label-b">guess</span><strong id="task-b">0</strong></div>
+          <div><span id="task-label-target">confidence</span><strong id="task-target">10%</strong></div>
+          <div><span id="task-label-prediction">update</span><strong id="task-prediction">0</strong></div>
         </div>
-        <div class="button-row" id="xor-controls">
-          <button id="stim-a" type="button">Stim A</button>
-          <button id="stim-b" type="button">Stim B</button>
-          <button id="reward" type="button">+ Reward</button>
-        </div>
-        <div class="button-row two" id="mnist-controls" hidden>
+        <div class="button-row two" id="mnist-controls">
           <button id="evaluate" type="button">Evaluate test set</button>
-          <button id="rewire" type="button">Structural cycle</button>
+          <button id="lifecycle-cycle" type="button">Lifecycle cycle</button>
         </div>
       </section>
 
@@ -118,8 +109,8 @@
             <h2>Simulation speed</h2>
           </div>
           <select id="speed-select" aria-label="Simulation steps per frame">
-            <option value="1">1×</option>
-            <option value="2" selected>2×</option>
+            <option value="1" selected>1×</option>
+            <option value="2">2×</option>
             <option value="4">4×</option>
             <option value="8">8×</option>
             <option value="16">16×</option>
@@ -130,14 +121,19 @@
         <div class="device-row"><span>mean |weight|</span><strong id="metric-weight">0.000</strong></div>
         <div class="device-row"><span>synapse Δ / |w|</span><strong id="metric-synapse-update">—</strong></div>
         <div class="device-row"><span>learning phase</span><strong id="metric-learning-phase">—</strong></div>
+        <div class="device-row"><span>lifecycle</span><strong id="metric-lifecycle">—</strong></div>
         <div class="device-row"><span>structure</span><strong id="metric-structure">—</strong></div>
+        <div class="device-row"><span>mean energy · stress</span><strong id="metric-homeostasis">—</strong></div>
+        <div class="device-row"><span>mean neuron age</span><strong id="metric-age">—</strong></div>
+        <div class="device-row"><span>population turnover</span><strong id="metric-turnover">—</strong></div>
+        <div class="device-row"><span>last death causes</span><strong id="metric-death-causes">—</strong></div>
         <div class="device-row"><span>input → output hops</span><strong id="metric-hops">—</strong></div>
         <div class="device-row"><span>outputs reachable in time</span><strong id="metric-reachability">—</strong></div>
         <div class="device-row"><span>attention entropy</span><strong id="metric-attention">—</strong></div>
         <div class="device-row"><span>effective parameters</span><strong id="metric-parameters">—</strong></div>
       </section>
 
-      <section class="panel hyperparameter-panel" id="hyperparameter-panel" hidden>
+      <section class="panel hyperparameter-panel" id="hyperparameter-panel">
         <details>
           <summary>
             <span>

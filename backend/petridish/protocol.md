@@ -12,12 +12,12 @@ by the browser.
 - **Interacts with**: Derived from `Channel`.
 
 ### `build_snapshot`
-- **Does**: Dispatches MNIST experiments to their projector or copies XOR cells,
+- **Does**: Dispatches MNIST and token-sequence experiments to their projectors or copies XOR cells,
   edges, events, task status, and metrics to CPU-backed JSON-safe values.
 - **Interacts with**: `ExperimentRuntime.broadcast` and frontend `protocol.ts`.
 - **Rationale**: Snapshotting is the only deliberate accelerator-to-CPU boundary.
 - **Does**: Leaves task-specific configuration payloads intact when dispatching
-  to the MNIST projector.
+  to the MNIST or sequence projector.
 
 ## Contracts
 
@@ -31,5 +31,5 @@ by the browser.
 
 ## Notes
 
-MNIST transmits only occupied rows and a bounded, importance-ranked subset of
-real edges. This module remains the seam for a later binary transport.
+Learned experiments transmit only occupied rows and a bounded, importance-ranked
+subset of real edges. This module remains the seam for a later binary transport.

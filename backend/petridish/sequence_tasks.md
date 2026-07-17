@@ -1,0 +1,34 @@
+# sequence_tasks.py
+
+## Purpose
+
+Defines small generated sequence distributions that test capabilities on the
+path from spatial classification to language modeling.
+
+## Components
+
+### `SequenceBatch`
+- **Does**: Carries token inputs, aligned targets, and an explicit loss mask.
+
+### `SequenceTask`
+- **Does**: Names a distribution, vocabulary, sequence length, and deterministic
+  batch generator.
+
+### `associative_recall_batch`
+- **Does**: Generates three random key/value bindings and a delayed query whose
+  answer is supervised only at the final position.
+- **Rationale**: Success requires content-addressed memory rather than local
+  next-token frequency.
+
+### `tiny_language_batch`
+- **Does**: Generates a compositional grammar and supervises every next token.
+- **Rationale**: The verb is an XOR-like function of two earlier tokens, so a
+  one-token Markov model cannot solve the deterministic portion.
+
+## Contracts
+
+| Dependent | Expects | Breaking changes |
+|-----------|---------|------------------|
+| `sequence_experiment.py` | Masked targets use `-100` outside supervision | Mask semantics |
+| Frontend | Vocabulary indices remain stable within a run | Token reordering |
+| Benchmarks | Generators are deterministic for a supplied torch generator | RNG source |

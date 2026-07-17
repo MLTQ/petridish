@@ -125,6 +125,8 @@ def test_mnist_experiment_emits_real_feedback_and_sparse_snapshot() -> None:
     assert snapshot["task"]["phase"] == "feedback"
     assert snapshot["task"]["generation"] == 0
     assert snapshot["task"]["structuralWarmupRemaining"] == experiment.config.structural_warmup_trials - 1
+    assert snapshot["task"]["lifecycleWarmupRemaining"] == experiment.config.lifecycle_warmup_trials - 1
+    assert snapshot["task"]["lifecycleActive"] is False
     assert len(snapshot["task"]["image"]) == 784
     assert len(snapshot["field"]["indices"]) == snapshot["metrics"]["livingCells"]
     assert len(snapshot["field"]["cells"]) == len(snapshot["field"]["indices"])
@@ -136,6 +138,8 @@ def test_mnist_experiment_emits_real_feedback_and_sparse_snapshot() -> None:
     assert snapshot["metrics"]["synapseUpdateRatio"] == 0
     assert snapshot["metrics"]["minimumOutputHops"] is not None
     assert snapshot["metrics"]["activeParameters"] > snapshot["metrics"]["edgeCount"]
+    assert snapshot["metrics"]["meanEnergy"] > 0
+    assert snapshot["metrics"]["turnoverEvents"] == 0
     assert len({len(values) for values in snapshot["edges"].values()}) == 1
     assert len(snapshot["configuration"]["parameters"]) == len(fields(MnistModelConfig))
 
@@ -205,9 +209,69 @@ def test_structural_cycle_kills_depleted_nonanchors_but_preserves_interfaces() -
     update = substrate.structural_step()
 
     assert update.deaths >= 5
+    assert update.death_causes["starvation"] >= 5
     assert not substrate.occupied[victims].any()
     assert substrate.occupied[substrate.input_sites].all()
     assert substrate.occupied[substrate.output_sites].all()
+
+
+def test_newborn_inherits_parent_genotype_and_one_real_dendrite() -> None:
+    config = replace(
+        tiny_config(),
+        births_per_generation=1,
+        birth_signal=0.001,
+        birth_local_density_max=1,
+        inheritance_noise=0,
+        max_deaths_per_generation=0,
+    )
+    model = CellularGraphClassifier(config, seed=19)
+    substrate = model.substrate
+    before = substrate.occupied.clone()
+    substrate.stimulation_ema[substrate.occupied] = 1
+
+    update = substrate.structural_step(
+        apply_lifecycle=True, apply_topology=False
+    )
+    newborns = (substrate.occupied & ~before).nonzero(as_tuple=False).squeeze(1)
+
+    assert update.births == 1
+    assert newborns.numel() == 1
+    child = int(newborns[0])
+    parent = int(substrate.parent_site[child])
+    assert parent >= 0
+    assert torch.equal(substrate.genotype[child], substrate.genotype[parent])
+    assert substrate.lineage_depth[child] == substrate.lineage_depth[parent] + 1
+    assert parent in substrate.dendrite_source[child].tolist()
+    assert update.changed_sites[child]
+
+
+def test_lifecycle_pressure_activates_before_topology_plasticity() -> None:
+    dataset = synthetic_digits()
+    config = replace(
+        tiny_config(),
+        lifecycle_warmup_trials=1,
+        lifecycle_interval=1,
+        structural_warmup_trials=1_000,
+        births_per_generation=0,
+        max_deaths_per_generation=0,
+        target_stimulation_min=100.0,
+        target_stimulation_max=200.0,
+    )
+    experiment = MnistExperiment(
+        config,
+        seed=23,
+        device="cpu",
+        train_dataset=dataset,
+        test_dataset=dataset,
+    )
+
+    experiment._train_trial()
+
+    assert experiment.lifecycle_active is True
+    assert experiment.structure_unlocked is False
+    assert experiment.model.substrate.generation == 1
+    interior = experiment.model.substrate.occupied & ~experiment.model.substrate.anchor_mask
+    assert (experiment.model.substrate.energy[interior] < 1).any()
 
 
 def test_repeated_local_source_evidence_forms_a_real_dendrite() -> None:

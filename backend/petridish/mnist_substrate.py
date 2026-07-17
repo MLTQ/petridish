@@ -10,6 +10,7 @@ from typing import Any
 import torch
 from torch import nn
 
+from .graph_layout import GraphLayout, resolve_layout
 from .mnist_config import MnistModelConfig
 
 
@@ -31,8 +32,10 @@ class StructuralUpdate:
 
     events: list[dict[str, Any]]
     changed_edges: torch.Tensor
+    changed_sites: torch.Tensor
     births: int
     deaths: int
+    death_causes: dict[str, int]
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,12 +51,18 @@ class GraphDiagnostics:
 class SpatialSubstrate(nn.Module):
     """Own a persistent population embedded in a fixed positional tensor."""
 
-    input_count = 49
-    output_count = 10
-
-    def __init__(self, config: MnistModelConfig, *, seed: int = 1) -> None:
+    def __init__(
+        self,
+        config: MnistModelConfig,
+        *,
+        layout: str | GraphLayout = "mnist",
+        seed: int = 1,
+    ) -> None:
         super().__init__()
         self.config = config
+        self.layout = resolve_layout(layout)
+        self.input_count = self.layout.input_count
+        self.output_count = self.layout.output_count
         generator = torch.Generator().manual_seed(seed)
         site_count = config.site_count
         y = torch.arange(config.height).repeat_interleave(config.width)
@@ -97,9 +106,12 @@ class SpatialSubstrate(nn.Module):
         self.register_buffer("energy", torch.where(occupied, torch.ones(site_count), torch.zeros(site_count)))
         self.register_buffer("stimulation_ema", torch.zeros(site_count))
         self.register_buffer("load_ema", torch.zeros(site_count))
+        self.register_buffer("homeostatic_stress", torch.zeros(site_count))
         self.register_buffer("neuron_credit", torch.zeros(site_count))
         self.register_buffer("neuron_utility", torch.zeros(site_count))
         self.register_buffer("neuron_age", torch.zeros(site_count, dtype=torch.long))
+        self.register_buffer("lineage_depth", torch.zeros(site_count, dtype=torch.long))
+        self.register_buffer("parent_site", torch.full((site_count,), -1, dtype=torch.long))
         self.register_buffer("dendrite_source", dendrite_source)
         self.register_buffer("edge_age", torch.zeros(shape, dtype=torch.long))
         self.register_buffer(
@@ -122,14 +134,28 @@ class SpatialSubstrate(nn.Module):
 
     def _input_sites(self) -> torch.Tensor:
         cfg = self.config
-        rows = torch.linspace(7, cfg.height - 8, 7).round().long()
-        sites = [int(rows[row]) * cfg.width + 1 + column for row in range(7) for column in range(7)]
-        return torch.tensor(sites, dtype=torch.long)
+        if self.input_count == 49:
+            rows = torch.linspace(7, cfg.height - 8, 7).round().long()
+            sites = [
+                int(rows[row]) * cfg.width
+                + (1 + column if self.layout.input_side == "left" else cfg.width - 2 - column)
+                for row in range(7)
+                for column in range(7)
+            ]
+        else:
+            rows = torch.linspace(3, cfg.height - 4, self.input_count).round().long()
+            column = 1 if self.layout.input_side == "left" else cfg.width - 2
+            sites = (rows * cfg.width + column).tolist()
+        order = torch.tensor(self.layout.input_position_order, dtype=torch.long)
+        return torch.tensor(sites, dtype=torch.long)[order]
 
     def _output_sites(self) -> torch.Tensor:
         cfg = self.config
         rows = torch.linspace(6, cfg.height - 7, self.output_count).round().long()
-        return rows * cfg.width + (cfg.width - 2)
+        column = 1 if self.layout.output_side == "left" else cfg.width - 2
+        base = rows * cfg.width + column
+        order = torch.tensor(self.layout.output_position_order, dtype=torch.long)
+        return base[order]
 
     def _build_probes(
         self, x: torch.Tensor, y: torch.Tensor, generator: torch.Generator
@@ -154,7 +180,9 @@ class SpatialSubstrate(nn.Module):
         source = source.masked_fill(~valid, -1)
         distance = offset.float().square().sum(dim=1).sqrt()
         kernel = torch.exp(-0.5 * (distance / max(1.0, cfg.local_radius * 0.58)).square())
-        forward = (-offset[:, 0]).clamp_min(0).float() / max(1, cfg.local_radius)
+        forward = (
+            -self.layout.flow_direction * offset[:, 0]
+        ).clamp_min(0).float() / max(1, cfg.local_radius)
         return source, 0.15 * kernel + 1.4 * forward
 
     def _initial_dendrites(
@@ -265,22 +293,43 @@ class SpatialSubstrate(nn.Module):
         """Update slow metabolic and task statistics after one differentiable trial."""
 
         cfg = self.config
-        self.stimulation_ema[sites].lerp_(stimulation, 0.06)
-        self.load_ema[sites].lerp_(load, 0.06)
+        self.stimulation_ema[sites] = torch.lerp(
+            self.stimulation_ema[sites], stimulation, 0.06
+        )
+        self.load_ema[sites] = torch.lerp(self.load_ema[sites], load, 0.06)
+        starvation_stress = (
+            (cfg.target_stimulation_min - self.stimulation_ema[sites]).clamp_min(0)
+            / max(cfg.target_stimulation_min, 1e-6)
+        )
+        overload_stress = (
+            (self.load_ema[sites] - cfg.target_stimulation_max).clamp_min(0)
+            / max(cfg.target_stimulation_max, 1e-6)
+        )
+        self.homeostatic_stress[sites] = torch.lerp(
+            self.homeostatic_stress[sites],
+            torch.maximum(starvation_stress, overload_stress).clamp_max(4),
+            0.08,
+        )
         self.neuron_credit.mul_(0.94)
-        self.neuron_credit[sites].add_(0.06 * neuron_credit)
+        self.neuron_credit[sites] = self.neuron_credit[sites] + 0.06 * neuron_credit
         positive_neuron_credit = neuron_credit.clamp_min(0)
         neuron_scale = positive_neuron_credit.quantile(0.95).clamp_min(1e-12)
         neuron_signal = (positive_neuron_credit / neuron_scale).clamp_max(1)
         self.neuron_utility.mul_(0.99)
-        self.neuron_utility[sites].add_(
-            0.02 * (max(0.0, reward) * stimulation.clamp_max(1) + neuron_signal)
+        self.neuron_utility[sites] = self.neuron_utility[sites] + 0.02 * (
+            max(0.0, reward) * stimulation.clamp_max(1) + neuron_signal
         )
         self.edge_flow.lerp_(edge_flow, cfg.edge_stat_rate)
         self.edge_credit.lerp_(edge_credit, cfg.edge_stat_rate)
-        self.query_ema[sites].lerp_(advertised_query, 0.06)
-        self.key_ema[sites].lerp_(advertised_key, 0.06)
-        self.emission_ema[sites].lerp_(emission, 0.06)
+        self.query_ema[sites] = torch.lerp(
+            self.query_ema[sites], advertised_query, 0.06
+        )
+        self.key_ema[sites] = torch.lerp(
+            self.key_ema[sites], advertised_key, 0.06
+        )
+        self.emission_ema[sites] = torch.lerp(
+            self.emission_ema[sites], emission, 0.06
+        )
         positive_edge_credit = edge_credit.clamp_min(0)
         active = self.active_edge_mask
         if active.any():
@@ -309,7 +358,7 @@ class SpatialSubstrate(nn.Module):
                 - overload
                 - maintenance
             )
-            self.energy[sites].add_(delta).clamp_(0, 1)
+            self.energy[sites] = (self.energy[sites] + delta).clamp(0, 1)
         self.energy[self.anchor_mask] = 1
         self.neuron_age[self.occupied] += 1
         self.edge_age[self.active_edge_mask] += 1
@@ -317,24 +366,30 @@ class SpatialSubstrate(nn.Module):
         self.synapse_weight.masked_fill_(~self.active_edge_mask, 0)
 
     @torch.no_grad()
-    def structural_step(self) -> StructuralUpdate:
-        """Prune, discover source IDs, form dendrites, kill, and seed neurons."""
+    def structural_step(
+        self, *, apply_lifecycle: bool = True, apply_topology: bool = True
+    ) -> StructuralUpdate:
+        """Run independently gated lifecycle and topology mutations."""
 
         self.generation += 1
         cfg = self.config
         events: list[dict[str, Any]] = []
         changed = torch.zeros_like(self.dendrite_source, dtype=torch.bool)
+        changed_sites = torch.zeros_like(self.occupied)
 
         invalid = (self.dendrite_source >= 0) & ~self.active_edge_mask
-        pruneable = self.active_edge_mask & (self.edge_age >= cfg.edge_grace_trials)
-        pruneable &= self.edge_utility < cfg.prune_utility
-        candidates = pruneable.nonzero(as_tuple=False)
-        if candidates.shape[0] > cfg.max_pruned_per_generation:
-            score = self.edge_utility[candidates[:, 0], candidates[:, 1]]
-            candidates = candidates[torch.topk(score, cfg.max_pruned_per_generation, largest=False).indices]
         prune_mask = invalid.clone()
-        if candidates.numel():
-            prune_mask[candidates[:, 0], candidates[:, 1]] = True
+        if apply_topology:
+            pruneable = self.active_edge_mask & (self.edge_age >= cfg.edge_grace_trials)
+            pruneable &= self.edge_utility < cfg.prune_utility
+            candidates = pruneable.nonzero(as_tuple=False)
+            if candidates.shape[0] > cfg.max_pruned_per_generation:
+                score = self.edge_utility[candidates[:, 0], candidates[:, 1]]
+                candidates = candidates[
+                    torch.topk(score, cfg.max_pruned_per_generation, largest=False).indices
+                ]
+            if candidates.numel():
+                prune_mask[candidates[:, 0], candidates[:, 1]] = True
         for target, slot in prune_mask.nonzero(as_tuple=False)[:160].tolist():
             source = int(self.dendrite_source[target, slot])
             if source >= 0:
@@ -342,16 +397,37 @@ class SpatialSubstrate(nn.Module):
         self._clear_edges(prune_mask)
         changed |= prune_mask
 
-        deaths = self._apply_death(events)
+        dead_sites, death_causes = (
+            self._apply_death(events)
+            if apply_lifecycle
+            else (torch.empty(0, dtype=torch.long, device=self.occupied.device), {})
+        )
+        changed_sites[dead_sites] = True
         dead_edges = (self.dendrite_source >= 0) & ~self.active_edge_mask
         self._clear_edges(dead_edges)
         changed |= dead_edges
-        births = self._apply_birth(events)
-        grown = self._discover_and_grow(events)
-        changed |= grown
+        born_sites, birth_edges = (
+            self._apply_birth(events)
+            if apply_lifecycle
+            else (
+                torch.empty(0, dtype=torch.long, device=self.occupied.device),
+                torch.zeros_like(self.dendrite_source, dtype=torch.bool),
+            )
+        )
+        changed_sites[born_sites] = True
+        changed |= birth_edges
+        if apply_topology:
+            changed |= self._discover_and_grow(events)
         self.roles[:, 0] = self.occupied.float()
         self._diagnostic_cache = None
-        return StructuralUpdate(events, changed, births, deaths)
+        return StructuralUpdate(
+            events,
+            changed,
+            changed_sites,
+            int(born_sites.numel()),
+            int(dead_sites.numel()),
+            death_causes,
+        )
 
     @torch.no_grad()
     def _clear_edges(self, mask: torch.Tensor) -> None:
@@ -362,7 +438,9 @@ class SpatialSubstrate(nn.Module):
         self.edge_flow[mask] = 0
         self.edge_credit[mask] = 0
 
-    def _apply_death(self, events: list[dict[str, Any]]) -> int:
+    def _apply_death(
+        self, events: list[dict[str, Any]]
+    ) -> tuple[torch.Tensor, dict[str, int]]:
         cfg = self.config
         eligible = self.occupied & ~self.anchor_mask
         eligible &= self.neuron_age >= cfg.juvenile_trials
@@ -371,23 +449,45 @@ class SpatialSubstrate(nn.Module):
         if sites.numel() > cfg.max_deaths_per_generation:
             sites = sites[torch.topk(self.energy[sites], cfg.max_deaths_per_generation, largest=False).indices]
         if not sites.numel():
-            return 0
+            return sites, {}
+        starvation = (cfg.target_stimulation_min - self.stimulation_ema[sites]).clamp_min(0)
+        overload = (self.load_ema[sites] - cfg.target_stimulation_max).clamp_min(0)
+        maintenance = torch.full_like(starvation, cfg.maintenance_cost)
+        cause_index = torch.stack((starvation, overload, maintenance), dim=1).argmax(dim=1)
+        cause_names = ("starvation", "overload", "maintenance")
+        death_causes = {
+            name: int((cause_index == index).sum())
+            for index, name in enumerate(cause_names)
+        }
         self.occupied[sites] = False
         self.energy[sites] = 0
         self.stimulation_ema[sites] = 0
         self.load_ema[sites] = 0
+        self.homeostatic_stress[sites] = 0
         self.neuron_credit[sites] = 0
         self.neuron_utility[sites] = 0
         self.query_ema[sites] = 0
         self.key_ema[sites] = 0
         self.emission_ema[sites] = 0
+        self.neuron_age[sites] = 0
+        self.lineage_depth[sites] = 0
+        self.parent_site[sites] = -1
         self.candidate_source[sites] = -1
         self.candidate_counter[sites] = 0
-        for site in sites[:80].tolist():
-            events.append({"type": "died", "source": site, "destination": site})
-        return int(sites.numel())
+        for offset, site in enumerate(sites[:80].tolist()):
+            events.append(
+                {
+                    "type": "died",
+                    "source": site,
+                    "destination": site,
+                    "cause": cause_names[int(cause_index[offset])],
+                }
+            )
+        return sites, death_causes
 
-    def _best_local_source(self) -> tuple[torch.Tensor, torch.Tensor]:
+    def _best_local_source(
+        self, *, require_axon_capacity: bool = False
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         safe = self.probe_source.clamp_min(0)
         target_query = self.query_ema.unsqueeze(1)
         source_key = self.key_ema[safe]
@@ -402,33 +502,90 @@ class SpatialSubstrate(nn.Module):
         )
         evidence = source_signal * self.probe_kernel.unsqueeze(0)
         evidence = evidence.masked_fill((self.probe_source < 0) | ~self.occupied[safe], -1)
+        if require_axon_capacity:
+            _, _, existing_sources = self.edge_list()
+            outgoing = torch.bincount(
+                existing_sources, minlength=self.config.site_count
+            )
+            evidence = evidence.masked_fill(
+                outgoing[safe] >= self.config.axon_slots, -1
+            )
         best_evidence, best_slot = evidence.max(dim=1)
         best_source = self.probe_source.gather(1, best_slot.unsqueeze(1)).squeeze(1)
         return best_source, best_evidence
 
-    def _apply_birth(self, events: list[dict[str, Any]]) -> int:
+    def _apply_birth(
+        self, events: list[dict[str, Any]]
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         cfg = self.config
-        best_source, evidence = self._best_local_source()
+        changed = torch.zeros_like(self.dendrite_source, dtype=torch.bool)
+        best_source, evidence = self._best_local_source(require_axon_capacity=True)
+        safe = self.probe_source.clamp_min(0)
+        valid_probe = self.probe_source >= 0
+        local_density = (
+            (self.occupied[safe] & valid_probe).sum(dim=1).float()
+            / valid_probe.sum(dim=1).clamp_min(1)
+        )
         eligible = ~self.occupied & ~self.anchor_mask & (evidence >= cfg.birth_signal)
-        sites = eligible.nonzero(as_tuple=False).squeeze(1)
-        if sites.numel() > cfg.births_per_generation:
-            sites = sites[torch.topk(evidence[sites], cfg.births_per_generation).indices]
-        if not sites.numel():
-            return 0
+        eligible &= local_density <= cfg.birth_local_density_max
+        candidates = eligible.nonzero(as_tuple=False).squeeze(1)
+        if not candidates.numel() or cfg.births_per_generation <= 0:
+            return candidates[:0], changed
+        candidates = candidates[torch.argsort(evidence[candidates], descending=True)]
+        _, _, existing_sources = self.edge_list()
+        outgoing = torch.bincount(
+            existing_sources, minlength=cfg.site_count
+        ).cpu().tolist()
+        accepted_sites: list[int] = []
+        accepted_parents: list[int] = []
+        for site in candidates.cpu().tolist():
+            parent = int(best_source[site])
+            if parent < 0 or outgoing[parent] >= cfg.axon_slots:
+                continue
+            accepted_sites.append(site)
+            accepted_parents.append(parent)
+            outgoing[parent] += 1
+            if len(accepted_sites) >= cfg.births_per_generation:
+                break
+        if not accepted_sites:
+            return candidates[:0], changed
+        sites = torch.tensor(accepted_sites, device=self.occupied.device, dtype=torch.long)
+        parents = torch.tensor(accepted_parents, device=self.occupied.device, dtype=torch.long)
         self.occupied[sites] = True
-        self.energy[sites] = 0.62
+        self.energy[sites] = cfg.birth_energy
         self.neuron_age[sites] = 0
         self.stimulation_ema[sites] = 0
         self.load_ema[sites] = 0
+        self.homeostatic_stress[sites] = 0
+        self.neuron_credit[sites] = 0
         self.neuron_utility[sites] = 0
         self.query_ema[sites] = 0
         self.key_ema[sites] = 0
         self.emission_ema[sites] = 0
         self.candidate_source[sites] = -1
         self.candidate_counter[sites] = 0
-        for site in sites[:80].tolist():
-            events.append({"type": "born", "source": int(best_source[site]), "destination": site})
-        return int(sites.numel())
+        self.parent_site[sites] = parents
+        self.lineage_depth[sites] = self.lineage_depth[parents] + 1
+        self.genotype[sites] = (
+            self.genotype[parents]
+            + torch.randn_like(self.genotype[sites]) * cfg.inheritance_noise
+        )
+        birth_slot = torch.zeros_like(sites)
+        self.dendrite_source[sites, birth_slot] = parents
+        self.synapse_weight[sites, birth_slot] = cfg.initial_weight_scale
+        self.edge_age[sites, birth_slot] = 0
+        self.edge_utility[sites, birth_slot] = 0.04
+        changed[sites, birth_slot] = True
+        for site, parent in zip(
+            sites[:80].tolist(), parents[:80].tolist(), strict=True
+        ):
+            events.append(
+                {"type": "born", "source": parent, "destination": site}
+            )
+            events.append(
+                {"type": "grown", "source": parent, "destination": site}
+            )
+        return sites, changed
 
     def _discover_and_grow(self, events: list[dict[str, Any]]) -> torch.Tensor:
         cfg = self.config
@@ -492,6 +649,10 @@ class SpatialSubstrate(nn.Module):
         killed = damaged & self.occupied
         self.occupied[killed] = False
         self.energy[killed] = 0
+        self.homeostatic_stress[killed] = 0
+        self.neuron_age[killed] = 0
+        self.lineage_depth[killed] = 0
+        self.parent_site[killed] = -1
         invalid = (self.dendrite_source >= 0) & ~self.active_edge_mask
         self._clear_edges(invalid)
         self.roles[:, 0] = self.occupied.float()

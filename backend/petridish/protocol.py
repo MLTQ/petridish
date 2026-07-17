@@ -9,17 +9,23 @@ import numpy as np
 from .channels import Channel
 from .mnist_experiment import MnistExperiment
 from .mnist_protocol import build_mnist_snapshot
+from .sequence_experiment import SequenceExperiment
+from .sequence_protocol import build_sequence_snapshot
 from .simulation import PetriDishSimulation
 
 
 CHANNEL_NAMES = [channel.name.lower() for channel in Channel]
 
 
-def build_snapshot(simulation: PetriDishSimulation | MnistExperiment) -> dict[str, Any]:
+def build_snapshot(
+    simulation: PetriDishSimulation | MnistExperiment | SequenceExperiment,
+) -> dict[str, Any]:
     """Copy the current authoritative state to a compact JSON-safe structure."""
 
     if isinstance(simulation, MnistExperiment):
         return build_mnist_snapshot(simulation)
+    if isinstance(simulation, SequenceExperiment):
+        return build_sequence_snapshot(simulation)
 
     state = simulation.state
     cells = np.round(state.cells.detach().cpu().float().numpy(), 4)

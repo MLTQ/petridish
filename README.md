@@ -5,8 +5,8 @@ space. Neurons occupy sites in a positional tensor, retain metabolic and task
 state across examples, communicate through persistent directed dendrites, and
 undergo growth, pruning, birth, death, and lesions.
 
-Two experiments share the viewer: a 32×32 delayed-XOR cellular organism and a
-64×64 MNIST spatial neural organism.
+The viewer focuses on one 64×64 MNIST spatial neural organism so learning,
+routing, lifecycle pressure, and interventions remain directly comparable.
 
 ## Quick start
 
@@ -43,8 +43,10 @@ development, run `npm run dev` inside `frontend/` and use port 5173.
   original saturation and output-symmetry collapse.
 - Training follows balanced 20-, 256-, 1,000-, and full-MNIST stages; each fixed
   subset must meet its overfit target before advancing.
-- Automatic pruning, death, birth, and growth wait for minimum warm-up plus
-  accuracy competence or a measured plateau; manual cycles remain available.
+- Metabolic pressure and population turnover activate after their own warm-up;
+  free-form pruning/growth still wait for competence or a measured plateau.
+- Newborn neurons inherit a local parent's genotype with configurable mutation
+  noise and receive one real parent-to-child dendrite.
 - Actual retained-state gradients become the backward-credit phase. They are
   not synthetic animation.
 - Stimulation and traffic load update homeostatic energy separately from task
@@ -63,8 +65,8 @@ There are no decorative signal particles.
 - **Pause / Step**: inspect input, recurrent forward traffic, backward credit,
   and structural phases independently.
 - **Evaluate test set**: evaluate without weight or topology mutation.
-- **Structural cycle**: force pruning, candidate accumulation, growth, death,
-  and birth once.
+- **Lifecycle cycle**: force pruning, candidate accumulation, growth, death,
+  inheritance, and birth once.
 - **Lesion brush**: remove neurons and every incident dendrite at the selected
   physical positions.
 - **Edge floor**: presentation-only minimum absolute synaptic weight.
@@ -72,6 +74,8 @@ There are no decorative signal particles.
   homeostasis settings and apply them together by restarting the organism.
 - **Synapse Δ / |w|**: measured relative optimizer movement, not an animation.
 - **Structure**: reports the exact developmental unlock condition.
+- **Lifecycle**: reports activation, energy/stress, turnover, neuron age/lineage,
+  and starvation/overload/maintenance death causes.
 - **Diagnostics**: report learning phase, hop distance, outputs reachable within
   the recurrent time budget, attention entropy, and effective parameter count.
 

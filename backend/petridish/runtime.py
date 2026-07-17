@@ -11,33 +11,33 @@ from fastapi import WebSocket
 from .mnist_experiment import MnistExperiment
 from .mnist_hyperparameters import configured
 from .protocol import build_snapshot
-from .simulation import PetriDishSimulation
+from .sequence_experiment import SequenceExperiment
 
 
-Experiment = PetriDishSimulation | MnistExperiment
+LiveExperiment = MnistExperiment | SequenceExperiment
 
 
 class ExperimentRuntime:
-    """Run simulation ticks independently from connected WebSocket observers."""
+    """Run the MNIST organism independently from connected observers."""
 
     def __init__(self, *, seed: int = 1, device: str = "auto") -> None:
-        xor = PetriDishSimulation(seed=seed, device=device)
-        self.experiments: dict[str, Experiment] = {"xor": xor}
-        self.experiment_name = "xor"
+        self.seed = seed
+        self.device = device
+        self.experiments: dict[str, LiveExperiment] = {
+            "mnist": MnistExperiment(seed=seed, device=device)
+        }
+        self.experiment: LiveExperiment = self.experiments["mnist"]
+        self.experiment_name = "mnist"
         self.running = True
-        self.steps_per_frame = 2
+        self.steps_per_frame = 1
         self.frame_rate = 15
         self._clients: set[WebSocket] = set()
         self._lock = asyncio.Lock()
         self._loop_task: asyncio.Task[None] | None = None
 
     @property
-    def experiment(self) -> Experiment:
-        return self.experiments[self.experiment_name]
-
-    @property
-    def simulation(self) -> Experiment:
-        """Backward-compatible name for the currently selected experiment."""
+    def simulation(self) -> LiveExperiment:
+        """Backward-compatible name for the selected live experiment."""
 
         return self.experiment
 
@@ -101,29 +101,26 @@ class ExperimentRuntime:
                 device = str(self.experiment.device)
                 current = self.experiment
                 if isinstance(current, MnistExperiment):
-                    self.experiments["mnist"] = MnistExperiment(
-                        current.config,
-                        seed=seed,
-                        device=device,
-                        train_dataset=current.train_dataset,
-                        test_dataset=current.test_dataset,
+                    replacement: LiveExperiment = MnistExperiment(
+                        current.config, layout=current.layout, seed=seed, device=device,
+                        train_dataset=current.train_dataset, test_dataset=current.test_dataset,
                     )
                 else:
-                    self.experiments["xor"] = PetriDishSimulation(
-                        current.config, seed=seed, device=device
+                    replacement = SequenceExperiment(
+                        current.task, current.config, seed=seed, device=device
                     )
+                self.experiment = replacement
+                self.experiments[current.experiment_name] = replacement
             elif command == "experiment":
-                name = str(message.get("name", "xor"))
-                if name not in {"xor", "mnist"}:
+                name = str(message.get("name", "mnist"))
+                if name not in {"mnist", "associative_recall", "tiny_language"}:
                     raise ValueError(f"unknown experiment: {name}")
                 if name not in self.experiments:
-                    current = self.experiment
-                    self.experiments[name] = MnistExperiment(
-                        seed=current.seed,
-                        device=str(current.device),
+                    self.experiments[name] = SequenceExperiment(
+                        name, seed=self.seed, device=str(self.experiment.device)
                     )
+                self.experiment = self.experiments[name]
                 self.experiment_name = name
-                self.steps_per_frame = 1 if name == "mnist" else 2
             elif command == "speed":
                 self.steps_per_frame = max(1, min(64, int(message.get("steps", 2))))
             elif command == "lesion":
@@ -132,41 +129,29 @@ class ExperimentRuntime:
                     float(message.get("y", 0)),
                     max(0.5, min(12.0, float(message.get("radius", 2.5)))),
                 )
-            elif command == "stimulate":
-                if not isinstance(self.experiment, PetriDishSimulation):
-                    raise ValueError("manual stimuli are only available in the XOR experiment")
-                self.experiment.stimulate(
-                    str(message.get("region", "sensor_a")),
-                    float(message.get("amount", 1.2)),
-                    int(message.get("duration", 16)),
-                )
-            elif command == "reward":
-                if not isinstance(self.experiment, PetriDishSimulation):
-                    raise ValueError("manual reward is only available in the XOR experiment")
-                self.experiment.inject_reward(float(message.get("amount", 1.0)))
             elif command == "evaluate":
-                if not isinstance(self.experiment, MnistExperiment):
-                    raise ValueError("evaluation is only available in the MNIST experiment")
                 self.experiment.evaluate(int(message.get("batches", 5)))
-            elif command == "rewire":
-                if not isinstance(self.experiment, MnistExperiment):
-                    raise ValueError("structural cycles are only available in the MNIST experiment")
-                self.experiment.rewire_now()
+            elif command == "lifecycle":
+                self.experiment.lifecycle_now()
             elif command == "configure":
                 current = self.experiment
-                if not isinstance(current, MnistExperiment):
-                    raise ValueError("hyperparameters are only available in the MNIST experiment")
                 values = message.get("values", {})
                 if not isinstance(values, dict):
                     raise ValueError("hyperparameter values must be an object")
                 next_config = configured(current.config, values)
-                self.experiments["mnist"] = MnistExperiment(
-                    next_config,
-                    seed=current.seed,
-                    device=str(current.device),
-                    train_dataset=current.train_dataset,
-                    test_dataset=current.test_dataset,
-                )
+                if isinstance(current, MnistExperiment):
+                    replacement = MnistExperiment(
+                        next_config, layout=current.layout, seed=current.seed,
+                        device=str(current.device), train_dataset=current.train_dataset,
+                        test_dataset=current.test_dataset,
+                    )
+                else:
+                    replacement = SequenceExperiment(
+                        current.task, next_config, seed=current.seed,
+                        device=str(current.device),
+                    )
+                self.experiment = replacement
+                self.experiments[current.experiment_name] = replacement
             else:
                 raise ValueError(f"unknown command: {command}")
             snapshot = build_snapshot(self.experiment)

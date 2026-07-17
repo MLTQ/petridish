@@ -1,0 +1,308 @@
+"""Token-stream computation in a persistent spatial neural graph."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+import math
+from typing import Any, Iterable
+
+import torch
+from torch import nn
+from torch.nn import functional as F
+
+from .graph_layout import GraphLayout, resolve_layout
+from .mnist_config import MnistModelConfig
+from .mnist_substrate import GraphSnapshot, SpatialSubstrate
+
+
+@dataclass(slots=True)
+class SequenceFrame:
+    """Measured graph state after consuming one token."""
+
+    sites: torch.Tensor
+    state: torch.Tensor
+    stimulation: torch.Tensor
+    load: torch.Tensor
+    credit: torch.Tensor
+    input_signal: torch.Tensor
+    graph: GraphSnapshot
+    stage: str
+    step: int
+    token_position: int
+    events: list[dict[str, Any]]
+
+
+@dataclass(slots=True)
+class SequenceForward:
+    """Differentiable sequence predictions and local measurements."""
+
+    logits: torch.Tensor
+    sites: torch.Tensor
+    final_state: torch.Tensor
+    retained_states: list[torch.Tensor]
+    frames: list[SequenceFrame]
+    stimulation: torch.Tensor
+    load: torch.Tensor
+    edge_flow: torch.Tensor
+    advertised_query: torch.Tensor
+    advertised_key: torch.Tensor
+    emission: torch.Tensor
+    mean_attention_entropy: float
+
+
+class CellularSequenceModel(nn.Module):
+    """Apply one genotype-modulated recurrent rule at every living neuron."""
+
+    def __init__(
+        self,
+        config: MnistModelConfig,
+        *,
+        layout: str | GraphLayout,
+        vocab_size: int = 10,
+        max_length: int = 12,
+        seed: int = 1,
+    ) -> None:
+        super().__init__()
+        self.config = config
+        self.layout = resolve_layout(layout)
+        self.vocab_size = vocab_size
+        if self.layout.input_count != vocab_size or self.layout.output_count != vocab_size:
+            raise ValueError("sequence layouts require one input and output port per token")
+        torch.manual_seed(seed)
+        self.substrate = SpatialSubstrate(config, layout=self.layout, seed=seed)
+        hidden = config.hidden_channels
+        persistent_features = 2 + 3 + 4
+        self.context_rule = nn.Sequential(nn.Linear(persistent_features, hidden), nn.Tanh())
+        self.genotype_context = nn.Linear(config.genotype_channels, hidden)
+        self.genotype_film = nn.Linear(config.genotype_channels, hidden * 2)
+        self.token_identity = nn.Embedding(vocab_size, hidden)
+        self.position_identity = nn.Embedding(max_length, hidden)
+        self.output_identity = nn.Embedding(vocab_size, hidden)
+        self.message_norm = nn.LayerNorm(hidden, elementwise_affine=False)
+        self.message_query = nn.Linear(hidden, hidden, bias=False)
+        self.message_key = nn.Linear(hidden, hidden, bias=False)
+        self.message_value = nn.Linear(hidden, hidden, bias=False)
+        self.emit_gate = nn.Linear(hidden, 1)
+        self.cell_rule = nn.GRUCell(hidden * 2, hidden)
+        self.state_norm = nn.LayerNorm(hidden)
+        self.output_bank_readout = nn.Linear(hidden * vocab_size, vocab_size)
+        self.class_bias = nn.Parameter(torch.zeros(vocab_size))
+        self.message_gain_raw = nn.Parameter(
+            torch.tensor(math.log(math.expm1(config.message_gain)))
+        )
+        nn.init.normal_(self.token_identity.weight, std=0.18)
+        nn.init.normal_(self.position_identity.weight, std=0.08)
+        nn.init.normal_(self.output_identity.weight, std=0.18)
+        nn.init.normal_(self.output_bank_readout.weight, std=0.025)
+        nn.init.zeros_(self.output_bank_readout.bias)
+        nn.init.zeros_(self.cell_rule.bias_ih)
+        nn.init.zeros_(self.cell_rule.bias_hh)
+        with torch.no_grad():
+            self.message_value.weight.copy_(torch.eye(hidden))
+            self.emit_gate.weight.zero_()
+            self.emit_gate.bias.fill_(config.emit_gate_bias)
+
+    def shared_parameters(self) -> Iterable[nn.Parameter]:
+        for name, parameter in self.named_parameters():
+            if name != "substrate.synapse_weight":
+                yield parameter
+
+    def _persistent_features(self, sites: torch.Tensor, batch: int) -> torch.Tensor:
+        substrate = self.substrate
+        slow = torch.stack(
+            (
+                substrate.energy[sites],
+                substrate.stimulation_ema[sites],
+                substrate.load_ema[sites],
+                substrate.neuron_utility[sites].tanh(),
+            ),
+            dim=1,
+        )
+        values = torch.cat((substrate.coordinates[sites], substrate.roles[sites], slow), dim=1)
+        return values.unsqueeze(0).expand(batch, -1, -1)
+
+    def _read_logits(self, hidden: torch.Tensor, compact: torch.Tensor) -> torch.Tensor:
+        positions = compact[self.substrate.output_sites]
+        output = torch.zeros(
+            hidden.shape[0], self.vocab_size, self.config.hidden_channels,
+            device=hidden.device, dtype=hidden.dtype,
+        )
+        alive = positions >= 0
+        if alive.any():
+            output[:, alive] = hidden[:, positions[alive]]
+        return self.output_bank_readout(output.flatten(1)) + self.class_bias
+
+    def forward(self, tokens: torch.Tensor, *, capture_trace: bool = True) -> SequenceForward:
+        """Consume discrete tokens one at a time without clearing neuron state."""
+
+        cfg = self.config
+        substrate = self.substrate
+        batch, length = tokens.shape
+        sites = substrate.living_sites
+        compact = torch.full((cfg.site_count,), -1, dtype=torch.long, device=tokens.device)
+        compact[sites] = torch.arange(sites.numel(), device=tokens.device)
+        genotype = substrate.genotype[sites]
+        context = self.context_rule(self._persistent_features(sites, batch))
+        context = context + torch.tanh(self.genotype_context(genotype)).unsqueeze(0)
+        film_scale, film_bias = (0.18 * torch.tanh(self.genotype_film(genotype))).chunk(2, dim=1)
+        output_compact = compact[substrate.output_sites]
+        output_alive = output_compact >= 0
+        if output_alive.any():
+            context = context.index_add(
+                1,
+                output_compact[output_alive],
+                self.output_identity.weight[output_alive].unsqueeze(0).expand(batch, -1, -1),
+            )
+        hidden = context.clone()
+        target_site, slot, source_site = substrate.edge_list()
+        target_compact = compact[target_site]
+        source_compact = compact[source_site]
+        weights = substrate.synapse_weight[target_site, slot]
+        edge_flow = torch.zeros_like(substrate.synapse_weight)
+        stimulation = torch.zeros(sites.numel(), device=tokens.device)
+        load = torch.zeros_like(stimulation)
+        advertised_query = torch.zeros(sites.numel(), cfg.hidden_channels, device=tokens.device)
+        advertised_key = torch.zeros_like(advertised_query)
+        emission = torch.zeros_like(stimulation)
+        frames: list[SequenceFrame] = []
+        retained: list[torch.Tensor] = []
+        logits: list[torch.Tensor] = []
+        entropy_total = 0.0
+        observations = max(1, length * cfg.message_steps)
+
+        for position in range(length):
+            external = torch.zeros_like(hidden)
+            semantic_sites = substrate.input_sites[tokens[:, position]]
+            token_compact = compact[semantic_sites]
+            alive_batch = token_compact >= 0
+            rows = torch.arange(batch, device=tokens.device)[alive_batch]
+            drive = self.token_identity(tokens[alive_batch, position])
+            drive = drive + self.position_identity.weight[position]
+            external[rows, token_compact[alive_batch]] = drive
+            input_signal = torch.zeros(sites.numel(), device=tokens.device)
+            if alive_batch.any():
+                input_signal.index_add_(
+                    0, token_compact[alive_batch], torch.ones_like(token_compact[alive_batch], dtype=hidden.dtype)
+                )
+                input_signal /= batch
+            position_stimulation = torch.zeros_like(stimulation)
+            position_load = torch.zeros_like(load)
+            position_edge_flow = torch.zeros_like(edge_flow)
+
+            for _ in range(cfg.message_steps):
+                normalized = self.message_norm(hidden)
+                query = self.message_query(normalized)
+                key = self.message_key(normalized)
+                value = self.message_value(normalized)
+                emit = torch.sigmoid(self.emit_gate(normalized))
+                advertised_query += query.detach().mean(dim=0) / observations
+                advertised_key += key.detach().mean(dim=0) / observations
+                emission += emit.detach().mean(dim=(0, 2)) / observations
+                compatibility = (query[:, target_compact] * key[:, source_compact]).sum(dim=2)
+                compatibility /= math.sqrt(cfg.hidden_channels) * cfg.attention_temperature
+                compatibility += weights.abs().clamp_min(1e-5).log().unsqueeze(0)
+                score = compatibility.clamp(-12, 12).exp()
+                denominator = torch.zeros(batch, sites.numel(), device=tokens.device)
+                denominator.index_add_(1, target_compact, score)
+                attention = score / denominator[:, target_compact].clamp_min(1e-9)
+                edge_message = (
+                    value[:, source_compact]
+                    * emit[:, source_compact]
+                    * attention.unsqueeze(2)
+                    * weights.view(1, -1, 1)
+                    * F.softplus(self.message_gain_raw)
+                )
+                incoming = torch.zeros_like(hidden)
+                incoming.index_add_(1, target_compact, edge_message)
+                indegree = torch.zeros(sites.numel(), device=tokens.device)
+                indegree.index_add_(0, target_compact, torch.ones_like(target_compact, dtype=hidden.dtype))
+                if (indegree > 1).any():
+                    target_entropy = torch.zeros_like(denominator)
+                    target_entropy.index_add_(
+                        1, target_compact, -(attention * attention.clamp_min(1e-9).log())
+                    )
+                    valid = indegree > 1
+                    entropy_total += float(
+                        (target_entropy[:, valid] / indegree[valid].log()).detach().mean()
+                    ) / observations
+                flow = edge_message.detach().abs().mean(dim=(0, 2))
+                flow_matrix = torch.zeros_like(edge_flow)
+                flow_matrix[target_site, slot] = flow
+                step_load = incoming.detach().abs().mean(dim=(0, 2))
+                variable = edge_message.detach().std(dim=0, correction=0).mean(dim=1)
+                step_stimulation = torch.zeros_like(stimulation)
+                step_stimulation.index_add_(0, target_compact, variable)
+                step_stimulation /= indegree.clamp_min(1).sqrt()
+                step_stimulation += external.detach().std(dim=0, correction=0).mean(dim=1)
+                edge_flow += flow_matrix / observations
+                stimulation += step_stimulation / observations
+                load += step_load / observations
+                position_edge_flow += flow_matrix / cfg.message_steps
+                position_stimulation += step_stimulation / cfg.message_steps
+                position_load += step_load / cfg.message_steps
+                rule_input = torch.cat((external, 0.1 * context), dim=2)
+                updated = self.cell_rule(
+                    rule_input.reshape(-1, cfg.hidden_channels * 2),
+                    hidden.reshape(-1, cfg.hidden_channels),
+                ).reshape(batch, sites.numel(), cfg.hidden_channels)
+                updated = updated * (1 + film_scale.unsqueeze(0)) + film_bias.unsqueeze(0)
+                hidden = self.state_norm(updated + incoming)
+            if hidden.requires_grad:
+                hidden.retain_grad()
+                retained.append(hidden)
+            logits.append(self._read_logits(hidden, compact))
+            if capture_trace:
+                frames.append(
+                    self.make_frame(
+                        sites, hidden[0], stimulation=position_stimulation,
+                        load=position_load, input_signal=input_signal,
+                        edge_flow=position_edge_flow, stage="token", step=position,
+                        token_position=position,
+                    )
+                )
+
+        return SequenceForward(
+            torch.stack(logits, dim=1), sites, hidden, retained, frames,
+            stimulation, load, edge_flow, advertised_query, advertised_key,
+            emission, entropy_total,
+        )
+
+    def make_frame(
+        self,
+        sites: torch.Tensor,
+        state: torch.Tensor,
+        *,
+        stimulation: torch.Tensor | None = None,
+        load: torch.Tensor | None = None,
+        credit: torch.Tensor | None = None,
+        input_signal: torch.Tensor | None = None,
+        edge_flow: torch.Tensor | None = None,
+        edge_credit: torch.Tensor | None = None,
+        stage: str,
+        step: int,
+        token_position: int = -1,
+        events: list[dict[str, Any]] | None = None,
+    ) -> SequenceFrame:
+        zero = torch.zeros(sites.numel(), device=state.device)
+        graph = self.substrate.graph_snapshot()
+        if edge_flow is not None:
+            graph.flow = edge_flow.detach().clone()
+        if edge_credit is not None:
+            graph.credit = edge_credit.detach().clone()
+        return SequenceFrame(
+            sites.detach().clone(), state.detach().clone(),
+            (stimulation if stimulation is not None else zero).detach().clone(),
+            (load if load is not None else zero).detach().clone(),
+            (credit if credit is not None else zero).detach().clone(),
+            (input_signal if input_signal is not None else zero).detach().clone(),
+            graph, stage, step, token_position, list(events or []),
+        )
+
+    def regularization(self) -> torch.Tensor:
+        active = self.substrate.active_edge_mask
+        if not active.any():
+            return self.substrate.synapse_weight.sum() * 0
+        return self.config.weight_decay * self.substrate.synapse_weight[active].square().mean()
+
+
+__all__ = ["CellularSequenceModel", "SequenceForward", "SequenceFrame"]

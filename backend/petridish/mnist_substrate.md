@@ -4,18 +4,19 @@
 
 Owns the persistent physical population: occupied sites, trainable site
 genotypes, advertised query/key memory, incoming dendrites, metabolism,
-birth, death, content-aware growth, pruning, and lesions.
+birth, inherited lineage, cause-classified death, content-aware growth, pruning,
+and lesions.
 
 ## Components
 
 ### `SpatialSubstrate`
-- **Does**: Embeds a sparse neural population in a configurable 64×64 default
-  address space and stores all state that survives across MNIST trials.
+- **Does**: Embeds a sparse neural population in a configurable address space,
+  places task-defined semantic ports, and stores all state that survives trials.
 - **Interacts with**: The differentiable rule in `mnist_model.py` and lifecycle
   orchestration in `mnist_experiment.py`.
-- **Rationale**: Initial dendrites prefer longer left-local sources so the
-  input/output separation has a usable gradient path; later growth is
-  still constrained to the same physical discovery radius.
+- **Rationale**: Initial dendrites prefer local sources toward the configured
+  input boundary, so left-to-right and right-to-left tasks both begin reachable;
+  later growth remains constrained to the same physical radius.
 - **Rationale**: Initial weights are signed and zero-centered so the graph does
   not begin as a saturating positive diffusion process.
 - **Rationale**: Site genotypes specialize the shared recurrent rule; advertised
@@ -39,22 +40,40 @@ birth, death, content-aware growth, pruning, and lesions.
 - **Rationale**: Activity and credit statistics accumulate during learning
   warm-up while energy penalties wait until structural plasticity unlocks.
 - **Does**: Retains slow query, key, and emission statistics for connection proposals.
+- **Does**: Measures normalized starvation/overload stress even while lifecycle
+  mutation is waiting for its warm-up.
+- **Rationale**: Indexed slow-state updates use explicit assignment because
+  PyTorch advanced indexing returns temporary tensors for in-place operations.
 
 ### `structural_step`
-- **Does**: Prunes weak dendrites, accumulates content-compatible source
-  candidates, forms thresholded connections, kills depleted neurons, and seeds neurons.
+- **Does**: Independently gates topology mutation and lifecycle turnover, reports
+  death causes, and returns every changed edge and genotype site.
 - **Rationale**: Topology mutates only between differentiable trials.
 - **Rationale**: A connection requires a free target dendrite and unused source
   axon capacity; both incoming and outgoing maintenance drain energy.
+
+### `_apply_birth`
+- **Does**: Selects an active local parent with axon capacity, copies its genotype
+  with configurable mutation noise, and creates one parent-to-child dendrite.
+- **Does**: Refuses birth where sampled local occupancy already exceeds the
+  configured density ceiling.
+- **Rationale**: A newborn enters an actual signal lineage instead of appearing
+  disconnected and immediately starving.
+
+### `_apply_death`
+- **Does**: Removes depleted mature neurons and classifies the dominant pressure
+  as starvation, overload, or maintenance.
 
 ## Contracts
 
 | Dependent | Expects | Breaking changes |
 |-----------|---------|------------------|
 | `mnist_model.py` | Dendrite rows are targets and values are source site IDs | Edge orientation changes |
+| `graph_layout.py` | Semantic IDs index `input_sites` and `output_sites` | Mapping orientation |
 | `mnist_experiment.py` | `record_trial` receives real measured tensors | Statistic semantics |
 | Protocol | Site IDs flatten as `y * width + x` | Geometry or ID changes |
 | Diagnostics UI | Cached path metrics invalidate after every topology change | Missing invalidation |
+| Optimizers | Changed edge slots and inherited genotype rows are reported | Stale Adam moments |
 
 ## Notes
 

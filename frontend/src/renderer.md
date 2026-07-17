@@ -2,8 +2,8 @@
 
 ## Purpose
 
-Renders dense XOR cells or sparse MNIST neurons, persistent dendrites, measured
-forward traffic, measured backward credit, and actual lifecycle events. It does
+Renders sparse MNIST neurons, persistent dendrites, measured forward traffic,
+measured backward credit, and actual lifecycle events. It does
 not synthesize signal particles or decorative neural activity.
 
 ## Components
@@ -24,6 +24,8 @@ not synthesize signal particles or decorative neural activity.
   input/output outlines represent fixed environmental roles.
 - **Does**: Treats genotype magnitude and measured emit-gate EMA as selectable
   scientific layers using the same raw-channel contract.
+- **Does**: Exposes measured homeostatic stress, neuron age, and lineage depth
+  as additional raw layers.
 
 ### `drawEvents`
 - **Does**: Marks only reported dendrite growth/pruning and neuron birth/death.

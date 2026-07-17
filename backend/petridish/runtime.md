@@ -2,15 +2,15 @@
 
 ## Purpose
 
-Decouples XOR/MNIST experiment cadence from WebSocket handling and serializes all
-training, simulation, switching, and intervention mutations behind one lock.
+Decouples the selected organism cadence from WebSocket handling and serializes all
+training and intervention mutations behind one lock.
 
 ## Components
 
 ### `ExperimentRuntime`
-- **Does**: Lazily owns named experiments, active selection, playback state,
-  observers, and the tick loop.
-- **Interacts with**: FastAPI WebSockets, XOR/MNIST experiments, `build_snapshot`.
+- **Does**: Lazily owns MNIST, associative-recall, and tiny-language organisms;
+  switching preserves each organism's learned state.
+- **Interacts with**: FastAPI WebSockets, experiment classes, `build_snapshot`.
 
 ### `start` / `stop`
 - **Does**: Manage the lifecycle of the independent simulation task.
@@ -21,9 +21,8 @@ training, simulation, switching, and intervention mutations behind one lock.
 - **Interacts with**: `server.websocket_endpoint`.
 
 ### `handle_command`
-- **Does**: Bounds and applies playback, experiment switching, reset, lesion,
-  task-specific stimulus/reward/evaluation/structural-cycle, speed, and atomic
-  MNIST hyperparameter-restart commands.
+- **Does**: Bounds and applies experiment switching, playback, reset, lesion,
+  evaluation, forced lifecycle cycles, speed, and atomic hyperparameter restarts.
 - **Interacts with**: Frontend `ExperimentSocket`.
 
 ## Contracts
@@ -33,7 +32,6 @@ training, simulation, switching, and intervention mutations behind one lock.
 | `server.py` | Lifecycle and WebSocket methods are asynchronous | Method signatures |
 | Frontend | Command `type` names and payload fields remain stable | Command schema |
 | Scientific state | Commands never race a physics tick | Removing lock discipline |
-| Experiment switching | Previously created experiment state is preserved until explicit reset | Cache semantics |
 | Hyperparameters | Values validate before a new organism replaces the old one | In-place config mutation |
 
 ## Notes
