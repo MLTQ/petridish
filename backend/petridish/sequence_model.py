@@ -489,6 +489,39 @@ class CellularSequenceModel(nn.Module):
             return self.substrate.synapse_weight.sum() * 0
         return self.config.weight_decay * self.substrate.synapse_weight[active].square().mean()
 
+    @torch.no_grad()
+    def binding_memory_diagnostics(self) -> dict[str, float | int] | None:
+        """Measure whether vocabulary tokens own separable physical addresses."""
+
+        if self.binding_owner_address is None or self.binding_token_key is None:
+            return None
+        sites = self.substrate.living_sites
+        owner_addresses = F.normalize(
+            self.binding_owner_address(self.substrate.genotype[sites]), dim=1
+        )
+        token_keys = F.normalize(
+            self.binding_token_key(self.token_identity.weight), dim=1
+        )
+        attention = torch.softmax(
+            token_keys @ owner_addresses.T / self.config.binding_memory_temperature,
+            dim=1,
+        )
+        entropy = -(
+            attention * attention.clamp_min(1e-9).log()
+        ).sum(dim=1) / math.log(max(2, sites.numel()))
+        normalized_attention = F.normalize(attention, dim=1)
+        overlap = normalized_attention @ normalized_attention.T
+        off_diagonal = ~torch.eye(
+            self.vocab_size, dtype=torch.bool, device=overlap.device
+        )
+        return {
+            "distinctOwners": int(attention.argmax(dim=1).unique().numel()),
+            "vocabularySize": self.vocab_size,
+            "meanAddressEntropy": float(entropy.mean()),
+            "meanAddressOverlap": float(overlap[off_diagonal].mean()),
+            "meanPeakOwnership": float(attention.max(dim=1).values.mean()),
+        }
+
 
 __all__ = [
     "CellularSequenceModel", "SequenceForward", "SequenceFrame",

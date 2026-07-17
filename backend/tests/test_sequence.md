@@ -40,3 +40,4 @@ from lost key/value association.
 The neuron-owned binding-memory regression verifies that owner addresses receive task
 gradients when enabled, exercises the clean token-value ablation, and verifies that
 the default model omits the intervention entirely.
+Owner diagnostics are bounded and baseline models report no fictitious address map.

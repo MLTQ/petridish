@@ -108,6 +108,7 @@ def run_benchmark(
             "peakCudaAllocatedGiB": round(
                 torch.cuda.max_memory_allocated(experiment.device) / 2**30, 4
             ) if experiment.device.type == "cuda" else 0.0,
+            "bindingDiagnostics": experiment.model.binding_memory_diagnostics(),
             "livingCells": int(experiment.model.substrate.occupied.sum()),
             "edgeCount": int(experiment.model.substrate.active_edge_mask.sum()),
             "minimumOutputHops": diagnostics.minimum_output_hops,

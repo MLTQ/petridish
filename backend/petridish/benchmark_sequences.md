@@ -43,6 +43,8 @@ the declared protocol.
 living neurons and read back through the queried token's physical input port.
 `compact24_binding_tokens` changes only the stored value from the successor neuron's
 mixed state to the clean successor token representation.
+Owner-memory artifacts include address distinctness, entropy, overlap, and peak
+ownership at every published checkpoint.
 
 ```bash
 python -m petridish.benchmark_sequences --task associative_recall \

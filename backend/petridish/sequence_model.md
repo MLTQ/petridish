@@ -39,6 +39,11 @@ The `binding_token_values` ablation writes the successor token embedding instead
 the successor input neuron's mixed hidden state while keeping addresses, owners,
 retrieval, injection site, topology, and optimizer identical.
 
+`binding_memory_diagnostics` measures the learned address map without running a task
+batch: distinct winning physical owners across the vocabulary, normalized address
+entropy, cross-token attention overlap, and mean peak ownership. These distinguish
+address collision/diffusion from downstream failure to use a clean retrieval.
+
 Frames contain one measured state per token rather than every microstep. This makes the
 live sequence causally readable without inventing presentation-only traffic.
 An optional frame callback fires immediately after each such frame and its aligned

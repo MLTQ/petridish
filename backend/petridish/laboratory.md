@@ -27,6 +27,8 @@ explicitly enabled trainer processes.
 - **Does**: Preserves atomic publisher status, completed updates, parameter counts,
   and measured CUDA allocation so in-progress experiments remain distinguishable
   from completed evidence.
+- **Does**: Preserves optional neuron-owner address diagnostics for relational-memory
+  experiments without synthesizing values for baseline artifacts.
 - **Rationale**: Curriculum transitions and architecture comparisons should be
   based on persisted measurements while keeping the polling payload bounded.
 

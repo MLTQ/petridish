@@ -293,6 +293,7 @@ class Laboratory:
                     "trainableParameterCount": payload.get("trainableParameterCount"),
                     "cudaAllocatedGiB": payload.get("cudaAllocatedGiB"),
                     "peakCudaAllocatedGiB": payload.get("peakCudaAllocatedGiB"),
+                    "bindingDiagnostics": payload.get("bindingDiagnostics"),
                     "livingCells": payload.get("livingCells"),
                     "edgeCount": payload.get("edgeCount"),
                     "minimumOutputHops": payload.get("minimumOutputHops"),

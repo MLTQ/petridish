@@ -80,6 +80,13 @@ interface BenchmarkSnapshot {
   trainableParameterCount: number | null;
   cudaAllocatedGiB: number | null;
   peakCudaAllocatedGiB: number | null;
+  bindingDiagnostics: {
+    distinctOwners: number;
+    vocabularySize: number;
+    meanAddressEntropy: number;
+    meanAddressOverlap: number;
+    meanPeakOwnership: number;
+  } | null;
   livingCells: number | null;
   edgeCount: number | null;
   minimumOutputHops: number | null;
@@ -196,6 +203,9 @@ export class LaboratoryView {
         final?.heldOutPresentedValueRate === undefined
           ? "—"
           : `${this.percent(final.heldOutPresentedValueRate)} (${this.percent(final.heldOutDistractorRate)} distractor)`,
+        benchmark.bindingDiagnostics
+          ? `${benchmark.bindingDiagnostics.distinctOwners}/${benchmark.bindingDiagnostics.vocabularySize} · H ${benchmark.bindingDiagnostics.meanAddressEntropy.toFixed(2)} · overlap ${benchmark.bindingDiagnostics.meanAddressOverlap.toFixed(2)}`
+          : "—",
         benchmark.peakCudaAllocatedGiB === null ? "—" : `${benchmark.peakCudaAllocatedGiB.toFixed(2)} GiB`,
         benchmark.seconds === null ? "—" : `${benchmark.seconds.toFixed(1)} s`,
         benchmark.status,
@@ -209,7 +219,7 @@ export class LaboratoryView {
     });
     if (rows.length === 0) {
       const row = document.createElement("tr");
-      row.innerHTML = '<td colspan="12">No persisted benchmark artifacts found.</td>';
+      row.innerHTML = '<td colspan="13">No persisted benchmark artifacts found.</td>';
       rows.push(row);
     }
     this.benchmarksHost.replaceChildren(...rows);

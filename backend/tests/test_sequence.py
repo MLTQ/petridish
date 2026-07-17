@@ -179,6 +179,12 @@ def test_neuron_owned_binding_memory_is_optional_and_differentiable() -> None:
     baseline = CellularSequenceModel(small_config(), layout=task.key, seed=21)
     assert baseline.binding_owner_address is None
     assert config.binding_token_values == 1
+    diagnostics = model.binding_memory_diagnostics()
+    assert diagnostics is not None
+    assert 1 <= diagnostics["distinctOwners"] <= len(task.vocabulary)
+    assert 0 <= diagnostics["meanAddressEntropy"] <= 1
+    assert 0 <= diagnostics["meanAddressOverlap"] <= 1
+    assert baseline.binding_memory_diagnostics() is None
 
 
 @pytest.mark.parametrize("architecture", ("gru", "lstm", "esn", "transformer"))
