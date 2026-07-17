@@ -485,9 +485,39 @@ class CellularSequenceModel(nn.Module):
 
     def regularization(self) -> torch.Tensor:
         active = self.substrate.active_edge_mask
-        if not active.any():
-            return self.substrate.synapse_weight.sum() * 0
-        return self.config.weight_decay * self.substrate.synapse_weight[active].square().mean()
+        penalty = (
+            self.config.weight_decay * self.substrate.synapse_weight[active].square().mean()
+            if active.any() else self.substrate.synapse_weight.sum() * 0
+        )
+        if (
+            self.config.binding_address_regularization > 0
+            and self.binding_owner_address is not None
+            and self.binding_token_key is not None
+        ):
+            sites = self.substrate.living_sites
+            owner_addresses = F.normalize(
+                self.binding_owner_address(self.substrate.genotype[sites]), dim=1
+            )
+            token_keys = F.normalize(
+                self.binding_token_key(self.token_identity.weight), dim=1
+            )
+            attention = torch.softmax(
+                token_keys @ owner_addresses.T
+                / self.config.binding_memory_temperature,
+                dim=1,
+            )
+            normalized_attention = F.normalize(attention, dim=1)
+            overlap = normalized_attention @ normalized_attention.T
+            off_diagonal = ~torch.eye(
+                self.vocab_size, dtype=torch.bool, device=overlap.device
+            )
+            entropy = -(
+                attention * attention.clamp_min(1e-9).log()
+            ).sum(dim=1) / math.log(max(2, sites.numel()))
+            penalty = penalty + self.config.binding_address_regularization * (
+                overlap[off_diagonal].square().mean() + 0.1 * entropy.mean()
+            )
+        return penalty
 
     @torch.no_grad()
     def binding_memory_diagnostics(self) -> dict[str, float | int] | None:

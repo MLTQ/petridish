@@ -117,3 +117,11 @@ distractors, and 0% absent values (88.78 s, 12,254 parameters, 1.2933 GiB peak C
 The organism ignored the added pathway and recovered the existing value-set shortcut.
 A clean-token-value ablation is required before rejecting content-addressed physical
 ownership itself.
+
+### Clean-token owner address map
+
+The clean-token variant also returned to the shortcut (54.17% correct at update 400,
+100% presented-value coverage). Its initially collision-free map had 10/10 distinct
+winning owners, 0.098 cross-token overlap, and 15.3% mean peak ownership. Training
+sharpened but collapsed it to 7/10 owners, 0.160 overlap, and 42.1% peak ownership.
+This motivates a separated-address control before judging the downstream pathway.

@@ -187,6 +187,24 @@ def test_neuron_owned_binding_memory_is_optional_and_differentiable() -> None:
     assert baseline.binding_memory_diagnostics() is None
 
 
+def test_binding_address_separation_penalty_reaches_owner_map() -> None:
+    task = resolve_sequence_task("associative_recall")
+    config = sequence_config(
+        width=20, height=20, hidden_channels=8, genotype_channels=6,
+        initial_density=0.30, batch_size=2, message_steps=1,
+        candidate_probes=12, local_radius=4, max_visible_edges=100,
+        binding_memory_gain=1.0, binding_token_values=1,
+        binding_address_regularization=0.02,
+    )
+    model = CellularSequenceModel(config, layout=task.key, seed=22)
+
+    model.regularization().backward()
+
+    assert model.binding_owner_address is not None
+    assert model.binding_owner_address.weight.grad is not None
+    assert float(model.binding_owner_address.weight.grad.abs().sum()) > 0
+
+
 @pytest.mark.parametrize("architecture", ("gru", "lstm", "esn", "transformer"))
 def test_sequence_cell_architectures_share_graph_and_gradient_contract(
     architecture: str,

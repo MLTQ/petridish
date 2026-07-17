@@ -31,6 +31,8 @@ optimizer rates, and independently gated lifecycle/topology thresholds.
   cells; zero gain omits its parameters and preserves baseline checkpoints.
 - **Rationale**: The token-value switch separates clean successor-symbol storage
   from the default mixed successor-neuron state as an explicit controlled ablation.
+- **Rationale**: Optional address-separation regularization penalizes overlapping,
+  diffuse token ownership; zero leaves baseline task optimization unchanged.
 - **Rationale**: Readout and shared-rule learning rates are independent because
   the initial fixed-reservoir probe must converge on a much smaller parameter set.
 - **Rationale**: Early-output trajectory supervision is optional and disabled by

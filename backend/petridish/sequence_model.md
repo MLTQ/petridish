@@ -43,6 +43,9 @@ retrieval, injection site, topology, and optimizer identical.
 batch: distinct winning physical owners across the vocabulary, normalized address
 entropy, cross-token attention overlap, and mean peak ownership. These distinguish
 address collision/diffusion from downstream failure to use a clean retrieval.
+Positive `binding_address_regularization` penalizes squared cross-token attention
+overlap plus a smaller normalized-entropy term. It encourages differentiated, sparse
+physical owners but never specifies which neuron owns a token or what value it stores.
 
 Frames contain one measured state per token rather than every microstep. This makes the
 live sequence causally readable without inventing presentation-only traffic.

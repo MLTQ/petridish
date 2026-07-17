@@ -58,6 +58,7 @@ SPECS: dict[str, HyperparameterSpec] = {
     "binding_memory_gain": HyperparameterSpec("neuron-owned binding gain", "geometry & compute", 0, 2, 0.05),
     "binding_memory_temperature": HyperparameterSpec("binding address temperature", "geometry & compute", 0.01, 1, 0.01),
     "binding_token_values": HyperparameterSpec("binding stores token values (0/1)", "geometry & compute", 0, 1, 1),
+    "binding_address_regularization": HyperparameterSpec("binding address separation", "learning", 0, 0.2, 0.001),
     "batch_size": HyperparameterSpec("batch size", "geometry & compute", 4, 128, 4),
     "max_visible_edges": HyperparameterSpec("rendered edge cap", "geometry & compute", 100, 20_000, 100),
     "learning_rate": HyperparameterSpec("shared-rule learning rate", "learning", 0.0001, 0.01, 0.0001),
@@ -152,6 +153,7 @@ def hyperparameter_payload(
             "fast_weight_gain", "fast_weight_decay",
             "binding_memory_gain", "binding_memory_temperature",
             "binding_token_values",
+            "binding_address_regularization",
         }
         ]
     )
