@@ -42,3 +42,5 @@ gradients when enabled, exercises the clean token-value ablation, and verifies t
 the default model omits the intervention entirely.
 Owner diagnostics are bounded and baseline models report no fictitious address map.
 Address-separation regularization must backpropagate into physical owner addresses.
+Matched recovery branches must deep-copy independent topology and replace the immutable
+configuration consistently across experiment, model, and substrate before lifecycle.

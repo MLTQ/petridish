@@ -62,6 +62,11 @@ interface BenchmarkCheckpoint {
   heldOutAbsentValueRate?: number;
   loss?: number;
   recallPairs?: number;
+  livingCells?: number;
+  edgeCount?: number;
+  generation?: number;
+  cumulativeBirths?: number;
+  cumulativeDeaths?: number;
 }
 
 interface BenchmarkSnapshot {
@@ -69,6 +74,7 @@ interface BenchmarkSnapshot {
   task: string;
   profile: string;
   architecture: string;
+  intervention: string | null;
   recallMode: string;
   seed: number | null;
   deterministic: boolean;
@@ -77,6 +83,8 @@ interface BenchmarkSnapshot {
   completedSteps: number;
   status: "running" | "complete";
   seconds: number | null;
+  lesionCount: number;
+  lesionRadius: number | null;
   parameterCount: number | null;
   trainableParameterCount: number | null;
   cudaAllocatedGiB: number | null;
@@ -192,6 +200,7 @@ export class LaboratoryView {
       const row = document.createElement("tr");
       const values = [
         benchmark.id,
+        benchmark.intervention ?? "—",
         benchmark.architecture.toUpperCase(),
         benchmark.seed?.toString() ?? "—",
         `${benchmark.completedSteps.toLocaleString()} / ${benchmark.steps?.toLocaleString() ?? "—"}`,
@@ -204,6 +213,9 @@ export class LaboratoryView {
         final?.heldOutPresentedValueRate === undefined
           ? "—"
           : `${this.percent(final.heldOutPresentedValueRate)} (${this.percent(final.heldOutDistractorRate)} distractor)`,
+        final?.livingCells === undefined
+          ? "—"
+          : `${final.livingCells} cells · ${final.edgeCount ?? "—"} edges · +${final.cumulativeBirths ?? 0}/−${final.cumulativeDeaths ?? 0}`,
         benchmark.bindingDiagnostics
           ? `${benchmark.bindingDiagnostics.distinctOwners}/${benchmark.bindingDiagnostics.vocabularySize} · H ${benchmark.bindingDiagnostics.meanAddressEntropy.toFixed(2)} · overlap ${benchmark.bindingDiagnostics.meanAddressOverlap.toFixed(2)}`
           : "—",
@@ -220,7 +232,7 @@ export class LaboratoryView {
     });
     if (rows.length === 0) {
       const row = document.createElement("tr");
-      row.innerHTML = '<td colspan="13">No persisted benchmark artifacts found.</td>';
+      row.innerHTML = '<td colspan="15">No persisted benchmark artifacts found.</td>';
       rows.push(row);
     }
     this.benchmarksHost.replaceChildren(...rows);

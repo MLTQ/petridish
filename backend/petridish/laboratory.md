@@ -30,6 +30,8 @@ explicitly enabled trainer processes.
 - **Does**: Preserves optional neuron-owner address diagnostics for relational-memory
   experiments without synthesizing values for baseline artifacts.
 - **Does**: Preserves the deterministic-execution flag from benchmark artifacts.
+- **Does**: Preserves intervention, lesion, topology, and turnover fields for matched
+  recovery artifacts.
 - **Rationale**: Curriculum transitions and architecture comparisons should be
   based on persisted measurements while keeping the polling payload bounded.
 

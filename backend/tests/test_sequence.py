@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import json
+import copy
 from pathlib import Path
 
 import pytest
 import torch
 
 from petridish.benchmark_sequences import _write_result
+from petridish.benchmark_recovery import _apply_branch_config
 from petridish.graph_layout import LAYOUTS, sequence_layout
 from petridish.mnist_hyperparameters import configured, hyperparameter_payload
 from petridish.mnist_substrate import SpatialSubstrate
@@ -41,6 +43,26 @@ def test_benchmark_artifact_replacement_is_atomic(tmp_path: Path) -> None:
 
     assert json.loads(output.read_text(encoding="utf-8"))["status"] == "complete"
     assert list(output.parent.glob(".*.tmp")) == []
+
+
+def test_recovery_branch_clone_is_independent_and_consistently_configured() -> None:
+    experiment = SequenceExperiment(
+        "associative_recall", small_config(), seed=31, device="cpu",
+        recall_pair_count=2, recall_pair_max=2,
+    )
+    clone = copy.deepcopy(experiment)
+
+    _apply_branch_config(clone, lifecycle=True)
+    killed = clone.model.substrate.lesion(10, 10, 2)
+
+    assert killed > 0
+    assert clone.config is clone.model.config
+    assert clone.config is clone.model.substrate.config
+    assert clone.config.lifecycle_enabled == 1
+    assert clone.structure_unlocked is True
+    assert int(experiment.model.substrate.occupied.sum()) > int(
+        clone.model.substrate.occupied.sum()
+    )
 
 
 def test_sequence_layouts_are_directional_port_permutations() -> None:
