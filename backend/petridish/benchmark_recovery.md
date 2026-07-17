@@ -14,6 +14,9 @@ Three branches are run sequentially:
 Static branches use a recovery-external structural warm-up. This is necessary because
 the cloned organism is already competent: a zero warm-up would immediately satisfy the
 normal competence gate and silently re-enable topology mutation in the controls.
+The shared branch helper also accepts explicit topology, cadence, birth-budget, and
+death-budget settings so follow-up ablations can change one declared pressure while
+preserving the same configuration object across experiment, model, and substrate.
 
 Every 20 recovery updates, each atomic artifact records held-out accuracy/loss by
 query slot, distractor errors, living cells, edges, topology generation, cumulative

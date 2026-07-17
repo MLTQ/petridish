@@ -18,7 +18,8 @@ validated launch or stop requests.
 
 ### `renderRuns`
 - **Does**: Presents task, cell type, hardware, update, loss, throughput, and state.
-- **Rationale**: Selection is independent from run control and limited to four curves.
+- **Rationale**: Comparison is bounded to five curves so the complete lifecycle
+  ablation matrix remains visible without unbounded chart density.
 
 ### `drawChart`
 - **Does**: Draws comparable rolling loss against optimizer update using measured JSONL records.

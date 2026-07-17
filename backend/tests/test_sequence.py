@@ -52,13 +52,20 @@ def test_recovery_branch_clone_is_independent_and_consistently_configured() -> N
     )
     clone = copy.deepcopy(experiment)
 
-    _apply_branch_config(clone, lifecycle=True)
+    _apply_branch_config(
+        clone, lifecycle=True, interval=32,
+        births_per_generation=4, max_deaths_per_generation=8,
+    )
     killed = clone.model.substrate.lesion(10, 10, 2)
 
     assert killed > 0
     assert clone.config is clone.model.config
     assert clone.config is clone.model.substrate.config
     assert clone.config.lifecycle_enabled == 1
+    assert clone.config.lifecycle_interval == 32
+    assert clone.config.structural_interval == 32
+    assert clone.config.births_per_generation == 4
+    assert clone.config.max_deaths_per_generation == 8
     assert clone.structure_unlocked is True
     assert int(experiment.model.substrate.occupied.sum()) > int(
         clone.model.substrate.occupied.sum()

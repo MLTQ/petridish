@@ -20,6 +20,8 @@ chart encoding.
   accuracy curve and uses point markers only for actual curriculum transitions.
 - **Does**: Keeps the aligned topology-retention plot fixed-height and distinguishes
   population from edges by line style rather than an unrelated color mapping.
+- **Does**: Provides five stable series identities, matching the bounded causal
+  lifecycle matrix without cycling colors.
 - **Does**: Keeps progress and resource columns in the existing horizontally
   bounded table wrapper rather than expanding the laboratory or dish geometry.
 - **Interacts with**: `.benchmark-grid`, `#benchmark-chart`, and persisted artifacts.

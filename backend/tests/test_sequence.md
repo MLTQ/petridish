@@ -46,3 +46,5 @@ Matched recovery branches must deep-copy independent topology and replace the im
 configuration consistently across experiment, model, and substrate before lifecycle.
 The static-branch regression also proves that a competent cloned organism cannot
 re-unlock topology during the recovery window.
+Lifecycle branch configuration tests cover explicit cadence and per-generation birth
+and death budgets used by the severe-lesion ablation matrix.

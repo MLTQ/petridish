@@ -105,7 +105,7 @@ interface BenchmarkSnapshot {
 }
 
 const SVG_NS = "http://www.w3.org/2000/svg";
-const SERIES_CLASSES = ["series-a", "series-b", "series-c", "series-d"] as const;
+const SERIES_CLASSES = ["series-a", "series-b", "series-c", "series-d", "series-e"] as const;
 
 function required<T extends Element>(selector: string): T {
   const element = document.querySelector<T>(selector);

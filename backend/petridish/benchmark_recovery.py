@@ -21,23 +21,31 @@ BRANCHES = ("control", "lesion_static", "lesion_lifecycle")
 
 
 def _apply_branch_config(
-    experiment: SequenceExperiment, *, lifecycle: bool
+    experiment: SequenceExperiment, *, lifecycle: bool,
+    topology: bool | None = None, interval: int = 8,
+    births_per_generation: int | None = None,
+    max_deaths_per_generation: int | None = None,
 ) -> None:
     """Replace the shared immutable config consistently across one cloned branch."""
 
+    topology = lifecycle if topology is None else topology
     # Static branches must remain topology-frozen even though the cloned organism
     # has already crossed the normal competence threshold.  A zero warm-up would
     # let _should_unlock_structure() immediately re-enable mutation on its first
     # recovery update.
-    structural_warmup = 0 if lifecycle else 10_000_000
-    config = replace(
-        experiment.config,
-        lifecycle_enabled=int(lifecycle),
-        lifecycle_warmup_trials=0,
-        lifecycle_interval=8,
-        structural_warmup_trials=structural_warmup,
-        structural_interval=8,
-    )
+    structural_warmup = 0 if topology else 10_000_000
+    overrides: dict[str, Any] = {
+        "lifecycle_enabled": int(lifecycle),
+        "lifecycle_warmup_trials": 0,
+        "lifecycle_interval": interval,
+        "structural_warmup_trials": structural_warmup,
+        "structural_interval": interval,
+    }
+    if births_per_generation is not None:
+        overrides["births_per_generation"] = births_per_generation
+    if max_deaths_per_generation is not None:
+        overrides["max_deaths_per_generation"] = max_deaths_per_generation
+    config = replace(experiment.config, **overrides)
     experiment.config = config
     experiment.model.config = config
     experiment.model.substrate.config = config
@@ -46,9 +54,9 @@ def _apply_branch_config(
         "energy pressure and turnover active"
         if lifecycle else "disabled by matched recovery branch"
     )
-    experiment.structure_unlocked = lifecycle
+    experiment.structure_unlocked = topology
     experiment.structure_unlock_reason = (
-        "matched repair branch" if lifecycle else "disabled by matched recovery branch"
+        "matched repair branch" if topology else "disabled by matched recovery branch"
     )
 
 
@@ -92,11 +100,12 @@ def _artifact(
     checkpoints: list[dict[str, Any]],
     status: str,
     started: float,
+    profile: str = "matched_recovery",
 ) -> dict[str, Any]:
     substrate = experiment.model.substrate
     return {
         "task": "associative_recall",
-        "profile": "matched_recovery",
+        "profile": profile,
         "architecture": experiment.config.cell_architecture,
         "intervention": branch,
         "recallMode": "fixed_3",
