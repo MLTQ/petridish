@@ -35,6 +35,9 @@ still transport it to outputs. This tests learned token-conditioned ownership wi
 granting the readout direct access to a global key/value table. The memory resets per
 example and is omitted entirely when `binding_memory_gain = 0`, preserving legacy and
 corpus checkpoints.
+The `binding_token_values` ablation writes the successor token embedding instead of
+the successor input neuron's mixed hidden state while keeping addresses, owners,
+retrieval, injection site, topology, and optimizer identical.
 
 Frames contain one measured state per token rather than every microstep. This makes the
 live sequence causally readable without inventing presentation-only traffic.

@@ -418,9 +418,12 @@ class CellularSequenceModel(nn.Module):
                         device=tokens.device, dtype=hidden.dtype,
                     )
                     if alive_batch.any():
-                        write_value[rows] = self.binding_value(
-                            hidden[rows, token_compact[alive_batch]]
+                        value_source = (
+                            token_embedding[alive_batch]
+                            if cfg.binding_token_values
+                            else hidden[rows, token_compact[alive_batch]]
                         )
+                        write_value[rows] = self.binding_value(value_source)
                     ownership = write_attention.unsqueeze(2)
                     binding_memory = (
                         binding_memory * (1 - ownership)

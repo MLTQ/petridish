@@ -108,3 +108,12 @@ but loses which key owns which value. Additional generic memory capacity, traini
 budget, or homogeneous cell complexity is therefore the wrong next variable. The next
 intervention stores successor state in content-addressed physical owner neurons and
 reads it back only through the queried token's input port.
+
+### Mixed-state owner-memory result
+
+The first neuron-owner intervention stored each successor input neuron's processed
+hidden state. At 400 updates it again produced 47.92% correct, 52.08% presented-value
+distractors, and 0% absent values (88.78 s, 12,254 parameters, 1.2933 GiB peak CUDA).
+The organism ignored the added pathway and recovered the existing value-set shortcut.
+A clean-token-value ablation is required before rejecting content-addressed physical
+ownership itself.

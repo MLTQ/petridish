@@ -33,6 +33,7 @@ class MnistModelConfig:
     fast_weight_decay: float = 0.95
     binding_memory_gain: float = 0.0
     binding_memory_temperature: float = 0.08
+    binding_token_values: int = 0
     batch_size: int = 16
     learning_rate: float = 0.001
     readout_learning_rate: float = 0.005

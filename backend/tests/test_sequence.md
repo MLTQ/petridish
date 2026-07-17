@@ -38,4 +38,5 @@ plateaus can be assigned to primacy, recency, or mixed retrieval failure.
 Presented-value, distractor, and absent-value rates further distinguish lost content
 from lost key/value association.
 The neuron-owned binding-memory regression verifies that owner addresses receive task
-gradients when enabled and that the default model omits the intervention entirely.
+gradients when enabled, exercises the clean token-value ablation, and verifies that
+the default model omits the intervention entirely.

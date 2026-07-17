@@ -162,6 +162,7 @@ def test_neuron_owned_binding_memory_is_optional_and_differentiable() -> None:
         initial_density=0.30, batch_size=2, message_steps=1,
         candidate_probes=12, local_radius=4, max_visible_edges=100,
         binding_memory_gain=1.0, binding_memory_temperature=0.08,
+        binding_token_values=1,
     )
     batch = associative_recall_batch(2, torch.Generator().manual_seed(21), 2)
     model = CellularSequenceModel(config, layout=task.key, seed=21)
@@ -177,6 +178,7 @@ def test_neuron_owned_binding_memory_is_optional_and_differentiable() -> None:
     assert float(model.binding_owner_address.weight.grad.abs().sum()) > 0
     baseline = CellularSequenceModel(small_config(), layout=task.key, seed=21)
     assert baseline.binding_owner_address is None
+    assert config.binding_token_values == 1
 
 
 @pytest.mark.parametrize("architecture", ("gru", "lstm", "esn", "transformer"))

@@ -41,6 +41,8 @@ the declared protocol.
 `compact24_fast_weights` enables recurrent linear-attention memory at gain 0.5.
 `compact24_binding_owners` enables successor values stored at genotype-addressed
 living neurons and read back through the queried token's physical input port.
+`compact24_binding_tokens` changes only the stored value from the successor neuron's
+mixed state to the clean successor token representation.
 
 ```bash
 python -m petridish.benchmark_sequences --task associative_recall \
