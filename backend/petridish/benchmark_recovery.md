@@ -11,6 +11,10 @@ Three branches are run sequentially:
 - `lesion_static`: identical central lesion; gradient learning only.
 - `lesion_lifecycle`: the same lesion; eight-update lifecycle and topology cycles.
 
+Static branches use a recovery-external structural warm-up. This is necessary because
+the cloned organism is already competent: a zero warm-up would immediately satisfy the
+normal competence gate and silently re-enable topology mutation in the controls.
+
 Every 20 recovery updates, each atomic artifact records held-out accuracy/loss by
 query slot, distractor errors, living cells, edges, topology generation, cumulative
 births/deaths, and death causes. The frontend compares the three artifacts as one

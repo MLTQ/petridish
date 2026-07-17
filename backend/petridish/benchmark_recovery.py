@@ -25,12 +25,17 @@ def _apply_branch_config(
 ) -> None:
     """Replace the shared immutable config consistently across one cloned branch."""
 
+    # Static branches must remain topology-frozen even though the cloned organism
+    # has already crossed the normal competence threshold.  A zero warm-up would
+    # let _should_unlock_structure() immediately re-enable mutation on its first
+    # recovery update.
+    structural_warmup = 0 if lifecycle else 10_000_000
     config = replace(
         experiment.config,
         lifecycle_enabled=int(lifecycle),
         lifecycle_warmup_trials=0,
         lifecycle_interval=8,
-        structural_warmup_trials=0,
+        structural_warmup_trials=structural_warmup,
         structural_interval=8,
     )
     experiment.config = config

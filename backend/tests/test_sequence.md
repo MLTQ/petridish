@@ -44,3 +44,5 @@ Owner diagnostics are bounded and baseline models report no fictitious address m
 Address-separation regularization must backpropagate into physical owner addresses.
 Matched recovery branches must deep-copy independent topology and replace the immutable
 configuration consistently across experiment, model, and substrate before lifecycle.
+The static-branch regression also proves that a competent cloned organism cannot
+re-unlock topology during the recovery window.

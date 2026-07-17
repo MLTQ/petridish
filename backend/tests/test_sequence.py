@@ -65,6 +65,21 @@ def test_recovery_branch_clone_is_independent_and_consistently_configured() -> N
     )
 
 
+def test_static_recovery_branch_cannot_reunlock_topology() -> None:
+    experiment = SequenceExperiment(
+        "associative_recall", small_config(), seed=32, device="cpu",
+        recall_pair_count=2, recall_pair_max=2,
+    )
+    experiment.training_step = 1_200
+
+    _apply_branch_config(experiment, lifecycle=False)
+
+    assert experiment.config.lifecycle_enabled == 0
+    assert experiment.structure_unlocked is False
+    assert experiment._should_unlock_structure(1_201, accuracy=1.0) is False
+    assert experiment.config.structural_warmup_trials > experiment.training_step
+
+
 def test_sequence_layouts_are_directional_port_permutations() -> None:
     recall = LAYOUTS["associative_recall"]
     language = LAYOUTS["tiny_language"]
