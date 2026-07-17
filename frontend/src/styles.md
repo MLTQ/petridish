@@ -3,13 +3,20 @@
 ## Purpose
 
 Defines the responsive laboratory UI, restrained dark scientific palette,
-control states, canvas sizing, metrics, task readouts, and chart encoding.
+control states, GPU/run monitoring, canvas sizing, metrics, task readouts, and
+chart encoding.
 
 ## Components
 
 ### Shell and top bar
 - **Does**: Establishes identity, connection state, and always-visible task metrics.
 - **Interacts with**: `.topbar`, `.brand`, `.connection`, and `.top-metrics`.
+
+### Remote laboratory
+- **Does**: Gives two measured GPU lanes equal stable width, keeps run comparison
+  tabular, and places the loss chart beside it without affecting dish geometry.
+- **Interacts with**: `.laboratory`, `.gpu-lane`, `.run-table`, and `lab.ts`.
+- **Does**: Reflows the launch form and GPU lanes at existing responsive breakpoints.
 
 ### Dish layout
 - **Does**: Gives the visualization dominant space and keeps controls/legend

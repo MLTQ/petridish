@@ -19,6 +19,61 @@
     </div>
   </header>
 
+  <section class="laboratory" aria-labelledby="laboratory-title">
+    <div class="laboratory-heading">
+      <div>
+        <span class="eyebrow">remote experiment control</span>
+        <h2 id="laboratory-title">Two-GPU laboratory</h2>
+      </div>
+      <div class="laboratory-actions">
+        <output id="laboratory-status" role="status">connecting</output>
+        <button id="laboratory-refresh" type="button">Refresh</button>
+      </div>
+    </div>
+    <div id="laboratory-gpus" class="gpu-lanes" aria-label="GPU workers"></div>
+    <div class="laboratory-grid">
+      <section aria-labelledby="runs-title">
+        <div class="section-heading compact">
+          <div>
+            <span class="eyebrow">measured runs</span>
+            <h2 id="runs-title">Experiments</h2>
+          </div>
+        </div>
+        <div class="run-table-wrap">
+          <table class="run-table">
+            <thead><tr><th>Compare</th><th>Run</th><th>Cell</th><th>GPU</th><th>Update</th><th>Loss</th><th>Held out</th><th>Chars/s</th><th>State</th></tr></thead>
+            <tbody id="laboratory-runs"></tbody>
+          </table>
+        </div>
+      </section>
+      <section aria-labelledby="comparison-title">
+        <div class="section-heading compact">
+          <div>
+            <span class="eyebrow">selected histories</span>
+            <h2 id="comparison-title">Rolling loss</h2>
+          </div>
+        </div>
+        <svg id="laboratory-chart" viewBox="0 0 720 190" role="img" aria-label="Selected experiment rolling loss by optimizer update"></svg>
+        <div id="laboratory-chart-legend" class="laboratory-chart-legend"></div>
+      </section>
+    </div>
+    <details class="launch-panel">
+      <summary>Launch controlled experiment</summary>
+      <form id="laboratory-launch-form">
+        <label>Run ID <input id="lab-run-id" name="runId" pattern="[a-z0-9][a-z0-9-]{0,62}" value="attention-pilot" required></label>
+        <label>GPU <select id="lab-gpu" name="gpuUuid" required></select></label>
+        <label>Cell architecture <select id="lab-architecture" name="architecture" required></select></label>
+        <label>Batch <input id="lab-batch" name="batchSize" type="number" min="1" max="256" value="16" required></label>
+        <label>Updates <input id="lab-updates" name="updates" type="number" min="1" value="1000" required></label>
+        <label>Seed <input id="lab-seed" name="seed" type="number" value="1" required></label>
+        <label>AMP <select id="lab-amp" name="amp"><option value="bfloat16">bfloat16</option><option value="off">off</option></select></label>
+        <label class="launch-check"><input id="lab-lifecycle" name="lifecycle" type="checkbox"> Lifecycle</label>
+        <button id="lab-launch" class="primary" type="submit">Launch</button>
+        <output id="lab-launch-status" role="status"></output>
+      </form>
+    </details>
+  </section>
+
   <main>
     <div class="visual-column">
       <section class="dish-panel" aria-label="Live neural cellular field">

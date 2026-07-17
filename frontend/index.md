@@ -3,13 +3,21 @@
 ## Purpose
 
 Defines the multi-experiment viewer shell: dominant dish canvas, training and lifecycle
-controls, scientific diagnostics, history, and inspection.
+controls, scientific diagnostics, history, inspection, and a stable two-GPU
+experiment laboratory above the live organism.
 
 ## Components
 
 ### `#dish-host`
 - **Does**: Hosts the PixiJS canvas and pointer interventions.
 - **Interacts with**: `DishRenderer` in `renderer.ts`.
+
+### `.laboratory`
+- **Does**: Hosts measured GPU lanes, persisted-run comparison, rolling-loss chart,
+  and an explicitly enabled launch form without displacing live dish controls.
+- **Interacts with**: `LaboratoryView` in `lab.ts` and `/api/lab`.
+- **Rationale**: Run-level monitoring changes on a slower cadence than organism
+  frames and therefore remains independent from the WebSocket renderer.
 
 ### `.visual-column` / `.task-panel`
 - **Does**: Keeps the dynamic task/context readout directly below the network
@@ -70,6 +78,7 @@ controls, scientific diagnostics, history, and inspection.
 | Dependent | Expects | Breaking changes |
 |-----------|---------|------------------|
 | `main.ts` | Every referenced element ID exists with the expected native type | ID or element-type changes |
+| `lab.ts` | Laboratory table, chart, status, and launch IDs are stable | ID changes |
 | `styles.css` | Structural class names remain stable | Class changes |
 | Accessibility | Controls retain visible labels and native semantics | Removing labels or roles |
 | Hyperparameters | Apply clearly states that a new organism is constructed | Silent in-place mutation |

@@ -2,8 +2,9 @@
 
 ## Purpose
 
-Composes transport, renderer, chart, lifecycle controls, lesioning, task previews,
-interactive corpus generation, metrics, and cell inspection for every organism.
+Composes transport, renderer, charts, laboratory monitoring, lifecycle controls,
+lesioning, task previews, interactive corpus generation, metrics, and cell
+inspection for every organism.
 
 ## Components
 
@@ -17,6 +18,8 @@ interactive corpus generation, metrics, and cell inspection for every organism.
   restarted server can establish a fresh authoritative stream.
 - **Does**: Submits saved-organism selections as pending operations until the
   backend confirms the loaded checkpoint identity.
+- **Does**: Starts the independent `LaboratoryView`; run polling never blocks or
+  mutates the high-frequency organism WebSocket.
 
 ### `receiveSnapshot`
 - **Does**: Applies one authoritative MNIST frame, clears transient loading

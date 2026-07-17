@@ -1,6 +1,7 @@
 import "./styles.css";
 
 import { HistoryChart } from "./chart";
+import { LaboratoryView } from "./lab";
 import type {
   ExperimentSnapshot,
   HyperparameterSnapshot,
@@ -116,6 +117,8 @@ const history = new HistoryChart(
 );
 
 await renderer.initialize();
+const laboratoryView = new LaboratoryView();
+laboratoryView.start();
 socket.connect();
 
 playPause.addEventListener("click", () => {
