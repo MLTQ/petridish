@@ -234,7 +234,6 @@ export class LaboratoryView {
       benchmark.task === newest.task
       && benchmark.profile === newest.profile
       && benchmark.recallMode === newest.recallMode
-      && benchmark.seed === newest.seed
       && benchmark.steps === newest.steps
     ));
     this.benchmarkSummary.value = `${newest.profile} · ${newest.recallMode.replace("_", " ")} · seed ${newest.seed ?? "—"} · ${newest.steps ?? "—"} updates`;
@@ -287,7 +286,7 @@ export class LaboratoryView {
       }
       const legend = document.createElement("span");
       legend.className = seriesClass;
-      legend.textContent = benchmark.architecture.toUpperCase();
+      legend.textContent = `${benchmark.architecture.toUpperCase()} · seed ${benchmark.seed ?? "—"}`;
       this.benchmarkLegend.append(legend);
     });
   }

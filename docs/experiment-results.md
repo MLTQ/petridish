@@ -125,3 +125,40 @@ The clean-token variant also returned to the shortcut (54.17% correct at update 
 winning owners, 0.098 cross-token overlap, and 15.3% mean peak ownership. Training
 sharpened but collapsed it to 7/10 owners, 0.160 overlap, and 42.1% peak ownership.
 This motivates a separated-address control before judging the downstream pathway.
+
+### Separated physical owners
+
+The separated-address profile changed only address temperature (0.05) and added a
+0.02 overlap/entropy penalty. At update 400 it retained 10/10 distinct physical
+owners, 99.77% mean peak ownership, 0.000041 cross-token overlap, and 0.00395
+normalized entropy.
+
+| Overall held out | Query slot 1 | Query slot 2 | Distractor | Absent | Final loss |
+|-----------------:|-------------:|-------------:|-----------:|-------:|-----------:|
+| 63.54% | 64.58% | 62.50% | 36.46% | 0.00% | 0.67853 |
+
+This is the first intervention to exceed every homogeneous baseline's roughly 55%
+peak and it improves both query positions. Stable differentiated ownership therefore
+contributes useful relational capacity; replication across a second seed and a longer
+training budget are running before treating the effect as robust.
+
+### Replication and long-run consolidation
+
+Seed 12 did not replicate the 400-update gain: it ended at 44.79% despite 10/10
+distinct owners, 99.22% peak ownership, and negligible overlap. The seed-11 run was
+therefore extended rather than treating its earlier result as generally robust.
+
+Seed 11 continued from 71.35% at update 440 to 100% held-out accuracy at update 820,
+then remained perfect through update 1,200:
+
+| Update | Training accuracy | Held out | Slot 1 | Slot 2 | Distractor | Loss |
+|-------:|------------------:|---------:|-------:|-------:|-----------:|-----:|
+| 440 | 57.67% | 71.35% | 75.86% | 67.62% | 28.65% | 0.67706 |
+| 820 | 99.60% | 100.00% | 100.00% | 100.00% | 0.00% | 0.02359 |
+| 1,200 | 100.00% | 100.00% | 100.00% | 100.00% | 0.00% | 0.00072 |
+
+The final address map has 9/10 distinct argmax owners, 99.35% peak ownership, 0.02235
+cross-token overlap, and 0.00929 entropy. Perfect binding therefore does not require
+one unique argmax neuron per symbol; the full sparse ownership distribution retains
+enough identity. A 1,200-update seed-12 replication is running to distinguish variable
+convergence speed from lucky initialization.
