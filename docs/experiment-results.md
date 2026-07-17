@@ -235,3 +235,29 @@ population count but destroys learned computation faster than gradient learning 
 stabilize it. The next matrix separates lifecycle-without-lesion from lesion effects,
 uses a stronger radius-8 physical intervention, and tests a lower-cadence bounded-
 turnover lifecycle without tuning this recorded baseline.
+
+## Radius-8 lifecycle ablation matrix — 2026-07-17
+
+Five deterministic branches were cloned from one 1,200-update fixed-three base. The
+radius-8 intervention was matched across branches and removed 106/250 neurons plus
+624/867 active edges, reducing immediate held-out accuracy to 23.18%.
+
+| Branch | Initial | Minimum | Peak | Final | Cells | Edges | Births | Deaths |
+|--------|--------:|--------:|-----:|------:|------:|------:|-------:|-------:|
+| static control | 99.22% | 94.53% | 100.00% | 99.48% | 250 | 867 | 0 | 0 |
+| lifecycle control, interval 8 | 99.22% | 29.17% | 99.22% | 49.74% | 301 | 886 | 222 | 171 |
+| radius-8, static | 23.18% | 23.18% | 88.02% | 85.94% | 144 | 243 | 0 | 0 |
+| radius-8, lifecycle interval 8 | 23.18% | 23.18% | 100.00% | 77.86% | 296 | 804 | 251 | 99 |
+| radius-8, interval 32 / birth 4 / death 8 | 23.18% | 13.02% | 65.62% | 13.02% | 115 | 306 | 32 | 61 |
+
+Default lifecycle is independently destructive: without a lesion it ends at 49.74%
+versus 99.48% for the topology-frozen clone, with 161/171 deaths classified as
+overload. After severe damage, however, it accelerates functional recovery: the
+radius-8 lifecycle branch reaches 100% at update 100, while the static branch peaks at
+88.02% and ends at 85.94%. Continued turnover then destabilizes the repaired branch.
+
+Lower cadence with asymmetric caps is worse, not gentler: only 32 births replace 61
+deaths, population falls to 115, and final accuracy is 13.02%. Mutation frequency is
+therefore not the sole control variable. The data support a finite repair phase:
+activate birth/death/topology after damage, then freeze mutation when competence
+returns and let gradients consolidate the repaired substrate.
