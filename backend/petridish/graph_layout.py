@@ -97,4 +97,30 @@ def resolve_layout(layout: str | GraphLayout) -> GraphLayout:
         raise ValueError(f"unknown graph layout: {layout}") from error
 
 
-__all__ = ["GraphLayout", "LAYOUTS", "resolve_layout"]
+def sequence_layout(task_key: str, vocabulary_size: int) -> GraphLayout:
+    """Resolve a fixed task or construct a reproducible corpus-token layout."""
+
+    registered = LAYOUTS.get(task_key)
+    if registered is not None:
+        if (registered.input_count, registered.output_count) != (
+            vocabulary_size, vocabulary_size
+        ):
+            raise ValueError("registered sequence layout does not match vocabulary")
+        return registered
+    if task_key != "tiny_shakespeare":
+        raise ValueError(f"unknown sequence layout: {task_key}")
+    return GraphLayout(
+        key=task_key,
+        title="Tiny Shakespeare NCA",
+        description="Character ports on the right predict through permuted left outputs.",
+        input_count=vocabulary_size,
+        output_count=vocabulary_size,
+        input_side="right",
+        output_side="left",
+        flow_direction=-1,
+        input_position_order=_permutation(vocabulary_size, 24_201),
+        output_position_order=_permutation(vocabulary_size, 24_202),
+    )
+
+
+__all__ = ["GraphLayout", "LAYOUTS", "resolve_layout", "sequence_layout"]

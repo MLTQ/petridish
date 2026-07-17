@@ -81,7 +81,14 @@ class SpatialSubstrate(nn.Module):
         anchor[output_sites] = True
 
         interior = (x > 1) & (x < config.width - 2)
-        occupied = interior & (torch.rand(site_count, generator=generator) < config.initial_density)
+        available = max(1, int(interior.sum()))
+        effective_density = min(
+            config.initial_density,
+            config.max_initial_neurons / available,
+        )
+        occupied = interior & (
+            torch.rand(site_count, generator=generator) < effective_density
+        )
         occupied[anchor] = True
         roles = torch.zeros(site_count, 3)
         roles[:, 0] = occupied.float()
@@ -143,19 +150,36 @@ class SpatialSubstrate(nn.Module):
                 for column in range(7)
             ]
         else:
-            rows = torch.linspace(3, cfg.height - 4, self.input_count).round().long()
-            column = 1 if self.layout.input_side == "left" else cfg.width - 2
-            sites = (rows * cfg.width + column).tolist()
+            sites = self._boundary_sites(self.input_count, self.layout.input_side)
         order = torch.tensor(self.layout.input_position_order, dtype=torch.long)
         return torch.tensor(sites, dtype=torch.long)[order]
 
     def _output_sites(self) -> torch.Tensor:
         cfg = self.config
-        rows = torch.linspace(6, cfg.height - 7, self.output_count).round().long()
-        column = 1 if self.layout.output_side == "left" else cfg.width - 2
-        base = rows * cfg.width + column
+        base = torch.tensor(
+            self._boundary_sites(self.output_count, self.layout.output_side),
+            dtype=torch.long,
+        )
         order = torch.tensor(self.layout.output_position_order, dtype=torch.long)
         return base[order]
+
+    def _boundary_sites(self, count: int, side: str) -> list[int]:
+        """Pack unique semantic ports into a boundary stripe on small fields."""
+
+        cfg = self.config
+        usable_rows = cfg.height - 2
+        stripe_width = math.ceil(count / usable_rows)
+        if stripe_width * 2 > cfg.width - 2:
+            raise ValueError(
+                f"{cfg.width}×{cfg.height} field cannot fit {count} input/output ports"
+            )
+        sites: list[int] = []
+        for index in range(count):
+            lane, row_offset = divmod(index, usable_rows)
+            row = row_offset + 1
+            column = 1 + lane if side == "left" else cfg.width - 2 - lane
+            sites.append(row * cfg.width + column)
+        return sites
 
     def _build_probes(
         self, x: torch.Tensor, y: torch.Tensor, generator: torch.Generator
@@ -164,7 +188,9 @@ class SpatialSubstrate(nn.Module):
         offsets: list[tuple[int, int]] = []
         while len(offsets) < cfg.candidate_probes:
             if len(offsets) < int(cfg.candidate_probes * 0.75):
-                dx = -int(torch.randint(1, cfg.local_radius + 1, (), generator=generator))
+                dx = -self.layout.flow_direction * int(
+                    torch.randint(1, cfg.local_radius + 1, (), generator=generator)
+                )
             else:
                 dx = int(torch.randint(-cfg.local_radius, cfg.local_radius + 1, (), generator=generator))
             dy = int(torch.randint(-cfg.local_radius, cfg.local_radius + 1, (), generator=generator))

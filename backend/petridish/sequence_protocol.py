@@ -78,7 +78,12 @@ def build_sequence_snapshot(experiment: SequenceExperiment) -> dict[str, Any]:
         if name not in {"substrate.synapse_weight", "substrate.genotype"}
     )
     active_parameters = shared + living_count * cfg.genotype_channels + total_edge_count
-    position = max(0, min(frame.token_position, experiment.task.sequence_length - 1))
+    visible_length = len(experiment.last_tokens)
+    position = (
+        visible_length - 1
+        if frame.token_position < 0
+        else min(frame.token_position, visible_length - 1)
+    )
     vocabulary = experiment.task.vocabulary
     target_ids = experiment.last_targets.tolist()
     prediction_ids = experiment.last_predictions.tolist()
@@ -108,9 +113,22 @@ def build_sequence_snapshot(experiment: SequenceExperiment) -> dict[str, Any]:
             "testAccuracy": None if experiment.test_accuracy is None else round(experiment.test_accuracy, 4),
             "confidence": round(confidence, 4), "loss": round(experiment.last_loss, 5),
             "perplexity": round(float(np.exp(min(20.0, max(-20.0, experiment.last_loss)))), 4),
+            "recallPairs": experiment.recall_pair_count,
+            "recallMaxPairs": 3 if experiment.task.key == "associative_recall" else 0,
+            "stageAccuracy": round(
+                sum(experiment.stage_accuracy_history) / len(experiment.stage_accuracy_history), 4
+            ) if experiment.stage_accuracy_history else 0.0,
+            "datasetName": experiment.task.dataset_name,
+            "datasetCharacters": experiment.task.dataset_characters,
+            "contextLength": experiment.task.sequence_length,
+            "interactive": experiment.task.encode is not None,
+            "interactivePrompt": experiment.interactive_prompt,
+            "generatedText": experiment.generated_text,
+            "nextTokenPrediction": experiment.next_token_prediction,
+            "sourceUrl": experiment.task.source_url,
             "reward": round(experiment.last_reward, 5),
             "seenExamples": experiment.seen_examples, "trainingStep": experiment.training_step,
-            "trialStep": frame.step, "trialSteps": experiment.task.sequence_length + 2,
+            "trialStep": frame.step, "trialSteps": visible_length + 2,
             "generation": substrate.generation,
             "structuralWarmupRemaining": experiment.structural_warmup_remaining,
             "lifecycleWarmupRemaining": experiment.lifecycle_warmup_remaining,
@@ -145,7 +163,7 @@ def build_sequence_snapshot(experiment: SequenceExperiment) -> dict[str, Any]:
             "parametersPerLivingCell": round(active_parameters / max(1, living_count), 3),
             "device": str(experiment.device),
         },
-        "configuration": {"parameters": hyperparameter_payload(cfg)},
+        "configuration": {"parameters": hyperparameter_payload(cfg, include_sequence=True)},
     }
 
 

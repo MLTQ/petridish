@@ -2,14 +2,15 @@
 
 ## Purpose
 
-Maintains bounded viewer-local MNIST objective and accuracy histories and
+Maintains bounded viewer-local objective and accuracy histories and
 renders both into the compact SVG.
 
 ## Components
 
 ### `HistoryChart`
-- **Does**: Normalizes MNIST loss into a rising objective, appends accuracy,
-  trims both to 160 frames, and updates lines/summary.
+- **Does**: Normalizes loss into a rising objective, appends accuracy, trims both
+  to 160 frames, and updates lines/summary.
+- **Does**: Clears history when switching organisms so tasks are never joined.
 - **Interacts with**: `main.ts` and snapshot metrics.
 
 ## Contracts

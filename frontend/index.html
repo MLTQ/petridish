@@ -28,6 +28,15 @@
           <button id="reset" type="button">Reset</button>
         </div>
         <label>
+          Experiment
+          <select id="experiment-select">
+            <option value="mnist">MNIST classifier</option>
+            <option value="associative_recall">Associative recall</option>
+            <option value="tiny_language">Tiny language model</option>
+            <option value="tiny_shakespeare">Tiny Shakespeare corpus</option>
+          </select>
+        </label>
+        <label>
           Layer
           <select id="layer-select">
             <option value="activation">activation</option>
@@ -74,6 +83,24 @@
             <strong id="mnist-test-accuracy">not evaluated</strong>
             <small id="mnist-seen">0 examples seen</small>
           </div>
+        </div>
+        <div class="sequence-preview" id="sequence-preview-panel" hidden>
+          <p id="sequence-description"></p>
+          <ol id="sequence-tokens" aria-label="Current token sequence"></ol>
+          <div class="sequence-evaluation">
+            <span>held-out accuracy <strong id="sequence-test-accuracy">not evaluated</strong></span>
+            <span>perplexity <strong id="sequence-perplexity">10.00</strong></span>
+          </div>
+        </div>
+        <div class="generation-panel" id="generation-panel" hidden>
+          <label for="generation-prompt">Prompt</label>
+          <textarea id="generation-prompt" rows="3" maxlength="4096" spellcheck="false">ROMEO:</textarea>
+          <div class="button-row two">
+            <button id="prompt-apply" type="button">Set prompt</button>
+            <button id="generate-token" type="button">Generate next token</button>
+          </div>
+          <pre id="generation-output" aria-live="polite"></pre>
+          <p class="hint">Next greedy prediction: <strong id="next-token-prediction">—</strong>. Generation samples at temperature 0.85.</p>
         </div>
         <div class="task-state">
           <div><span id="task-label-a">label</span><strong id="task-a">0</strong></div>
@@ -142,7 +169,7 @@
             </span>
             <span id="hyperparameter-count">0 parameters</span>
           </summary>
-          <p class="hint">Values are staged locally. Applying them restarts the MNIST organism so one run never mixes configurations.</p>
+          <p class="hint">Values are staged locally. Applying them restarts the selected organism so one run never mixes configurations.</p>
           <div id="hyperparameter-controls"></div>
           <div class="hyperparameter-actions">
             <button id="hyperparameter-apply" type="button" disabled>Apply &amp; restart</button>

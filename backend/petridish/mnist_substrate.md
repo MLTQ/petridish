@@ -17,10 +17,16 @@ and lesions.
 - **Rationale**: Initial dendrites prefer local sources toward the configured
   input boundary, so left-to-right and right-to-left tasks both begin reachable;
   later growth remains constrained to the same physical radius.
+- **Rationale**: Directional probe offsets and scores reverse together. This keeps
+  boundary outputs supplied with upstream candidates in reversed-flow tasks.
 - **Rationale**: Initial weights are signed and zero-centered so the graph does
   not begin as a saturating positive diffusion process.
 - **Rationale**: Site genotypes specialize the shared recurrent rule; advertised
   query/key/gate EMAs let growth use content-addressing evidence.
+- **Rationale**: Initial density is capped by `max_initial_neurons`, separating
+  sparse population cost from physical address-space dimensions.
+- **Does**: Packs vocabulary-sized semantic ports into unique boundary stripes
+  when a single column is shorter than the vocabulary.
 
 ### `GraphDiagnostics` / `graph_diagnostics`
 - **Does**: Caches directed sensory-to-output hop distance and temporal

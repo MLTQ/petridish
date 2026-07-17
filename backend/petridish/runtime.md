@@ -8,7 +8,8 @@ training and intervention mutations behind one lock.
 ## Components
 
 ### `ExperimentRuntime`
-- **Does**: Lazily owns MNIST, associative-recall, and tiny-language organisms;
+- **Does**: Lazily owns MNIST, associative-recall, synthetic tiny-language, and
+  Tiny Shakespeare organisms;
   switching preserves each organism's learned state.
 - **Interacts with**: FastAPI WebSockets, experiment classes, `build_snapshot`.
 
@@ -24,6 +25,8 @@ training and intervention mutations behind one lock.
 - **Does**: Bounds and applies experiment switching, playback, reset, lesion,
   evaluation, forced lifecycle cycles, speed, and atomic hyperparameter restarts.
 - **Interacts with**: Frontend `ExperimentSocket`.
+- **Does**: Pauses corpus experiments while replacing the prompt or generating
+  one sampled token, so visible state corresponds to the displayed completion.
 
 ## Contracts
 

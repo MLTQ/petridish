@@ -117,6 +117,21 @@ aside { display: grid; align-content: start; gap: 10px; }
 .mnist-preview span { color: #667e7b; font-size: 10px; text-transform: uppercase; }
 .mnist-preview strong { font: 500 17px ui-monospace, SFMono-Regular, Menlo, monospace; }
 .mnist-preview small { color: #69807d; font-size: 10px; }
+.sequence-preview { margin: 0 0 12px; }
+.sequence-preview p { margin: 0 0 9px; color: #77908d; font-size: 11px; line-height: 1.45; }
+.sequence-preview ol { display: flex; flex-wrap: wrap; gap: 5px; margin: 0; padding: 0; list-style: none; }
+.sequence-preview li { min-width: 34px; padding: 5px 7px; border: 1px solid #243a3d; color: #8da29f; font: 500 11px ui-monospace, SFMono-Regular, Menlo, monospace; text-align: center; }
+.sequence-preview li.consumed { color: #cce0dc; border-color: #355a55; }
+.sequence-preview li.current { color: #f2d17f; border-color: #8a7040; background: #1d1a10; }
+.sequence-preview li em { display: block; margin-top: 3px; color: #708784; font-size: 9px; font-style: normal; }
+.sequence-evaluation { display: flex; justify-content: space-between; gap: 12px; margin-top: 9px; color: #667e7b; font-size: 10px; text-transform: uppercase; }
+.sequence-evaluation strong { margin-left: 4px; color: #c8d7d4; font: 500 11px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.generation-panel { display: grid; gap: 8px; margin-bottom: 12px; }
+.generation-panel label { color: #667e7b; font-size: 10px; text-transform: uppercase; }
+.generation-panel textarea, .generation-panel pre { width: 100%; margin: 0; border: 1px solid #243a3d; background: #071012; color: #cfe0dc; font: 500 11px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.generation-panel textarea { resize: vertical; padding: 8px; }
+.generation-panel pre { min-height: 54px; max-height: 150px; overflow: auto; padding: 8px; white-space: pre-wrap; word-break: break-word; }
+.generation-panel .hint { margin: 0; }
 .task-state { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid #1d3134; margin-bottom: 11px; }
 .task-state div { display: grid; place-items: center; gap: 4px; padding: 9px 3px; border-right: 1px solid #1d3134; }
 .task-state div:last-child { border: 0; }

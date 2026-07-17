@@ -19,7 +19,7 @@ class SequenceBatch:
 
 @dataclass(frozen=True, slots=True)
 class SequenceTask:
-    """One synthetic sequence distribution and its readable vocabulary."""
+    """One sequence distribution and its readable vocabulary."""
 
     key: str
     title: str
@@ -27,26 +27,40 @@ class SequenceTask:
     vocabulary: tuple[str, ...]
     sequence_length: int
     generator: Callable[[int, torch.Generator], SequenceBatch]
+    evaluation_generator: Callable[[int, torch.Generator], SequenceBatch] | None = None
+    encode: Callable[[str], list[int]] | None = None
+    decode: Callable[[list[int]], str] | None = None
+    dataset_name: str | None = None
+    dataset_characters: int = 0
+    source_url: str | None = None
 
-    def batch(self, batch_size: int, generator: torch.Generator) -> SequenceBatch:
-        return self.generator(batch_size, generator)
+    def batch(
+        self, batch_size: int, generator: torch.Generator, *, evaluation: bool = False
+    ) -> SequenceBatch:
+        selected = self.evaluation_generator if evaluation else self.generator
+        return (selected or self.generator)(batch_size, generator)
 
 
 def associative_recall_batch(
-    batch_size: int, generator: torch.Generator
+    batch_size: int, generator: torch.Generator, pair_count: int = 3
 ) -> SequenceBatch:
-    """Generate three key/value bindings followed by a queried key."""
+    """Generate one to three bindings followed by a queried key."""
+
+    if pair_count not in {1, 2, 3}:
+        raise ValueError("associative recall supports one to three pairs")
 
     rows: list[list[int]] = []
     targets = torch.full((batch_size, 8), -100, dtype=torch.long)
     for row in range(batch_size):
-        keys = torch.randperm(4, generator=generator)[:3]
-        values = torch.randperm(4, generator=generator)[:3] + 4
-        query_slot = int(torch.randint(0, 3, (), generator=generator))
-        sequence: list[int] = []
-        for key, value in zip(keys.tolist(), values.tolist(), strict=True):
-            sequence.extend((key, value))
-        sequence.extend((8, int(keys[query_slot])))
+        keys = torch.randperm(4, generator=generator)[:pair_count]
+        values = torch.randperm(4, generator=generator)[:pair_count] + 4
+        query_slot = int(torch.randint(0, pair_count, (), generator=generator))
+        sequence: list[int] = [9] * 8
+        for pair_index, (key, value) in enumerate(
+            zip(keys.tolist(), values.tolist(), strict=True)
+        ):
+            sequence[pair_index * 2 : pair_index * 2 + 2] = (key, value)
+        sequence[6:] = (8, int(keys[query_slot]))
         rows.append(sequence)
         targets[row, -1] = int(values[query_slot])
     tokens = torch.tensor(rows, dtype=torch.long)
@@ -79,7 +93,7 @@ TASKS: dict[str, SequenceTask] = {
         key="associative_recall",
         title="Associative Recall",
         description=(
-            "Bind three K→V pairs, receive a query marker and key, then retrieve "
+            "Bind up to three K→V pairs, receive a query marker and key, then retrieve "
             "the corresponding value after a delay."
         ),
         vocabulary=("K0", "K1", "K2", "K3", "V0", "V1", "V2", "V3", "?", "·"),
@@ -103,10 +117,17 @@ TASKS: dict[str, SequenceTask] = {
 def resolve_sequence_task(task: str | SequenceTask) -> SequenceTask:
     if isinstance(task, SequenceTask):
         return task
+    if task == "tiny_shakespeare":
+        from .corpus_task import load_tiny_shakespeare_task
+
+        return load_tiny_shakespeare_task()
     try:
         return TASKS[task]
     except KeyError as error:
         raise ValueError(f"unknown sequence task: {task}") from error
 
 
-__all__ = ["SequenceBatch", "SequenceTask", "TASKS", "resolve_sequence_task"]
+__all__ = [
+    "SequenceBatch", "SequenceTask", "TASKS", "associative_recall_batch",
+    "resolve_sequence_task",
+]

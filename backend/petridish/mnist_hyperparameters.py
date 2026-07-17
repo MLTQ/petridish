@@ -20,9 +20,12 @@ class HyperparameterSpec:
     step: float
 
 
+FIELD_SIZES = (16, 32, 64, 128, 256, 512, 1024)
+
+
 SPECS: dict[str, HyperparameterSpec] = {
-    "width": HyperparameterSpec("substrate width", "geometry & compute", 32, 128, 16),
-    "height": HyperparameterSpec("substrate height", "geometry & compute", 32, 128, 16),
+    "width": HyperparameterSpec("substrate width", "geometry & compute", 16, 1024, 1),
+    "height": HyperparameterSpec("substrate height", "geometry & compute", 16, 1024, 1),
     "hidden_channels": HyperparameterSpec("state channels", "geometry & compute", 4, 64, 4),
     "genotype_channels": HyperparameterSpec("persistent genotype channels", "geometry & compute", 4, 64, 4),
     "edge_slots": HyperparameterSpec("dendrites / neuron", "geometry & compute", 1, 8, 1),
@@ -30,12 +33,18 @@ SPECS: dict[str, HyperparameterSpec] = {
     "candidate_slots": HyperparameterSpec("candidate IDs", "geometry & compute", 1, 8, 1),
     "candidate_probes": HyperparameterSpec("broadcast probes", "geometry & compute", 8, 128, 4),
     "initial_density": HyperparameterSpec("initial density", "geometry & compute", 0.1, 0.9, 0.01),
+    "max_initial_neurons": HyperparameterSpec("initial neuron cap", "geometry & compute", 128, 131_072, 128),
     "initial_weight_scale": HyperparameterSpec("initial weight scale", "geometry & compute", 0.01, 1, 0.01),
-    "local_radius": HyperparameterSpec("broadcast radius (cells)", "geometry & compute", 1, 32, 1),
+    "local_radius": HyperparameterSpec("broadcast radius (cells)", "geometry & compute", 1, 511, 1),
     "message_steps": HyperparameterSpec("message steps", "geometry & compute", 2, 32, 1),
     "message_gain": HyperparameterSpec("message gain", "geometry & compute", 0.05, 2, 0.05),
     "attention_temperature": HyperparameterSpec("attention temperature", "geometry & compute", 0.1, 4, 0.1),
     "emit_gate_bias": HyperparameterSpec("initial emit bias", "geometry & compute", -4, 4, 0.1),
+    "broadcast_slots": HyperparameterSpec("broadcast workspace slots", "geometry & compute", 1, 16, 1),
+    "broadcast_gain": HyperparameterSpec("broadcast workspace gain", "geometry & compute", 0, 2, 0.05),
+    "broadcast_decay": HyperparameterSpec("broadcast memory decay", "geometry & compute", 0, 0.99, 0.01),
+    "fast_weight_gain": HyperparameterSpec("fast-weight memory gain", "geometry & compute", 0, 2, 0.05),
+    "fast_weight_decay": HyperparameterSpec("fast-weight memory decay", "geometry & compute", 0, 0.999, 0.001),
     "batch_size": HyperparameterSpec("batch size", "geometry & compute", 4, 128, 4),
     "max_visible_edges": HyperparameterSpec("rendered edge cap", "geometry & compute", 100, 20_000, 100),
     "learning_rate": HyperparameterSpec("shared-rule learning rate", "learning", 0.0001, 0.01, 0.0001),
@@ -85,35 +94,72 @@ SPECS: dict[str, HyperparameterSpec] = {
 }
 
 
-def hyperparameter_payload(config: MnistModelConfig) -> list[dict[str, Any]]:
+def hyperparameter_payload(
+    config: MnistModelConfig, *, include_sequence: bool = False
+) -> list[dict[str, Any]]:
     """Return the authoritative ordered slider definitions and current values."""
 
     values = asdict(config)
     integer_fields = {field.name for field in fields(config) if field.type is int or isinstance(values[field.name], int)}
-    return [
+    field_choices = FIELD_SIZES if include_sequence else FIELD_SIZES[1:]
+    payload = [
+        {
+            "key": "field_size",
+            "label": "square field size",
+            "group": "geometry & compute",
+            "value": config.width,
+            "min": field_choices[0],
+            "max": field_choices[-1],
+            "step": 1,
+            "integer": True,
+            "choices": list(field_choices),
+        }
+    ]
+    payload.extend(
+        [
         {
             "key": key,
             "label": spec.label,
             "group": spec.group,
             "value": values[key],
             "min": spec.minimum,
-            "max": spec.maximum,
+            "max": (
+                min(spec.maximum, min(config.width, config.height) // 2 - 1)
+                if key == "local_radius"
+                else spec.maximum
+            ),
             "step": spec.step,
             "integer": key in integer_fields,
         }
         for key, spec in SPECS.items()
-    ]
+        if key not in {"width", "height"}
+        if include_sequence or key not in {
+            "broadcast_slots", "broadcast_gain", "broadcast_decay",
+            "fast_weight_gain", "fast_weight_decay",
+        }
+        ]
+    )
+    return payload
 
 
 def configured(config: MnistModelConfig, changes: Mapping[str, Any]) -> MnistModelConfig:
     """Validate numeric viewer changes and return a new immutable configuration."""
 
-    unknown = set(changes) - set(SPECS)
+    unknown = set(changes) - set(SPECS) - {"field_size"}
     if unknown:
         raise ValueError(f"unknown MNIST hyperparameter: {sorted(unknown)[0]}")
+    normalized = dict(changes)
+    if "field_size" in normalized:
+        if "width" in normalized or "height" in normalized:
+            raise ValueError("field_size cannot be combined with width or height")
+        field_size = normalized.pop("field_size")
+        if isinstance(field_size, bool) or field_size not in FIELD_SIZES:
+            raise ValueError("field_size must be a power of two from 16 through 1024")
+        normalized["width"] = field_size
+        normalized["height"] = field_size
     current = asdict(config)
     converted: dict[str, int | float] = {}
-    for key, raw in changes.items():
+    for key, raw in normalized.items():
         if isinstance(raw, bool) or not isinstance(raw, (int, float)) or not math.isfinite(float(raw)):
             raise ValueError(f"{key} must be a finite number")
         spec = SPECS[key]
@@ -128,6 +174,8 @@ def configured(config: MnistModelConfig, changes: Mapping[str, Any]) -> MnistMod
             converted[key] = value
 
     result = replace(config, **converted)
+    if "field_size" in changes and result.local_radius >= result.width / 2:
+        result = replace(result, local_radius=max(1, result.width // 2 - 1))
     if result.candidate_probes < result.edge_slots:
         raise ValueError("candidate_probes must be at least edge_slots")
     if result.local_radius >= min(result.width, result.height) / 2:
@@ -143,4 +191,7 @@ if set(SPECS) != {field.name for field in fields(MnistModelConfig)}:
     raise RuntimeError("every MNIST model field must have one hyperparameter specification")
 
 
-__all__ = ["HyperparameterSpec", "SPECS", "configured", "hyperparameter_payload"]
+__all__ = [
+    "FIELD_SIZES", "HyperparameterSpec", "SPECS", "configured",
+    "hyperparameter_payload",
+]

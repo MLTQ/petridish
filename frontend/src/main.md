@@ -2,8 +2,8 @@
 
 ## Purpose
 
-Composes the MNIST transport, renderer, chart, lifecycle controls, lesioning,
-digit preview, metrics, and cell inspection.
+Composes transport, renderer, chart, lifecycle controls, lesioning, task previews,
+interactive corpus generation, metrics, and cell inspection for every organism.
 
 ## Components
 
@@ -31,6 +31,14 @@ digit preview, metrics, and cell inspection.
 - **Does**: Shows lifecycle activation, energy/stress, cumulative turnover, and
   the latest measured death-cause split.
 
+### `updateSequenceTask`
+- **Does**: Renders a bounded token window around the active context position,
+  corpus metadata, perplexity, and sequence accuracy.
+- **Does**: For corpus tasks, keeps prompt editing local while focused and shows
+  the authoritative generated suffix plus next greedy-token diagnostic.
+- **Rationale**: Whitespace tokens receive explicit visible labels so newlines
+  and spaces cannot masquerade as missing data.
+
 ### `mnistStageLabel`
 - **Does**: Names input, actual forward traffic, backward gradient credit, and
   structural lifecycle frames independently from readout/rule/synapse phases.
@@ -45,6 +53,8 @@ digit preview, metrics, and cell inspection.
   interrupting the run, and submits one atomic apply-and-restart command.
 - **Rationale**: Dragging a slider never creates a sequence of incomparable
   partial organisms.
+- **Does**: Maps backend-provided discrete choices to slider indices while
+  sending the selected scientific value, including power-of-two field sizes.
 
 ## Contracts
 
@@ -60,3 +70,10 @@ digit preview, metrics, and cell inspection.
 
 Lesion drag commands are throttled to prevent pointer sampling rate from flooding
 the scientific runtime.
+- Experiment selection switches among persistent MNIST, associative-recall, and
+  language organisms and resets only viewer-local chart/configuration state.
+- Task rendering is discriminated: MNIST keeps its external image preview and
+  curriculum, while sequences show ordered tokens, current position, predictions,
+  held-out accuracy, and perplexity.
+- Recall status names the active one-to-three-binding curriculum and its recent
+  stage accuracy; language accuracy refers only to context-dependent positions.

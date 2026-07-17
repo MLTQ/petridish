@@ -44,6 +44,10 @@ substrate and synthetic images.
 - **Does**: Locks the 64×64/8-cell-radius defaults, requires a control spec for
   every configuration field, verifies a one-cell direct-neighbor radius, and
   checks typed and cross-field validation.
+- **Does**: Requires power-of-two square sizes from 16 through 1024 and a
+  field-derived broadcast-radius ceiling.
+- **Does**: Requires the MNIST snapshot to omit sequence-only broadcast and
+  fast-weight controls so every displayed slider has an effect on that experiment.
 
 ### Fixed-connectome learning regression
 - **Does**: Requires the organism to lower loss on an easy spatial digit task,
@@ -61,5 +65,5 @@ substrate and synthetic images.
 | Model | Topology is frozen within forward/backward | In-trial mutation |
 | Protocol | Compact rows map through physical site IDs | Sparse contract changes |
 | Substrate | Manual lesions remove all incident dendrites | Cleanup changes |
-| Viewer controls | Snapshot publishes exactly one spec per model field | Missing slider metadata |
+| Viewer controls | Snapshot publishes every task-relevant model field | Missing slider metadata |
 | Optimizers | A fixed organism must demonstrate end-to-end supervised learning | Broken credit path |

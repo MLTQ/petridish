@@ -13,10 +13,12 @@ path from spatial classification to language modeling.
 ### `SequenceTask`
 - **Does**: Names a distribution, vocabulary, sequence length, and deterministic
   batch generator.
+- **Does**: Optionally supplies a distinct validation generator, text encoder and
+  decoder, dataset metadata, and source URL for cached corpus tasks.
 
 ### `associative_recall_batch`
-- **Does**: Generates three random key/value bindings and a delayed query whose
-  answer is supervised only at the final position.
+- **Does**: Generates one to three random key/value bindings and a delayed query
+  whose answer is supervised only at the final position; unused slots are neutral.
 - **Rationale**: Success requires content-addressed memory rather than local
   next-token frequency.
 
@@ -24,6 +26,11 @@ path from spatial classification to language modeling.
 - **Does**: Generates a compositional grammar and supervises every next token.
 - **Rationale**: The verb is an XOR-like function of two earlier tokens, so a
   one-token Markov model cannot solve the deterministic portion.
+
+### `resolve_sequence_task`
+- **Does**: Resolves synthetic tasks immediately and lazily loads Tiny Shakespeare
+  only when selected, avoiding network or disk work for unrelated experiments.
+- **Interacts with**: `corpus_task.py` and `SequenceExperiment`.
 
 ## Contracts
 

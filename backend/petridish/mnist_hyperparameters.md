@@ -13,8 +13,12 @@ validates user-selected configurations before a new organism is constructed.
 - **Interacts with**: `hyperparameter_payload` and the frontend control panel.
 - **Rationale**: The backend owns scientific ranges so UI controls cannot drift
   from accepted values.
-- **Rationale**: Substrate width/height describe the physical tensor; broadcast
-  radius starts at one cell, meaning immediate-neighbor communication only.
+- **Rationale**: One square-field control exposes powers of two from 16 through
+  1024. Width and height remain internal config fields so every live experiment
+  is square and a size change is atomic.
+- **Rationale**: Broadcast radius starts at one cell, meaning immediate-neighbor
+  communication only. Its emitted maximum is derived from the current field, so
+  the viewer cannot offer a radius that wraps across half the tensor.
 - **Rationale**: Learning stability controls include signed weight scale,
   message gain, separate readout/rule rates, gradient clipping, and structure warm-up.
 - **Rationale**: Early-output loss remains explicit and defaults to zero so
@@ -23,15 +27,22 @@ validates user-selected configurations before a new organism is constructed.
   unlocks, curriculum windows, and competence-gated structure remain viewer-tunable.
 - **Rationale**: Lifecycle activation, cadence, local birth-density ceiling,
   newborn reserve, and inheritance noise are controls rather than hidden constants.
+- **Rationale**: Sequence snapshots additionally expose low-rank broadcast workspace
+  slots, gain, and memory decay; MNIST omits controls its model does not consume.
+- **Rationale**: Sequence-only fast-weight gain/decay are also omitted from MNIST.
 
 ### `hyperparameter_payload`
 - **Does**: Serializes ordered slider definitions with current values.
 - **Interacts with**: `build_mnist_snapshot` in `mnist_protocol.py`.
+- **Does**: Emits square field size as discrete choices and includes workspace
+  controls only for sequence organisms.
 
 ### `configured`
 - **Does**: Rejects unknown, non-finite, out-of-range, non-integral, or mutually
   inconsistent changes and returns a new immutable configuration.
 - **Interacts with**: `ExperimentRuntime.handle_command`.
+- **Does**: Expands `field_size` into equal width and height, clamps a formerly
+  valid radius when shrinking, and rejects non-power-of-two field sizes.
 
 ## Contracts
 

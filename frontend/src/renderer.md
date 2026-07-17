@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Renders sparse MNIST neurons, persistent dendrites, measured forward traffic,
+Renders sparse neurons for image and token tasks, persistent dendrites, measured forward traffic,
 measured backward credit, and actual lifecycle events. It does
 not synthesize signal particles or decorative neural activity.
 

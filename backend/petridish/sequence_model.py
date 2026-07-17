@@ -83,6 +83,18 @@ class CellularSequenceModel(nn.Module):
         self.message_key = nn.Linear(hidden, hidden, bias=False)
         self.message_value = nn.Linear(hidden, hidden, bias=False)
         self.emit_gate = nn.Linear(hidden, 1)
+        self.broadcast_key = nn.Linear(hidden, hidden, bias=False)
+        self.broadcast_query = nn.Linear(hidden, hidden, bias=False)
+        self.broadcast_value = nn.Linear(hidden, hidden, bias=False)
+        self.broadcast_slot_keys = nn.Parameter(
+            torch.randn(config.broadcast_slots, hidden) / math.sqrt(hidden)
+        )
+        self.broadcast_gain = nn.Parameter(torch.tensor(config.broadcast_gain))
+        self.fast_key = nn.Linear(hidden, hidden, bias=False)
+        self.fast_query = nn.Linear(hidden, hidden, bias=False)
+        self.fast_value = nn.Linear(hidden, hidden, bias=False)
+        self.fast_write_gate = nn.Linear(hidden, 1)
+        self.fast_weight_gain = nn.Parameter(torch.tensor(config.fast_weight_gain))
         self.cell_rule = nn.GRUCell(hidden * 2, hidden)
         self.state_norm = nn.LayerNorm(hidden)
         self.output_bank_readout = nn.Linear(hidden * vocab_size, vocab_size)
@@ -169,6 +181,14 @@ class CellularSequenceModel(nn.Module):
         logits: list[torch.Tensor] = []
         entropy_total = 0.0
         observations = max(1, length * cfg.message_steps)
+        workspace_state = torch.zeros(
+            batch, cfg.broadcast_slots, cfg.hidden_channels,
+            device=tokens.device, dtype=hidden.dtype,
+        )
+        fast_memory = torch.zeros(
+            batch, cfg.hidden_channels, cfg.hidden_channels,
+            device=tokens.device, dtype=hidden.dtype,
+        )
 
         for position in range(length):
             external = torch.zeros_like(hidden)
@@ -195,6 +215,39 @@ class CellularSequenceModel(nn.Module):
                 key = self.message_key(normalized)
                 value = self.message_value(normalized)
                 emit = torch.sigmoid(self.emit_gate(normalized))
+                slot_keys = F.normalize(self.broadcast_slot_keys, dim=1)
+                write_score = torch.einsum(
+                    "bnh,sh->bns", self.broadcast_key(normalized), slot_keys
+                ) / math.sqrt(cfg.hidden_channels)
+                write_attention = torch.softmax(write_score, dim=1)
+                proposed_workspace = torch.einsum(
+                    "bns,bnh->bsh", write_attention, self.broadcast_value(normalized)
+                )
+                workspace_state = (
+                    cfg.broadcast_decay * workspace_state
+                    + (1 - cfg.broadcast_decay) * proposed_workspace
+                )
+                read_score = torch.einsum(
+                    "bnh,sh->bns", self.broadcast_query(normalized), slot_keys
+                ) / math.sqrt(cfg.hidden_channels)
+                read_attention = torch.softmax(read_score, dim=2)
+                broadcast_message = torch.einsum(
+                    "bns,bsh->bnh", read_attention, workspace_state
+                ) * self.broadcast_gain.clamp_min(0)
+                fast_key = F.normalize(self.fast_key(normalized), dim=2)
+                fast_value = self.fast_value(normalized)
+                fast_gate = torch.sigmoid(self.fast_write_gate(normalized))
+                proposed_fast_memory = torch.einsum(
+                    "bni,bnj->bij", fast_key * fast_gate, fast_value
+                ) / sites.numel()
+                fast_memory = (
+                    cfg.fast_weight_decay * fast_memory
+                    + (1 - cfg.fast_weight_decay) * proposed_fast_memory
+                )
+                fast_query = F.normalize(self.fast_query(normalized), dim=2)
+                fast_message = torch.einsum(
+                    "bni,bij->bnj", fast_query, fast_memory
+                ) * self.fast_weight_gain.clamp_min(0)
                 advertised_query += query.detach().mean(dim=0) / observations
                 advertised_key += key.detach().mean(dim=0) / observations
                 emission += emit.detach().mean(dim=(0, 2)) / observations
@@ -214,6 +267,7 @@ class CellularSequenceModel(nn.Module):
                 )
                 incoming = torch.zeros_like(hidden)
                 incoming.index_add_(1, target_compact, edge_message)
+                incoming = incoming + broadcast_message + fast_message
                 indegree = torch.zeros(sites.numel(), device=tokens.device)
                 indegree.index_add_(0, target_compact, torch.ones_like(target_compact, dtype=hidden.dtype))
                 if (indegree > 1).any():

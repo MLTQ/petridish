@@ -22,6 +22,10 @@ optimizer rates, and independently gated lifecycle/topology thresholds.
   being counted as neural stimulation or traffic.
 - **Rationale**: Signed initialization scale, message gain, gradient clipping,
   and structural warm-up are explicit experimental controls.
+- **Rationale**: Broadcast workspace slots, gain, and within-sequence decay
+  configure the optional low-rank advertisement memory; zero gain is its ablation.
+- **Rationale**: Fast-weight gain and decay configure a recurrent linear-attention
+  matrix written and queried by sequence neurons; zero gain is its ablation.
 - **Rationale**: Readout and shared-rule learning rates are independent because
   the initial fixed-reservoir probe must converge on a much smaller parameter set.
 - **Rationale**: Early-output trajectory supervision is optional and disabled by
@@ -38,6 +42,9 @@ optimizer rates, and independently gated lifecycle/topology thresholds.
   and inherited specialization explicit, reproducible variables.
 - **Rationale**: A local-density ceiling prevents birth from simply filling an
   already dense field before death or lesioning creates genuine vacancies.
+- **Rationale**: `max_initial_neurons` caps initial occupancy independently from
+  field extent, allowing 128–1024-cell fields without automatically creating a
+  dense million-site organism.
 
 ## Contracts
 

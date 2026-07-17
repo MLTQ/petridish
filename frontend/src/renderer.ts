@@ -162,7 +162,7 @@ export class DishRenderer {
 
   private drawEdges(snapshot: ExperimentSnapshot, geometry: DishGeometry): void {
     const edges = snapshot.edges;
-    const measured = snapshot.task.kind === "mnist" && snapshot.task.phase === "feedback"
+    const measured = snapshot.task.phase === "feedback"
       ? edges.credit.map((value) => Math.abs(value))
       : edges.flow.map((value) => Math.abs(value));
     const maximum = Math.max(1e-9, ...measured);
@@ -307,7 +307,7 @@ export class DishRenderer {
     context.fillStyle = cssColor(COLORS.background);
     context.fillRect(0, 0, this.renderWidth, this.renderHeight);
     const edges = snapshot.edges;
-    const measured = snapshot.task.kind === "mnist" && snapshot.task.phase === "feedback"
+    const measured = snapshot.task.phase === "feedback"
       ? edges.credit.map((value) => Math.abs(value))
       : edges.flow.map((value) => Math.abs(value));
     const maximum = Math.max(1e-9, ...measured);

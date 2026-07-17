@@ -5,8 +5,10 @@ space. Neurons occupy sites in a positional tensor, retain metabolic and task
 state across examples, communicate through persistent directed dendrites, and
 undergo growth, pruning, birth, death, and lesions.
 
-The viewer focuses on one 64×64 MNIST spatial neural organism so learning,
-routing, lifecycle pressure, and interventions remain directly comparable.
+The viewer switches among persistent MNIST, associative-recall, synthetic
+tiny-language, and Tiny Shakespeare organisms. They share the same renderer,
+lifecycle, lesions, directed graph, and diagnostics so classification, memory,
+and autoregression remain comparable.
 
 ## Quick start
 
@@ -60,6 +62,37 @@ traffic load, backward credit, task utility, genotype magnitude, emission, and
 occupancy. Edge opacity/width uses measured forward flow or backward credit.
 There are no decorative signal particles.
 
+## Sequence stepping stones
+
+- **Associative recall** streams one to three random key/value bindings through
+  permuted semantic ports, then asks for the value associated with a query key.
+  It begins with one binding and increases difficulty only after recent accuracy
+  exceeds 90%.
+- **Tiny language** predicts a generated compositional sentence one token at a
+  time. Visible accuracy counts only verb/object positions that require context;
+  easy EOS and unigram predictions cannot inflate it.
+- **Tiny Shakespeare** trains character by character on Karpathy's 1.1-million-
+  character corpus. It defaults to a 64-character context on a 128×128 address
+  space with at most 4,096 initially occupied sites. The corpus is downloaded
+  once from the canonical `char-rnn` source and cached under `data/`.
+- Sequence neurons retain recurrent state across tokens. Six local graph updates
+  run per token on a benchmark-selected 24×24 field.
+- A low-rank broadcast workspace lets neurons advertise and selectively read
+  transient shared state. Experimental fast-weight linear attention is available
+  but disabled by default because it did not solve two-binding retrieval.
+- Ports are permuted or direction-reversed, so success cannot be explained as
+  copying ordered values across the field.
+
+Run a controlled sweep with:
+
+```bash
+uv run python -m petridish.benchmark_sequences \
+  --task associative_recall --profile compact24 --steps 80
+```
+
+See [`docs/sequence-benchmark-results.md`](docs/sequence-benchmark-results.md)
+for measured results and negative findings.
+
 ## Controls
 
 - **Pause / Step**: inspect input, recurrent forward traffic, backward credit,
@@ -72,6 +105,13 @@ There are no decorative signal particles.
 - **Edge floor**: presentation-only minimum absolute synaptic weight.
 - **Hyperparameters**: stage any numeric model, learning, growth, pruning, or
   homeostasis settings and apply them together by restarting the organism.
+- **Square field size**: choose 16, 32, 64, 128, 256, 512, or 1024. Tensor extent
+  and initial population are separate controls, so a large address space need
+  not begin densely occupied.
+- **Corpus generation**: enter a character prompt, install it as the active
+  context, and request one sampled next character at a time while inspecting the
+  corresponding organism state. The displayed next-token prediction is the
+  greedy diagnostic; generation samples at temperature 0.85.
 - **Synapse Δ / |w|**: measured relative optimizer movement, not an animation.
 - **Structure**: reports the exact developmental unlock condition.
 - **Lifecycle**: reports activation, energy/stress, turnover, neuron age/lineage,
@@ -88,7 +128,7 @@ cd frontend && npm run check && npm run build
 
 ## Scientific status
 
-This is a developmental substrate, not a competitive handwriting model. It has
+This is a developmental substrate, not a competitive handwriting or language model. It has
 no CNN feature extractor, predefined long-range connectome, or image painted
 onto the field. Its small dense readout can access only the ten physical output
 neurons and exists to prove whether the graph's representation is separable.
@@ -96,6 +136,14 @@ Input influence reaches all ten outputs within the default recurrent budget;
 the overfit curriculum now makes failure explicit before generalization claims
 are attempted. Displayed traffic, attention, credit, topology, and reachability
 are backend measurements. Configuration changes start a new run so histories
-from different settings are never mixed.
+from different settings are never mixed. Current sequence results solve one-binding
+recall and exceed chance on context-dependent grammar predictions, but do not yet
+demonstrate genuine two-binding content-addressed retrieval; that failure is the
+target for the next sparse write-ownership experiment.
+
+The Tiny Shakespeare corpus is sourced from
+[Karpathy's `char-rnn` repository](https://github.com/karpathy/char-rnn/tree/master/data/tinyshakespeare);
+Shakespeare's works are also available through
+[Project Gutenberg](https://www.gutenberg.org/ebooks/100).
 
 See `docs/architecture.md` for tensor, credit, and lifecycle contracts.

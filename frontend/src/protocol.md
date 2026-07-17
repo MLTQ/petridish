@@ -21,14 +21,25 @@ Types every server snapshot and viewer command at the Python/TypeScript boundary
   reason, attention entropy, effective capacity, and real graph reachability.
 - **Does**: Reports lifecycle activation, inherited turnover, and classified death causes.
 
+### `SequenceTaskSnapshot`
+- **Does**: Publishes token streams, aligned targets and predictions, current
+  position, perplexity, accuracy, recall curriculum size, and shared lifecycle state.
+- **Rationale**: Recall and language diagnostics stay explicit without weakening
+  the MNIST image and curriculum contract.
+- **Does**: Corpus tasks additionally publish dataset size/source, context length,
+  prompt text, generated suffix, and the next greedy-token diagnostic.
+
 ### `HyperparameterSnapshot`
 - **Does**: Types one authoritative numeric slider definition and current value.
 - **Interacts with**: Dynamic controls in `main.ts` and MNIST snapshots.
+- **Does**: Optionally carries discrete numeric choices for controls such as
+  power-of-two field size.
 
 ### `ExperimentCommand`
-- **Does**: Restricts outbound messages to supported interventions and atomic
-  MNIST configuration changes.
+- **Does**: Restricts outbound messages to experiment selection, supported
+  interventions, and atomic configuration changes.
 - **Interacts with**: Backend `ExperimentRuntime.handle_command`.
+- **Does**: Includes corpus prompt replacement and single-token generation.
 
 ### `ServerMessage`
 - **Does**: Discriminates snapshots from command errors.
@@ -41,5 +52,5 @@ Types every server snapshot and viewer command at the Python/TypeScript boundary
 | `socket.ts` | Every inbound payload has a discriminating `type` | Message envelope changes |
 | `renderer.ts` | Sparse MNIST rows map through `field.indices`; edges expose
   measured flow and credit | Field or edge shape |
-| `main.ts` | Every snapshot is the MNIST experiment | Experiment discriminator changes |
+| `main.ts` | Task `kind` discriminates image and sequence payloads | Union changes |
 | Hyperparameter UI | Configuration is present on live snapshots | Making it optional at runtime |

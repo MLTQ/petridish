@@ -24,6 +24,13 @@ export class HistoryChart {
     );
   }
 
+  public reset(): void {
+    this.rewards.length = 0;
+    this.accuracies.length = 0;
+    this.rewardLine.setAttribute("points", "");
+    this.accuracyLine.setAttribute("points", "");
+  }
+
   private points(values: number[], minimum: number, maximum: number): string {
     if (values.length === 0) return "";
     const span = maximum - minimum;

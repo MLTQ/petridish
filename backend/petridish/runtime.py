@@ -113,7 +113,9 @@ class ExperimentRuntime:
                 self.experiments[current.experiment_name] = replacement
             elif command == "experiment":
                 name = str(message.get("name", "mnist"))
-                if name not in {"mnist", "associative_recall", "tiny_language"}:
+                if name not in {
+                    "mnist", "associative_recall", "tiny_language", "tiny_shakespeare"
+                }:
                     raise ValueError(f"unknown experiment: {name}")
                 if name not in self.experiments:
                     self.experiments[name] = SequenceExperiment(
@@ -133,6 +135,17 @@ class ExperimentRuntime:
                 self.experiment.evaluate(int(message.get("batches", 5)))
             elif command == "lifecycle":
                 self.experiment.lifecycle_now()
+            elif command == "prompt":
+                if not isinstance(self.experiment, SequenceExperiment):
+                    raise ValueError("prompting requires a sequence experiment")
+                text = str(message.get("text", ""))[:4_096]
+                self.running = False
+                self.experiment.set_prompt(text)
+            elif command == "generate":
+                if not isinstance(self.experiment, SequenceExperiment):
+                    raise ValueError("generation requires a sequence experiment")
+                self.running = False
+                self.experiment.generate_token()
             elif command == "configure":
                 current = self.experiment
                 values = message.get("values", {})

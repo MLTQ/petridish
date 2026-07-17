@@ -8,8 +8,12 @@ simulates or invents scientific state.
 
 ## Physical substrate
 
-MNIST defaults to a configurable 64×64 address space. A flattened site ID is always
-`y * width + x`. Empty positions have no neuron row in the sparse protocol.
+MNIST defaults to a configurable 64×64 address space; synthetic sequence tasks
+use a benchmarked 24×24 field, and Tiny Shakespeare defaults to 128×128. Every
+experiment exposes a square power-of-two size from 16 through 1024. A separate
+initial-population cap prevents tensor extent from implying dense occupancy. A
+flattened site ID is always `y * width + x`. Empty positions have no neuron row
+in the sparse protocol.
 
 Persistent per-site state includes:
 
@@ -31,6 +35,13 @@ Persistent per-site state includes:
 Forty-nine immortal-under-homeostasis input roles form a 7×7 patch bank near
 the left boundary. Ten output roles lie near the right boundary. A lesion can
 still physically remove interface neurons.
+
+Sequence layouts expose vocabulary-sized token and output ports. Associative
+recall permutes both boundaries. Synthetic tiny language and Tiny Shakespeare
+reverse the physical direction so tokens enter on the right and predictions
+leave on the left. Boundary ports pack into non-overlapping stripes when one
+column is too short for the vocabulary. Probe offsets and scores reverse
+together, preserving upstream dendrites in either orientation.
 
 ## Dendrites and axons
 
@@ -72,6 +83,33 @@ Topology is frozen for one trial:
 Discrete endpoints do not receive gradients and never mutate during these
 steps. This preserves a valid reverse-mode graph while allowing topology to be
 governed by local structural rules afterward.
+
+## Token-stream trial
+
+Sequence examples stimulate exactly one semantic token port at a time; token IDs are
+not painted over the field. Neuron state persists across token boundaries and the
+shared genotype-modulated GRU performs six graph updates per token. Output ports are
+read after each token for either final delayed recall or autoregressive loss.
+
+Alongside persistent axons, sequence organisms can use a low-rank advertisement
+workspace. Neurons content-select values into shared slots and query those slots on
+later updates. Slots persist only within an example and decay explicitly. An optional
+fast-weight matrix accumulates neuron-advertised key/value outer products and supports
+linear-attention reads; it is disabled by default after failing the two-binding recall
+ablation. Neither mechanism appears as a persistent edge in the viewer. Cell load
+includes its real contribution, while edge marks continue to encode only actual
+axonal flow or credit.
+
+Recall uses a one-to-three-binding curriculum. Language loss covers every next token,
+but reported accuracy includes only the context-dependent verb/object positions. This
+prevents frequency and EOS learning from masquerading as sequence understanding.
+
+Tiny Shakespeare uses a 90/10 sequential train/validation split, a 64-character
+context, and a dynamically sized character vocabulary. The source text is
+downloaded once and then read from a local cache. Interactive prompts reuse the
+same encoder and recurrent inference path as validation. Each explicit generate
+command samples one character at temperature 0.85 and then recomputes the visible
+trace for the extended context; it does not mutate weights or topology.
 
 ## Homeostasis and lifecycle
 
@@ -129,8 +167,10 @@ of dense empty positions. Edge count is authoritative, while rendering defaults
 to the 4,000 edges with greatest measured flow, credit, weight, or utility.
 
 The snapshot also carries one backend-owned numeric control specification for
-every MNIST configuration field. Slider edits remain local until Apply; the
-runtime validates the complete change set and constructs a fresh organism.
+every configuration field. The square-size slider carries discrete powers of
+two rather than pretending the values are continuous, and broadcast radius is
+bounded by the current field. Slider edits remain local until Apply; the runtime
+validates the complete change set and constructs a fresh organism.
 
 Viewer marks are evidentiary:
 

@@ -22,6 +22,12 @@ memory, and autoregressive language experiments.
 ### `resolve_layout`
 - **Does**: Resolves a task key to one immutable layout and rejects unknown keys.
 
+### `sequence_layout`
+- **Does**: Validates registered synthetic layouts and constructs a deterministic,
+  vocabulary-sized Tiny Shakespeare layout at runtime.
+- **Rationale**: Corpus vocabulary size comes from cached text, so its physical
+  ports cannot be hard-coded in the registry.
+
 ## Contracts
 
 | Dependent | Expects | Breaking changes |

@@ -8,7 +8,7 @@ control states, canvas sizing, metrics, task readouts, and chart encoding.
 ## Components
 
 ### Shell and top bar
-- **Does**: Establishes identity, connection state, and always-visible MNIST metrics.
+- **Does**: Establishes identity, connection state, and always-visible task metrics.
 - **Interacts with**: `.topbar`, `.brand`, `.connection`, and `.top-metrics`.
 
 ### Dish layout
@@ -19,13 +19,15 @@ control states, canvas sizing, metrics, task readouts, and chart encoding.
   available left-column width, avoiding unused bars around the square field.
 
 ### Side panels
-- **Does**: Styles task, MNIST digit preview, interventions, cadence, history,
+- **Does**: Styles task, image/token previews, interventions, cadence, history,
   hyperparameter controls, and inspector as compact peers.
 - **Interacts with**: Semantic sections in `index.html`.
 
 ### Trial phases
 - **Does**: Gives input, forward, feedback, and structural badges stable encodings.
 - **Interacts with**: `data-phase` written by `main.ts`.
+- **Does**: Uses bordered token cells to distinguish future, consumed, and current
+  sequence positions; the secondary line is the measured prediction.
 
 ### Responsive rules
 - **Does**: Stacks the dish and panels below 980px and simplifies controls below
@@ -36,6 +38,11 @@ control states, canvas sizing, metrics, task readouts, and chart encoding.
 - **Does**: Keeps the full numeric schema compact through native nested details
   elements while displaying labels, current values, and full-width sliders.
 - **Interacts with**: Generated markup in `main.ts`.
+
+### Corpus generation
+- **Does**: Keeps the prompt editor, explicit token-generation actions, generated
+  text, and next-token diagnostic readable without decorative marks.
+- **Interacts with**: `#generation-panel` and sequence updates in `main.ts`.
 
 ## Contracts
 

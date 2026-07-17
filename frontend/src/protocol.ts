@@ -53,7 +53,57 @@ export interface MnistTaskSnapshot {
   image: number[];
 }
 
-export type TaskSnapshot = MnistTaskSnapshot;
+export interface SequenceTaskSnapshot {
+  kind: "sequence";
+  taskKey: "associative_recall" | "tiny_language" | "tiny_shakespeare";
+  title: string;
+  description: string;
+  phase: "token" | "feedback" | "structural";
+  vocabulary: string[];
+  tokens: string[];
+  tokenIds: number[];
+  targets: (string | null)[];
+  targetIds: number[];
+  predictions: string[];
+  predictionIds: number[];
+  position: number;
+  accuracy: number;
+  testAccuracy: number | null;
+  confidence: number;
+  loss: number;
+  perplexity: number;
+  recallPairs: number;
+  recallMaxPairs: number;
+  stageAccuracy: number;
+  datasetName: string | null;
+  datasetCharacters: number;
+  contextLength: number;
+  interactive: boolean;
+  interactivePrompt: string;
+  generatedText: string;
+  nextTokenPrediction: string;
+  sourceUrl: string | null;
+  reward: number;
+  seenExamples: number;
+  trainingStep: number;
+  trialStep: number;
+  trialSteps: number;
+  generation: number;
+  structuralWarmupRemaining: number;
+  lifecycleWarmupRemaining: number;
+  lifecycleActive: boolean;
+  lifecycleReason: string;
+  learningPhase: string;
+  structureUnlockReason: string;
+  births: number;
+  deaths: number;
+  deathCauses: Record<"starvation" | "overload" | "maintenance", number>;
+  cumulativeBirths: number;
+  cumulativeDeaths: number;
+  cumulativeDeathCauses: Record<"starvation" | "overload" | "maintenance", number>;
+}
+
+export type TaskSnapshot = MnistTaskSnapshot | SequenceTaskSnapshot;
 
 export interface HyperparameterSnapshot {
   key: string;
@@ -64,11 +114,12 @@ export interface HyperparameterSnapshot {
   max: number;
   step: number;
   integer: boolean;
+  choices?: number[];
 }
 
 export interface ExperimentSnapshot {
   type: "snapshot";
-  experiment: "mnist";
+  experiment: "mnist" | "associative_recall" | "tiny_language" | "tiny_shakespeare";
   tick: number;
   field: {
     width: number;
@@ -116,6 +167,9 @@ export type ExperimentCommand =
   | { type: "lesion"; x: number; y: number; radius: number }
   | { type: "evaluate"; batches?: number }
   | { type: "lifecycle" }
+  | { type: "experiment"; name: ExperimentSnapshot["experiment"] }
+  | { type: "prompt"; text: string }
+  | { type: "generate" }
   | { type: "configure"; values: Record<string, number> };
 
 export interface ErrorMessage {

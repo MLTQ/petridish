@@ -1,7 +1,12 @@
 import "./styles.css";
 
 import { HistoryChart } from "./chart";
-import type { ExperimentSnapshot, HyperparameterSnapshot } from "./protocol";
+import type {
+  ExperimentSnapshot,
+  HyperparameterSnapshot,
+  MnistTaskSnapshot,
+  SequenceTaskSnapshot,
+} from "./protocol";
 import { DishRenderer, type FieldLayer } from "./renderer";
 import { ExperimentSocket } from "./socket";
 
@@ -24,12 +29,15 @@ const speedSelect = required<HTMLSelectElement>("#speed-select");
 const hyperparameterControls = required<HTMLElement>("#hyperparameter-controls");
 const hyperparameterApply = required<HTMLButtonElement>("#hyperparameter-apply");
 const hyperparameterStatus = required<HTMLOutputElement>("#hyperparameter-status");
+const experimentSelect = required<HTMLSelectElement>("#experiment-select");
+const generationPrompt = required<HTMLTextAreaElement>("#generation-prompt");
 
 let currentSnapshot: ExperimentSnapshot | null = null;
 let playing = true;
 let lesionArmed = false;
 let lastLesionAt = 0;
 let configurationSignature = "";
+let currentExperiment: ExperimentSnapshot["experiment"] | null = null;
 const pendingHyperparameters = new Map<string, number>();
 
 const socket = new ExperimentSocket(
@@ -88,12 +96,29 @@ required<HTMLButtonElement>("#evaluate").addEventListener("click", () =>
 required<HTMLButtonElement>("#lifecycle-cycle").addEventListener("click", () =>
   socket.send({ type: "lifecycle" }),
 );
+required<HTMLButtonElement>("#prompt-apply").addEventListener("click", () => {
+  playing = false;
+  playPause.textContent = "Play";
+  socket.send({ type: "prompt", text: generationPrompt.value });
+});
+required<HTMLButtonElement>("#generate-token").addEventListener("click", () => {
+  playing = false;
+  playPause.textContent = "Play";
+  socket.send({ type: "generate" });
+});
+experimentSelect.addEventListener("change", () => {
+  socket.send({
+    type: "experiment",
+    name: experimentSelect.value as ExperimentSnapshot["experiment"],
+  });
+});
 hyperparameterControls.addEventListener("input", (event) => {
   const input = event.target;
   if (!(input instanceof HTMLInputElement) || input.type !== "range") return;
   const key = input.dataset.key;
   if (!key) return;
-  const value = Number(input.value);
+  const choices = input.dataset.choices ? JSON.parse(input.dataset.choices) as number[] : null;
+  const value = choices ? (choices[Number(input.value)] ?? choices[0]!) : Number(input.value);
   pendingHyperparameters.set(key, value);
   const output = input.parentElement?.querySelector("output");
   if (output instanceof HTMLOutputElement) {
@@ -131,7 +156,14 @@ lesionToggle.addEventListener("click", () => {
 window.addEventListener("beforeunload", () => socket.close());
 
 function receiveSnapshot(snapshot: ExperimentSnapshot): void {
+  if (snapshot.experiment !== currentExperiment) {
+    currentExperiment = snapshot.experiment;
+    history.reset();
+    configurationSignature = "";
+    pendingHyperparameters.clear();
+  }
   currentSnapshot = snapshot;
+  experimentSelect.value = snapshot.experiment;
   connection.className = "connection connected";
   connection.querySelector("span:last-child")!.textContent = "connected";
   host.setAttribute(
@@ -154,7 +186,8 @@ function receiveSnapshot(snapshot: ExperimentSnapshot): void {
       ? "—"
       : `${(snapshot.metrics.synapseUpdateRatio * 100).toFixed(3)}%`,
   );
-  updateMnistTask(snapshot.task);
+  if (snapshot.task.kind === "mnist") updateMnistTask(snapshot.task);
+  else updateSequenceTask(snapshot.task);
   text("#metric-learning-phase", snapshot.task.learningPhase);
   text(
     "#metric-lifecycle",
@@ -195,7 +228,10 @@ function receiveSnapshot(snapshot: ExperimentSnapshot): void {
   if (snapshot.configuration) renderHyperparameters(snapshot.configuration.parameters);
 }
 
-function updateMnistTask(task: ExperimentSnapshot["task"]): void {
+function updateMnistTask(task: MnistTaskSnapshot): void {
+  required<HTMLElement>("#mnist-preview-panel").hidden = false;
+  required<HTMLElement>("#sequence-preview-panel").hidden = true;
+  required<HTMLElement>("#generation-panel").hidden = true;
   text("#task-name", "mnist spatial neural organism");
   const stage = mnistStageLabel(task);
   text("#task-phase", stage);
@@ -223,6 +259,71 @@ function updateMnistTask(task: ExperimentSnapshot["task"]): void {
   text("#chart-title", "Loss objective + accuracy");
   text("#chart-objective-label", "loss objective");
   drawDigit(task.image);
+}
+
+function updateSequenceTask(task: SequenceTaskSnapshot): void {
+  required<HTMLElement>("#mnist-preview-panel").hidden = true;
+  required<HTMLElement>("#sequence-preview-panel").hidden = false;
+  required<HTMLElement>("#generation-panel").hidden = !task.interactive;
+  text("#task-name", `${task.title.toLowerCase()} organism`);
+  text("#task-phase", sequenceStageLabel(task));
+  text("#phase-badge", task.phase);
+  required<HTMLElement>("#phase-badge").dataset.phase = task.phase;
+  text("#sequence-description", task.description);
+  text(
+    "#sequence-test-accuracy",
+    task.testAccuracy === null ? "not evaluated" : `${(task.testAccuracy * 100).toFixed(1)}%`,
+  );
+  text("#sequence-perplexity", task.perplexity.toFixed(2));
+  if (task.taskKey === "associative_recall") {
+    text(
+      "#sequence-description",
+      `${task.description} Curriculum: ${task.recallPairs}/${task.recallMaxPairs} bindings at ${(task.stageAccuracy * 100).toFixed(0)}% recent accuracy.`,
+    );
+  }
+  if (task.datasetName) {
+    text(
+      "#sequence-description",
+      `${task.description} ${task.datasetCharacters.toLocaleString()} characters · ${task.contextLength}-character context.`,
+    );
+  }
+  const position = Math.max(0, Math.min(task.position, task.tokens.length - 1));
+  setTaskLabels("token", "prediction", "confidence", "update");
+  text("#task-a", task.tokens[position] ?? "—");
+  text("#task-b", task.predictions[position] ?? "—");
+  text("#task-target", `${Math.round(task.confidence * 100)}%`);
+  text("#task-prediction", task.trainingStep.toLocaleString());
+  const list = required<HTMLOListElement>("#sequence-tokens");
+  const windowStart = Math.max(0, position - 12);
+  const windowEnd = Math.min(task.tokens.length, windowStart + 25);
+  list.replaceChildren(
+    ...task.tokens.slice(windowStart, windowEnd).map((token, offset) => {
+      const index = windowStart + offset;
+      const item = document.createElement("li");
+      if (index <= position) item.classList.add("consumed");
+      if (index === position) item.classList.add("current");
+      item.textContent = visibleToken(token);
+      const prediction = document.createElement("em");
+      prediction.textContent = `→ ${visibleToken(task.predictions[index] ?? "—")}`;
+      item.append(prediction);
+      return item;
+    }),
+  );
+  if (task.interactive) {
+    if (document.activeElement !== generationPrompt) {
+      generationPrompt.value = task.interactivePrompt;
+    }
+    text("#generation-output", task.interactivePrompt + task.generatedText);
+    text("#next-token-prediction", visibleToken(task.nextTokenPrediction));
+  }
+  text(
+    "#metric-structure",
+    task.learningPhase === "structure"
+      ? `plastic · ${task.structureUnlockReason}`
+      : `locked · ${task.structureUnlockReason}`,
+  );
+  text("#chart-title", "Loss objective + sequence accuracy");
+  text("#chart-objective-label", "loss objective");
 }
 
 function renderHyperparameters(parameters: HyperparameterSnapshot[]): void {
@@ -268,15 +369,30 @@ function hyperparameterControl(parameter: HyperparameterSnapshot): HTMLLabelElem
   heading.append(output);
   const input = document.createElement("input");
   input.type = "range";
-  input.min = String(parameter.min);
-  input.max = String(parameter.max);
-  input.step = String(parameter.step);
-  input.value = String(parameter.value);
+  if (parameter.choices?.length) {
+    input.min = "0";
+    input.max = String(parameter.choices.length - 1);
+    input.step = "1";
+    input.value = String(Math.max(0, parameter.choices.indexOf(parameter.value)));
+    input.dataset.choices = JSON.stringify(parameter.choices);
+  } else {
+    input.min = String(parameter.min);
+    input.max = String(parameter.max);
+    input.step = String(parameter.step);
+    input.value = String(parameter.value);
+  }
   input.setAttribute("aria-label", parameter.label);
   input.dataset.key = parameter.key;
   input.dataset.integer = String(parameter.integer);
   label.append(heading, input);
   return label;
+}
+
+function visibleToken(token: string): string {
+  if (token === "\n") return "↵ newline";
+  if (token === "\t") return "⇥ tab";
+  if (token === " ") return "␠ space";
+  return token || "—";
 }
 
 function formatHyperparameter(value: number, step: number, integer: boolean): string {
@@ -286,13 +402,21 @@ function formatHyperparameter(value: number, step: number, integer: boolean): st
   return value.toFixed(decimals);
 }
 
-function mnistStageLabel(task: ExperimentSnapshot["task"]): string {
+function mnistStageLabel(task: MnistTaskSnapshot): string {
   if (task.phase === "input") return "Input — 49 patch neurons";
   if (task.phase === "forward") return `Forward traffic — step ${task.trialStep}/${task.trialSteps}`;
   if (task.phase === "feedback") return `Backward credit ${task.target} → ${task.prediction}`;
   if (task.learningPhase !== "structure") {
     return `Structure locked — ${task.learningPhase} learning phase`;
   }
+  return `Lifecycle cycle — ${task.births} born, ${task.deaths} died`;
+}
+
+function sequenceStageLabel(task: SequenceTaskSnapshot): string {
+  if (task.phase === "token") {
+    return `Consume token ${task.position + 1}/${task.tokens.length} — ${task.tokens[task.position] ?? "—"}`;
+  }
+  if (task.phase === "feedback") return "Gradient credit through the consumed sequence";
   return `Lifecycle cycle — ${task.births} born, ${task.deaths} died`;
 }
 

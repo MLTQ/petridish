@@ -7,7 +7,12 @@ from torch.utils.data import TensorDataset
 from petridish.mnist_experiment import MnistExperiment
 from petridish.mnist_curriculum import build_curriculum
 from petridish.mnist_model import CellularGraphClassifier, MnistModelConfig
-from petridish.mnist_hyperparameters import SPECS, configured
+from petridish.mnist_hyperparameters import (
+    FIELD_SIZES,
+    SPECS,
+    configured,
+    hyperparameter_payload,
+)
 from petridish.protocol import build_snapshot
 
 
@@ -53,6 +58,12 @@ def test_default_field_is_compact_and_every_hyperparameter_is_controllable() -> 
     assert set(SPECS) == {field.name for field in fields(MnistModelConfig)}
     assert SPECS["local_radius"].minimum == 1
     assert configured(config, {"local_radius": 1}).local_radius == 1
+    local_radius = next(
+        parameter
+        for parameter in hyperparameter_payload(config)
+        if parameter["key"] == "local_radius"
+    )
+    assert local_radius["max"] == 31
 
 
 def test_hyperparameter_changes_are_typed_and_cross_validated() -> None:
@@ -68,6 +79,14 @@ def test_hyperparameter_changes_are_typed_and_cross_validated() -> None:
         configured(config, {"target_stimulation_min": 0.5, "target_stimulation_max": 0.1})
     with pytest.raises(ValueError, match="local_radius"):
         configured(config, {"width": 32, "height": 32, "local_radius": 16})
+
+    smallest = configured(config, {"field_size": 16})
+    largest = configured(config, {"field_size": 1024})
+    assert FIELD_SIZES == (16, 32, 64, 128, 256, 512, 1024)
+    assert (smallest.width, smallest.height, smallest.local_radius) == (16, 16, 7)
+    assert (largest.width, largest.height) == (1024, 1024)
+    with pytest.raises(ValueError, match="power of two"):
+        configured(config, {"field_size": 128 + 1})
 
 
 def test_persistent_spatial_graph_carries_gradients_without_topology_reset() -> None:
@@ -141,7 +160,18 @@ def test_mnist_experiment_emits_real_feedback_and_sparse_snapshot() -> None:
     assert snapshot["metrics"]["meanEnergy"] > 0
     assert snapshot["metrics"]["turnoverEvents"] == 0
     assert len({len(values) for values in snapshot["edges"].values()}) == 1
-    assert len(snapshot["configuration"]["parameters"]) == len(fields(MnistModelConfig))
+    mnist_parameter_keys = {
+        parameter["key"] for parameter in snapshot["configuration"]["parameters"]
+    }
+    assert len(mnist_parameter_keys) == len(fields(MnistModelConfig)) - 6
+    assert "broadcast_slots" not in mnist_parameter_keys
+    assert "broadcast_gain" not in mnist_parameter_keys
+    assert "broadcast_decay" not in mnist_parameter_keys
+    assert "fast_weight_gain" not in mnist_parameter_keys
+    assert "fast_weight_decay" not in mnist_parameter_keys
+    assert "field_size" in mnist_parameter_keys
+    assert "width" not in mnist_parameter_keys
+    assert "height" not in mnist_parameter_keys
 
 
 def test_fixed_connectome_learns_an_easy_spatial_classification_batch() -> None:

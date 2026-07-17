@@ -11,10 +11,16 @@ from torch.nn import functional as F
 from torch.nn.utils import clip_grad_norm_
 
 from .config import resolve_device
+from .graph_layout import sequence_layout
 from .mnist_config import MnistModelConfig
 from .sequence_config import sequence_config
 from .sequence_model import CellularSequenceModel, SequenceForward, SequenceFrame
-from .sequence_tasks import SequenceBatch, SequenceTask, resolve_sequence_task
+from .sequence_tasks import (
+    SequenceBatch,
+    SequenceTask,
+    associative_recall_batch,
+    resolve_sequence_task,
+)
 
 
 class SequenceExperiment:
@@ -30,13 +36,20 @@ class SequenceExperiment:
     ) -> None:
         self.task = resolve_sequence_task(task)
         self.experiment_name = self.task.key
-        self.config = config or sequence_config()
+        self.config = config or sequence_config(self.task.key)
         self.seed = seed
         self.device = resolve_device(device)
         self.generator = torch.Generator().manual_seed(seed)
         self.eval_generator = torch.Generator().manual_seed(seed + 10_000)
+        self.recall_pair_count = 1 if self.task.key == "associative_recall" else 0
+        self.stage_accuracy_history: deque[float] = deque(maxlen=24)
+        layout = sequence_layout(self.task.key, len(self.task.vocabulary))
         self.model = CellularSequenceModel(
-            self.config, layout=self.task.key, vocab_size=len(self.task.vocabulary), seed=seed
+            self.config,
+            layout=layout,
+            vocab_size=len(self.task.vocabulary),
+            max_length=max(12, self.task.sequence_length),
+            seed=seed,
         ).to(self.device)
         synapse = self.model.substrate.synapse_weight
         shared = [parameter for parameter in self.model.shared_parameters()]
@@ -69,6 +82,9 @@ class SequenceExperiment:
         self.last_targets = torch.full((self.task.sequence_length,), -100, dtype=torch.long)
         self.last_predictions = torch.zeros(self.task.sequence_length, dtype=torch.long)
         self.last_confidences = torch.full((self.task.sequence_length,), 0.1)
+        self.interactive_prompt = ""
+        self.generated_text = ""
+        self.next_token_prediction = ""
         self.last_births = 0
         self.last_deaths = 0
         self.last_death_causes = {"starvation": 0, "overload": 0, "maintenance": 0}
@@ -92,18 +108,27 @@ class SequenceExperiment:
 
     def _batch(self, size: int, *, evaluation: bool = False) -> SequenceBatch:
         generator = self.eval_generator if evaluation else self.generator
-        batch = self.task.batch(size, generator)
+        batch = (
+            associative_recall_batch(size, generator, self.recall_pair_count)
+            if self.task.key == "associative_recall"
+            else self.task.batch(size, generator, evaluation=evaluation)
+        )
         return SequenceBatch(
             batch.tokens.to(self.device), batch.targets.to(self.device), batch.loss_mask.to(self.device)
         )
 
-    @staticmethod
     def _masked_loss_accuracy(
-        logits: torch.Tensor, batch: SequenceBatch
+        self, logits: torch.Tensor, batch: SequenceBatch
     ) -> tuple[torch.Tensor, float]:
         selected = batch.loss_mask
         loss = F.cross_entropy(logits[selected], batch.targets[selected])
-        accuracy = float((logits.argmax(dim=2)[selected] == batch.targets[selected]).float().mean())
+        metric_mask = selected
+        if self.task.key == "tiny_language":
+            metric_mask = torch.zeros_like(selected)
+            metric_mask[:, 2:4] = True
+        accuracy = float(
+            (logits.argmax(dim=2)[metric_mask] == batch.targets[metric_mask]).float().mean()
+        )
         return loss, accuracy
 
     @torch.no_grad()
@@ -155,7 +180,11 @@ class SequenceExperiment:
                 float((delta[active] / denominator[active]).mean()) if active.any() else 0.0
             )
         completed = self.training_step + 1
-        reward = max(-1.0, min(1.0, (math.log(10) - float(task_loss)) / math.log(10)))
+        uniform_loss = math.log(len(self.task.vocabulary))
+        reward = max(
+            -1.0,
+            min(1.0, (uniform_loss - float(task_loss.detach())) / uniform_loss),
+        )
         lifecycle_active = self._should_activate_lifecycle(completed)
         structure_unlocked = self._should_unlock_structure(completed, accuracy)
         self.model.substrate.record_trial(
@@ -212,6 +241,7 @@ class SequenceExperiment:
         self.last_reward = reward
         self.last_mean_attention_entropy = result.mean_attention_entropy
         self.accuracy_history.append(accuracy)
+        self.stage_accuracy_history.append(accuracy)
         self.loss_history.append(self.last_loss)
         self.reward_history.append(reward)
         rolling = self.rolling_accuracy
@@ -219,18 +249,20 @@ class SequenceExperiment:
             self.best_rolling_accuracy = rolling
             self.last_accuracy_improvement_step = completed
         self._remember(result, batch)
+        self._maybe_advance_recall_curriculum()
         if completed % self.config.evaluation_interval == 0:
             self.evaluate(self.config.evaluation_batches)
 
     def _terminal_frames(self, result: SequenceForward) -> list[SequenceFrame]:
+        length = result.logits.shape[1]
         return [
             self.model.make_frame(
                 result.sites, result.final_state[0], stage="feedback",
-                step=self.task.sequence_length,
+                step=length,
             ),
             self.model.make_frame(
                 result.sites, result.final_state[0], stage="structural",
-                step=self.task.sequence_length + 1,
+                step=length + 1,
             ),
         ]
 
@@ -244,6 +276,49 @@ class SequenceExperiment:
         self.last_targets = batch.targets[0].detach().cpu()
         self.last_predictions = probabilities.argmax(dim=1).detach().cpu()
         self.last_confidences = probabilities.max(dim=1).values.detach().cpu()
+        self.next_token_prediction = self.task.vocabulary[int(self.last_predictions[-1])]
+
+    @torch.no_grad()
+    def set_prompt(self, text: str) -> None:
+        """Install an interactive corpus prompt and replay it without training."""
+
+        if self.task.encode is None or self.task.decode is None:
+            raise ValueError("interactive prompting is available only for corpus tasks")
+        self.interactive_prompt = text
+        self.generated_text = ""
+        self._preview_text(text)
+
+    @torch.no_grad()
+    def generate_token(self) -> str:
+        """Sample one next token, append it, and make the new context visible."""
+
+        if self.task.encode is None or self.task.decode is None:
+            raise ValueError("token generation is available only for corpus tasks")
+        context = self.interactive_prompt + self.generated_text
+        if not context:
+            context = "ROMEO:"
+            self.interactive_prompt = context
+        self.model.eval()
+        token_ids = self.task.encode(context)[-self.task.sequence_length :]
+        tokens = torch.tensor(token_ids, device=self.device).unsqueeze(0)
+        result = self.model(tokens, capture_trace=True)
+        probabilities = (result.logits[0, -1] / 0.85).softmax(dim=0).cpu()
+        token = int(torch.multinomial(probabilities, 1, generator=self.generator))
+        generated = self.task.decode([token])
+        self.generated_text += generated
+        self._preview_text(self.interactive_prompt + self.generated_text)
+        return generated
+
+    @torch.no_grad()
+    def _preview_text(self, text: str) -> None:
+        assert self.task.encode is not None
+        token_ids = self.task.encode(text or "\n")[-self.task.sequence_length :]
+        tokens = torch.tensor(token_ids, device=self.device).unsqueeze(0)
+        targets = torch.full_like(tokens, -100)
+        batch = SequenceBatch(tokens, targets, torch.zeros_like(tokens, dtype=torch.bool))
+        self.model.eval()
+        result = self.model(tokens, capture_trace=True)
+        self._remember(result, batch)
 
     def _should_activate_lifecycle(self, completed: int) -> bool:
         if not self.config.lifecycle_enabled:
@@ -274,6 +349,18 @@ class SequenceExperiment:
             self.structure_unlock_reason = "waiting for competence or plateau"
         return self.structure_unlocked
 
+    def _maybe_advance_recall_curriculum(self) -> None:
+        """Increase binding count only after the current memory task is reliable."""
+
+        if self.task.key != "associative_recall" or self.recall_pair_count >= 3:
+            return
+        if len(self.stage_accuracy_history) < self.stage_accuracy_history.maxlen:
+            return
+        if sum(self.stage_accuracy_history) / len(self.stage_accuracy_history) < 0.90:
+            return
+        self.recall_pair_count += 1
+        self.stage_accuracy_history.clear()
+
     @torch.no_grad()
     def _reset_mutation_optimizer_state(
         self, changed_edges: torch.Tensor, changed_sites: torch.Tensor
@@ -299,8 +386,12 @@ class SequenceExperiment:
         for _ in range(max(1, min(50, batches))):
             batch = self._batch(self.config.batch_size, evaluation=True)
             logits = self.model(batch.tokens, capture_trace=False).logits
-            correct += int((logits.argmax(dim=2)[batch.loss_mask] == batch.targets[batch.loss_mask]).sum())
-            total += int(batch.loss_mask.sum())
+            metric_mask = batch.loss_mask
+            if self.task.key == "tiny_language":
+                metric_mask = torch.zeros_like(batch.loss_mask)
+                metric_mask[:, 2:4] = True
+            correct += int((logits.argmax(dim=2)[metric_mask] == batch.targets[metric_mask]).sum())
+            total += int(metric_mask.sum())
         self.test_accuracy = correct / max(1, total)
         return self.test_accuracy
 
