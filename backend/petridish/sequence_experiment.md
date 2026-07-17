@@ -38,9 +38,22 @@ token states.
 `train_updates` is the headless path: it bypasses frame playback and asks the model for no token-local graph
 copies. It still performs the full forward/backward optimizer, local credit,
 homeostasis, and scheduled structural work, but deliberately suppresses automatic
-validation so throughput runs are interrupted only by explicit evaluation. The last
-visible trace remains stable until `refresh_visual_trace` replays the most recent
-training sequence with current weights.
+validation so throughput runs are interrupted only by explicit evaluation. It also
+leaves viewer-only tokens, predictions, confidences, and next-token text untouched,
+avoiding accelerator-to-CPU projection during optimizer updates. The last visible
+trace remains stable until `refresh_visual_trace` replays the most recent training
+sequence with current weights.
+
+`evaluate_metrics` reports held-out loss and accuracy together while retaining the
+historical accuracy-only `evaluate` API used by the live viewer. Both operate outside
+benchmark timing and never mutate optimizer or topology state.
+
+An optional CUDA bfloat16 autocast mode wraps the shared model forward path. Task
+loss and held-out loss are reduced in FP32; the default live experiment remains FP32.
+
+`enable_compile` wraps only the model forward callable. The original module remains
+authoritative for optimizer parameters, state dictionaries, mutable substrate state,
+and topology mutation; compilation is opt-in for controlled headless measurements.
 
 Corpus tasks expose `set_prompt` and `generate_token`. Prompt installation encodes
 only the trailing context window and replays it without training. Each generate call

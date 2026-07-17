@@ -39,17 +39,18 @@ def sequence_config(task: str | None = None, **overrides: object) -> MnistModelC
     if task == "tiny_shakespeare":
         base = replace(
             base,
-            width=128,
-            height=128,
-            batch_size=4,
+            width=68,
+            height=68,
+            batch_size=16,
             message_steps=2,
             local_radius=16,
             candidate_probes=32,
             initial_density=0.25,
             max_initial_neurons=4_096,
             max_visible_edges=6_000,
-            lifecycle_warmup_trials=320,
-            structural_warmup_trials=480,
+            lifecycle_enabled=0,
+            lifecycle_warmup_trials=5_000,
+            structural_warmup_trials=5_000,
         )
     return replace(base, **overrides)
 

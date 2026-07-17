@@ -72,8 +72,8 @@ There are no decorative signal particles.
   time. Visible accuracy counts only verb/object positions that require context;
   easy EOS and unigram predictions cannot inflate it.
 - **Tiny Shakespeare** trains character by character on Karpathy's 1.1-million-
-  character corpus. It defaults to a 64-character context on a 128×128 address
-  space with at most 4,096 initially occupied sites. The corpus is downloaded
+  character corpus. It defaults to a 64-character context on a 68×68 address
+  space with batch 16 and at most 4,096 initially occupied sites. The corpus is downloaded
   once from the canonical `char-rnn` source and cached under `data/`.
 - Sequence neurons retain recurrent state across tokens. Six local graph updates
   run per token on a benchmark-selected 24×24 field.
@@ -109,7 +109,8 @@ for measured results and negative findings.
 - **Edge floor**: presentation-only minimum absolute synaptic weight.
 - **Hyperparameters**: stage any numeric model, learning, growth, pruning, or
   homeostasis settings and apply them together by restarting the organism.
-- **Square field size**: choose 16, 32, 64, 128, 256, 512, or 1024. Tensor extent
+- **Square field size**: choose 16, 32, 64, 128, 256, 512, or 1024; Tiny Shakespeare
+  additionally offers its exact 68×68 single-column port geometry. Tensor extent
   and initial population are separate controls, so a large address space need
   not begin densely occupied.
 - **Corpus generation**: enter a character prompt, install it as the active

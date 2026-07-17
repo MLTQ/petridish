@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import pytest
 import torch
 
-from petridish.graph_layout import LAYOUTS
+from petridish.graph_layout import LAYOUTS, sequence_layout
+from petridish.mnist_hyperparameters import configured, hyperparameter_payload
+from petridish.mnist_substrate import SpatialSubstrate
 from petridish.protocol import build_snapshot
 from petridish.sequence_config import sequence_config
 from petridish.sequence_experiment import SequenceExperiment
@@ -33,6 +36,50 @@ def test_sequence_layouts_are_directional_port_permutations() -> None:
     assert language.input_side == "right"
     assert language.output_side == "left"
     assert language.flow_direction == -1
+
+
+def test_tiny_shakespeare_uses_one_ordered_66_port_column_per_boundary() -> None:
+    vocabulary_size = 66
+    layout = sequence_layout("tiny_shakespeare", vocabulary_size)
+    config = sequence_config("tiny_shakespeare")
+    substrate = SpatialSubstrate(config, layout=layout, seed=4)
+
+    assert (config.width, config.height) == (68, 68)
+    assert substrate.input_sites.unique().numel() == vocabulary_size
+    assert substrate.output_sites.unique().numel() == vocabulary_size
+    assert not set(substrate.input_sites.tolist()) & set(substrate.output_sites.tolist())
+
+    input_columns = (substrate.input_sites % config.width).unique().tolist()
+    output_columns = (substrate.output_sites % config.width).unique().tolist()
+    assert input_columns == [config.width - 2]
+    assert output_columns == [1]
+    assert sorted((substrate.input_sites // config.width).tolist()) == list(range(1, 67))
+    assert sorted((substrate.output_sites // config.width).tolist()) == list(range(1, 67))
+
+    input_base = torch.tensor(substrate._boundary_sites(vocabulary_size, "right"))
+    output_base = torch.tensor(substrate._boundary_sites(vocabulary_size, "left"))
+    assert torch.equal(
+        substrate.input_sites, input_base[torch.tensor(layout.input_position_order)]
+    )
+    assert torch.equal(
+        substrate.output_sites, output_base[torch.tensor(layout.output_position_order)]
+    )
+
+
+def test_68_field_size_is_available_only_for_tiny_shakespeare() -> None:
+    tiny = sequence_config("tiny_shakespeare")
+    choices = hyperparameter_payload(
+        tiny, include_sequence=True, task_key="tiny_shakespeare"
+    )[0]["choices"]
+    assert choices == [16, 32, 64, 68, 128, 256, 512, 1024]
+    assert configured(tiny, {"field_size": 68}, task_key="tiny_shakespeare").width == 68
+
+    regular = sequence_config("tiny_language")
+    assert 68 not in hyperparameter_payload(
+        regular, include_sequence=True, task_key="tiny_language"
+    )[0]["choices"]
+    with pytest.raises(ValueError, match="power of two"):
+        configured(regular, {"field_size": 68}, task_key="tiny_language")
 
 
 def test_associative_recall_curriculum_preserves_queried_value() -> None:
@@ -108,12 +155,16 @@ def test_trace_free_training_updates_metrics_without_replacing_visible_frames() 
         "tiny_language", small_config(), seed=8, device="cpu"
     )
     original_trace = experiment.last_trace
+    original_tokens = experiment.last_tokens.clone()
+    original_predictions = experiment.last_predictions.clone()
 
     experiment.train_updates(2)
 
     assert experiment.training_step == 2
     assert experiment.tick == 2
     assert experiment.last_trace is original_trace
+    assert torch.equal(experiment.last_tokens, original_tokens)
+    assert torch.equal(experiment.last_predictions, original_predictions)
     assert experiment.seen_examples == experiment.config.batch_size * 2
     experiment.refresh_visual_trace()
     assert experiment.last_trace is not original_trace

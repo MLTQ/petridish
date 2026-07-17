@@ -21,6 +21,16 @@ class HyperparameterSpec:
 
 
 FIELD_SIZES = (16, 32, 64, 128, 256, 512, 1024)
+TINY_SHAKESPEARE_FIELD_SIZE = 68
+
+
+def field_sizes(*, include_sequence: bool, task_key: str | None = None) -> tuple[int, ...]:
+    """Return task-specific square geometries without weakening global validation."""
+
+    choices = FIELD_SIZES if include_sequence else FIELD_SIZES[1:]
+    if task_key == "tiny_shakespeare":
+        return tuple(sorted((*choices, TINY_SHAKESPEARE_FIELD_SIZE)))
+    return choices
 
 
 SPECS: dict[str, HyperparameterSpec] = {
@@ -95,13 +105,14 @@ SPECS: dict[str, HyperparameterSpec] = {
 
 
 def hyperparameter_payload(
-    config: MnistModelConfig, *, include_sequence: bool = False
+    config: MnistModelConfig, *, include_sequence: bool = False,
+    task_key: str | None = None,
 ) -> list[dict[str, Any]]:
     """Return the authoritative ordered slider definitions and current values."""
 
     values = asdict(config)
     integer_fields = {field.name for field in fields(config) if field.type is int or isinstance(values[field.name], int)}
-    field_choices = FIELD_SIZES if include_sequence else FIELD_SIZES[1:]
+    field_choices = field_sizes(include_sequence=include_sequence, task_key=task_key)
     payload = [
         {
             "key": "field_size",
@@ -142,7 +153,12 @@ def hyperparameter_payload(
     return payload
 
 
-def configured(config: MnistModelConfig, changes: Mapping[str, Any]) -> MnistModelConfig:
+def configured(
+    config: MnistModelConfig,
+    changes: Mapping[str, Any],
+    *,
+    task_key: str | None = None,
+) -> MnistModelConfig:
     """Validate numeric viewer changes and return a new immutable configuration."""
 
     unknown = set(changes) - set(SPECS) - {"field_size"}
@@ -153,7 +169,12 @@ def configured(config: MnistModelConfig, changes: Mapping[str, Any]) -> MnistMod
         if "width" in normalized or "height" in normalized:
             raise ValueError("field_size cannot be combined with width or height")
         field_size = normalized.pop("field_size")
-        if isinstance(field_size, bool) or field_size not in FIELD_SIZES:
+        allowed = field_sizes(include_sequence=True, task_key=task_key)
+        if isinstance(field_size, bool) or field_size not in allowed:
+            if task_key == "tiny_shakespeare":
+                raise ValueError(
+                    "field_size must be 68 or a power of two from 16 through 1024"
+                )
             raise ValueError("field_size must be a power of two from 16 through 1024")
         normalized["width"] = field_size
         normalized["height"] = field_size
@@ -192,6 +213,6 @@ if set(SPECS) != {field.name for field in fields(MnistModelConfig)}:
 
 
 __all__ = [
-    "FIELD_SIZES", "HyperparameterSpec", "SPECS", "configured",
-    "hyperparameter_payload",
+    "FIELD_SIZES", "TINY_SHAKESPEARE_FIELD_SIZE", "HyperparameterSpec", "SPECS",
+    "configured", "field_sizes", "hyperparameter_payload",
 ]

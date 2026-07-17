@@ -1,0 +1,141 @@
+{
+  "schemaVersion": 1,
+  "configuration": {
+    "width": 68,
+    "height": 68,
+    "hidden_channels": 12,
+    "genotype_channels": 8,
+    "edge_slots": 4,
+    "axon_slots": 8,
+    "candidate_slots": 4,
+    "candidate_probes": 32,
+    "initial_density": 0.25,
+    "max_initial_neurons": 4096,
+    "initial_weight_scale": 0.25,
+    "local_radius": 16,
+    "message_steps": 2,
+    "message_gain": 2.0,
+    "attention_temperature": 1.0,
+    "emit_gate_bias": 1.5,
+    "broadcast_slots": 4,
+    "broadcast_gain": 0.3,
+    "broadcast_decay": 0.85,
+    "fast_weight_gain": 0.0,
+    "fast_weight_decay": 0.95,
+    "batch_size": 16,
+    "learning_rate": 0.0015,
+    "readout_learning_rate": 0.006,
+    "synapse_learning_rate": 0.002,
+    "trajectory_loss_weight": 0.0,
+    "readout_only_trials": 0,
+    "synapse_unlock_trials": 0,
+    "curriculum_window_trials": 40,
+    "curriculum_min_trials": 40,
+    "gradient_clip": 1.0,
+    "weight_decay": 0.0002,
+    "max_weight": 2.0,
+    "structural_interval": 16,
+    "structural_warmup_trials": 5000,
+    "structure_accuracy_threshold": 0.82,
+    "structure_plateau_trials": 256,
+    "structure_plateau_delta": 0.005,
+    "evaluation_interval": 50,
+    "evaluation_batches": 8,
+    "candidate_decay": 0.88,
+    "candidate_threshold": 0.11,
+    "emission_threshold": 0.018,
+    "edge_utility_decay": 0.97,
+    "edge_stat_rate": 0.08,
+    "edge_grace_trials": 32,
+    "prune_utility": 0.012,
+    "max_pruned_per_generation": 96,
+    "lifecycle_enabled": 0,
+    "lifecycle_warmup_trials": 5000,
+    "lifecycle_interval": 16,
+    "juvenile_trials": 64,
+    "target_stimulation_min": 0.018,
+    "target_stimulation_max": 0.42,
+    "energy_recovery": 0.012,
+    "starvation_cost": 0.3,
+    "overload_cost": 0.3,
+    "maintenance_cost": 0.00035,
+    "task_energy_bonus": 0.006,
+    "death_energy": 0.035,
+    "max_deaths_per_generation": 48,
+    "births_per_generation": 12,
+    "birth_signal": 0.08,
+    "birth_local_density_max": 0.38,
+    "birth_energy": 0.65,
+    "inheritance_noise": 0.035,
+    "max_visible_edges": 6000,
+    "task": "tiny_shakespeare",
+    "contextLength": 64,
+    "warmupUpdates": 3,
+    "measuredUpdates": 5,
+    "seed": 1,
+    "amp": "off",
+    "compile": "off"
+  },
+  "environment": {
+    "device": "cuda",
+    "deviceName": "NVIDIA GeForce RTX 4090",
+    "pytorchVersion": "2.13.0+cu130",
+    "cudaVersion": "13.0"
+  },
+  "population": {
+    "livingNeurons": 1262,
+    "activeEdges": 4473
+  },
+  "timing": {
+    "measuredSeconds": 3.864019602071494,
+    "meanUpdateSeconds": 0.772790988208726,
+    "medianUpdateSeconds": 0.765126276994124,
+    "updatesPerSecond": 1.2939892948057274,
+    "sequencesPerSecond": 20.70382871689164,
+    "targetCharactersPerSecond": 1325.045037881065
+  },
+  "memory": {
+    "peakAllocatedBytes": 7106878464,
+    "peakReservedBytes": 7302283264
+  },
+  "training": {
+    "rollingLoss": 3.852566123008728,
+    "rollingAccuracy": 0.0810546875,
+    "curve": [
+      {
+        "update": 4,
+        "loss": 3.7486276626586914,
+        "accuracy": 0.115234375,
+        "latencySeconds": 0.7207076889462769
+      },
+      {
+        "update": 5,
+        "loss": 3.805600643157959,
+        "accuracy": 0.10546875,
+        "latencySeconds": 0.749958006083034
+      },
+      {
+        "update": 6,
+        "loss": 3.8176474571228027,
+        "accuracy": 0.083984375,
+        "latencySeconds": 0.8605178509606048
+      },
+      {
+        "update": 7,
+        "loss": 3.83798885345459,
+        "accuracy": 0.0859375,
+        "latencySeconds": 0.7676451180595905
+      },
+      {
+        "update": 8,
+        "loss": 3.5884227752685547,
+        "accuracy": 0.0771484375,
+        "latencySeconds": 0.765126276994124
+      }
+    ]
+  },
+  "heldOut": {
+    "loss": 3.818252444267273,
+    "accuracy": 0.05517578125
+  }
+}

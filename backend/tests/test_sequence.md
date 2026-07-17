@@ -10,8 +10,10 @@ learning curves belong to the benchmark command because convergence tests would 
 the normal unit suite slow and hardware-sensitive.
 
 The corpus fixture avoids network access while protecting dynamic vocabulary-sized
-ports, square-field choices from 16 through 1024, prompt installation, single-token
-generation, and interactive task serialization.
+ports, prompt installation, single-token generation, and interactive task
+serialization. Explicit geometry tests prove Tiny Shakespeare's 66 input and 66
+output ports each occupy one unique boundary column on 68×68, preserve graph-layout
+semantic order, and keep 68 unavailable to other tasks.
 
 The trace-free regression requires optimizer updates to advance metrics and examples
 without replacing the visible frame buffer, then verifies an explicit refresh rebuilds

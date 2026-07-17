@@ -9,8 +9,9 @@ simulates or invents scientific state.
 ## Physical substrate
 
 MNIST defaults to a configurable 64×64 address space; synthetic sequence tasks
-use a benchmarked 24×24 field, and Tiny Shakespeare defaults to 128×128. Every
-experiment exposes a square power-of-two size from 16 through 1024. A separate
+use a benchmarked 24×24 field, and Tiny Shakespeare defaults to 68×68. Every
+experiment exposes a square power-of-two size from 16 through 1024, while Tiny
+Shakespeare alone also exposes 68. A separate
 initial-population cap prevents tensor extent from implying dense occupancy. A
 flattened site ID is always `y * width + x`. Empty positions have no neuron row
 in the sparse protocol.
@@ -36,7 +37,9 @@ Forty-nine immortal-under-homeostasis input roles form a 7×7 patch bank near
 the left boundary. Ten output roles lie near the right boundary. A lesion can
 still physically remove interface neurons.
 
-Sequence layouts expose vocabulary-sized token and output ports. Associative
+Sequence layouts expose vocabulary-sized token and output ports. Tiny Shakespeare's
+66 ports fit exactly in one column per boundary because the first and last rows are
+reserved. Associative
 recall permutes both boundaries. Synthetic tiny language and Tiny Shakespeare
 reverse the physical direction so tokens enter on the right and predictions
 leave on the left. Boundary ports pack into non-overlapping stripes when one

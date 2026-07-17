@@ -58,6 +58,8 @@ training and intervention mutations behind one lock.
 - **Does**: Applies Play, Pause, and cadence commands without waiting for the
   scientific mutation lock. Other commands request an early safe interruption
   before acquiring that lock.
+- **Does**: Passes the active task identity into configuration validation so the
+  68×68 geometry is accepted only for Tiny Shakespeare.
 
 ## Contracts
 

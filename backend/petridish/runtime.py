@@ -372,7 +372,11 @@ class ExperimentRuntime:
                 values = message.get("values", {})
                 if not isinstance(values, dict):
                     raise ValueError("hyperparameter values must be an object")
-                next_config = configured(current.config, values)
+                next_config = configured(
+                    current.config,
+                    values,
+                    task_key=(current.task.key if isinstance(current, SequenceExperiment) else None),
+                )
                 if isinstance(current, MnistExperiment):
                     replacement = MnistExperiment(
                         next_config, layout=current.layout, seed=current.seed,

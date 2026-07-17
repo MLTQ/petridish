@@ -63,3 +63,13 @@ advertise a write proposal, let a small set of recipient neurons compete to own 
 key/value trace, and reward the winning chain when the queried output is correct. That
 tests self-assembled binding directly instead of adding another undifferentiated global
 average.
+
+## RTX 4090 Tiny Shakespeare follow-up
+
+The corpus profile now uses the exact 68×68 geometry required to place all 66 input
+and output characters in single boundary columns. Synchronized CUDA sweeps selected
+batch 64 with optional bfloat16 for 6,147 target characters/s; FP32 batch 32 is the
+12.31 GB alternative at 3,584 target characters/s. Compilation was rejected after
+dynamic-topology graph breaks and a backward failure. See
+[`codex-4090-results.md`](codex-4090-results.md) and `benchmarks/4090/` for the complete
+accepted/rejected table, learning evidence, commands, and profiler findings.

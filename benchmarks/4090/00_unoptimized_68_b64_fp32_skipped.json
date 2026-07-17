@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "status": "skipped",
+  "configuration": {
+    "task": "tiny_shakespeare",
+    "fieldSize": 68,
+    "batchSize": 64,
+    "contextLength": 64,
+    "messageSteps": 2,
+    "amp": "off",
+    "compile": "off"
+  },
+  "reason": "Stopped before OOM: batch 32 allocated 14167357952 bytes; linear batch scaling projects batch 64 beyond the RTX 4090's 24564 MiB capacity."
+}

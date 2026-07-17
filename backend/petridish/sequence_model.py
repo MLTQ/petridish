@@ -136,15 +136,18 @@ class CellularSequenceModel(nn.Module):
         values = torch.cat((substrate.coordinates[sites], substrate.roles[sites], slow), dim=1)
         return values.unsqueeze(0).expand(batch, -1, -1)
 
-    def _read_logits(self, hidden: torch.Tensor, compact: torch.Tensor) -> torch.Tensor:
-        positions = compact[self.substrate.output_sites]
+    def _read_logits(
+        self,
+        hidden: torch.Tensor,
+        output_compact: torch.Tensor,
+        output_alive: torch.Tensor,
+    ) -> torch.Tensor:
         output = torch.zeros(
             hidden.shape[0], self.vocab_size, self.config.hidden_channels,
             device=hidden.device, dtype=hidden.dtype,
         )
-        alive = positions >= 0
-        if alive.any():
-            output[:, alive] = hidden[:, positions[alive]]
+        if output_alive.any():
+            output[:, output_alive] = hidden[:, output_compact[output_alive]]
         return self.output_bank_readout(output.flatten(1)) + self.class_bias
 
     def forward(
@@ -175,17 +178,39 @@ class CellularSequenceModel(nn.Module):
             context = context.index_add(
                 1,
                 output_compact[output_alive],
-                self.output_identity.weight[output_alive].unsqueeze(0).expand(batch, -1, -1),
+                self.output_identity.weight[output_alive]
+                .to(context.dtype)
+                .unsqueeze(0)
+                .expand(batch, -1, -1),
             )
         hidden = context.clone()
         target_site, slot, source_site = substrate.edge_list()
         target_compact = compact[target_site]
         source_compact = compact[source_site]
         weights = substrate.synapse_weight[target_site, slot]
+        compute_weights = weights.to(hidden.dtype)
+        input_compact = compact[substrate.input_sites]
+        batch_rows = torch.arange(batch, device=tokens.device)
+        edge_weight_log = compute_weights.abs().clamp_min(1e-5).log().unsqueeze(0)
+        edge_weight_view = compute_weights.view(1, -1, 1)
+        target_ones = torch.ones_like(target_compact, dtype=torch.float32)
+        indegree = torch.zeros(sites.numel(), device=tokens.device, dtype=torch.float32)
+        indegree.index_add_(0, target_compact, target_ones)
+        entropy_valid = indegree > 1
+        entropy_normalizer = indegree[entropy_valid].log()
+        slot_keys = F.normalize(self.broadcast_slot_keys, dim=1)
+        message_scale = F.softplus(self.message_gain_raw)
+        broadcast_gain = self.broadcast_gain.clamp_min(0)
+        fast_weight_gain = self.fast_weight_gain.clamp_min(0)
+        hidden_scale = math.sqrt(cfg.hidden_channels)
+        attention_scale = hidden_scale * cfg.attention_temperature
+        site_count = sites.numel()
         edge_flow = torch.zeros_like(substrate.synapse_weight)
-        stimulation = torch.zeros(sites.numel(), device=tokens.device)
+        stimulation = torch.zeros(site_count, device=tokens.device, dtype=torch.float32)
         load = torch.zeros_like(stimulation)
-        advertised_query = torch.zeros(sites.numel(), cfg.hidden_channels, device=tokens.device)
+        advertised_query = torch.zeros(
+            site_count, cfg.hidden_channels, device=tokens.device, dtype=torch.float32
+        )
         advertised_key = torch.zeros_like(advertised_query)
         emission = torch.zeros_like(stimulation)
         frames: list[SequenceFrame] = []
@@ -197,24 +222,30 @@ class CellularSequenceModel(nn.Module):
             batch, cfg.broadcast_slots, cfg.hidden_channels,
             device=tokens.device, dtype=hidden.dtype,
         )
-        fast_memory = torch.zeros(
-            batch, cfg.hidden_channels, cfg.hidden_channels,
-            device=tokens.device, dtype=hidden.dtype,
+        use_fast_weights = cfg.fast_weight_gain > 0
+        fast_memory = (
+            torch.zeros(
+                batch, cfg.hidden_channels, cfg.hidden_channels,
+                device=tokens.device, dtype=hidden.dtype,
+            )
+            if use_fast_weights
+            else None
         )
 
         for position in range(length):
             external = torch.zeros_like(hidden)
-            semantic_sites = substrate.input_sites[tokens[:, position]]
-            token_compact = compact[semantic_sites]
+            token_compact = input_compact[tokens[:, position]]
             alive_batch = token_compact >= 0
-            rows = torch.arange(batch, device=tokens.device)[alive_batch]
+            rows = batch_rows[alive_batch]
             drive = self.token_identity(tokens[alive_batch, position])
             drive = drive + self.position_identity.weight[position]
+            drive = drive.to(external.dtype)
             external[rows, token_compact[alive_batch]] = drive
             input_signal = torch.zeros(sites.numel(), device=tokens.device)
             if alive_batch.any():
                 input_signal.index_add_(
-                    0, token_compact[alive_batch], torch.ones_like(token_compact[alive_batch], dtype=hidden.dtype)
+                    0, token_compact[alive_batch],
+                    torch.ones_like(token_compact[alive_batch], dtype=input_signal.dtype),
                 )
                 input_signal /= batch
             if capture_trace:
@@ -228,10 +259,9 @@ class CellularSequenceModel(nn.Module):
                 key = self.message_key(normalized)
                 value = self.message_value(normalized)
                 emit = torch.sigmoid(self.emit_gate(normalized))
-                slot_keys = F.normalize(self.broadcast_slot_keys, dim=1)
                 write_score = torch.einsum(
                     "bnh,sh->bns", self.broadcast_key(normalized), slot_keys
-                ) / math.sqrt(cfg.hidden_channels)
+                ) / hidden_scale
                 write_attention = torch.softmax(write_score, dim=1)
                 proposed_workspace = torch.einsum(
                     "bns,bnh->bsh", write_attention, self.broadcast_value(normalized)
@@ -242,63 +272,74 @@ class CellularSequenceModel(nn.Module):
                 )
                 read_score = torch.einsum(
                     "bnh,sh->bns", self.broadcast_query(normalized), slot_keys
-                ) / math.sqrt(cfg.hidden_channels)
+                ) / hidden_scale
                 read_attention = torch.softmax(read_score, dim=2)
                 broadcast_message = torch.einsum(
                     "bns,bsh->bnh", read_attention, workspace_state
-                ) * self.broadcast_gain.clamp_min(0)
-                fast_key = F.normalize(self.fast_key(normalized), dim=2)
-                fast_value = self.fast_value(normalized)
-                fast_gate = torch.sigmoid(self.fast_write_gate(normalized))
-                proposed_fast_memory = torch.einsum(
-                    "bni,bnj->bij", fast_key * fast_gate, fast_value
-                ) / sites.numel()
-                fast_memory = (
-                    cfg.fast_weight_decay * fast_memory
-                    + (1 - cfg.fast_weight_decay) * proposed_fast_memory
-                )
-                fast_query = F.normalize(self.fast_query(normalized), dim=2)
-                fast_message = torch.einsum(
-                    "bni,bij->bnj", fast_query, fast_memory
-                ) * self.fast_weight_gain.clamp_min(0)
-                advertised_query += query.detach().mean(dim=0) / observations
-                advertised_key += key.detach().mean(dim=0) / observations
-                emission += emit.detach().mean(dim=(0, 2)) / observations
+                ) * broadcast_gain
+                if use_fast_weights:
+                    assert fast_memory is not None
+                    fast_key = F.normalize(self.fast_key(normalized), dim=2)
+                    fast_value = self.fast_value(normalized)
+                    fast_gate = torch.sigmoid(self.fast_write_gate(normalized))
+                    proposed_fast_memory = torch.einsum(
+                        "bni,bnj->bij", fast_key * fast_gate, fast_value
+                    ) / site_count
+                    fast_memory = (
+                        cfg.fast_weight_decay * fast_memory
+                        + (1 - cfg.fast_weight_decay) * proposed_fast_memory
+                    )
+                    fast_query = F.normalize(self.fast_query(normalized), dim=2)
+                    fast_message = torch.einsum(
+                        "bni,bij->bnj", fast_query, fast_memory
+                    ) * fast_weight_gain
+                else:
+                    fast_message = 0.0
+                advertised_query += query.detach().float().mean(dim=0) / observations
+                advertised_key += key.detach().float().mean(dim=0) / observations
+                emission += emit.detach().float().mean(dim=(0, 2)) / observations
                 compatibility = (query[:, target_compact] * key[:, source_compact]).sum(dim=2)
-                compatibility /= math.sqrt(cfg.hidden_channels) * cfg.attention_temperature
-                compatibility += weights.abs().clamp_min(1e-5).log().unsqueeze(0)
+                compatibility /= attention_scale
+                compatibility += edge_weight_log
                 score = compatibility.clamp(-12, 12).exp()
-                denominator = torch.zeros(batch, sites.numel(), device=tokens.device)
-                denominator.index_add_(1, target_compact, score)
-                attention = score / denominator[:, target_compact].clamp_min(1e-9)
+                score_float = score.float()
+                denominator = torch.zeros(
+                    batch, site_count, device=tokens.device, dtype=torch.float32
+                )
+                denominator.index_add_(1, target_compact, score_float)
+                attention = (
+                    score_float / denominator[:, target_compact].clamp_min(1e-9)
+                ).to(hidden.dtype)
                 edge_message = (
                     value[:, source_compact]
                     * emit[:, source_compact]
                     * attention.unsqueeze(2)
-                    * weights.view(1, -1, 1)
-                    * F.softplus(self.message_gain_raw)
+                    * edge_weight_view
+                    * message_scale
                 )
                 incoming = torch.zeros_like(hidden)
                 incoming.index_add_(1, target_compact, edge_message)
                 incoming = incoming + broadcast_message + fast_message
-                indegree = torch.zeros(sites.numel(), device=tokens.device)
-                indegree.index_add_(0, target_compact, torch.ones_like(target_compact, dtype=hidden.dtype))
-                if (indegree > 1).any():
+                if entropy_valid.any():
                     target_entropy = torch.zeros_like(denominator)
                     target_entropy.index_add_(
-                        1, target_compact, -(attention * attention.clamp_min(1e-9).log())
+                        1, target_compact,
+                        -(attention.float() * attention.float().clamp_min(1e-9).log()),
                     )
-                    valid = indegree > 1
                     entropy_total += (
-                        target_entropy[:, valid] / indegree[valid].log()
+                        target_entropy[:, entropy_valid] / entropy_normalizer
                     ).detach().mean() / observations
-                flow = edge_message.detach().abs().mean(dim=(0, 2))
-                step_load = incoming.detach().abs().mean(dim=(0, 2))
-                variable = edge_message.detach().std(dim=0, correction=0).mean(dim=1)
+                flow = edge_message.detach().float().abs().mean(dim=(0, 2))
+                step_load = incoming.detach().float().abs().mean(dim=(0, 2))
+                variable = (
+                    edge_message.detach().float().std(dim=0, correction=0).mean(dim=1)
+                )
                 step_stimulation = torch.zeros_like(stimulation)
                 step_stimulation.index_add_(0, target_compact, variable)
                 step_stimulation /= indegree.clamp_min(1).sqrt()
-                step_stimulation += external.detach().std(dim=0, correction=0).mean(dim=1)
+                step_stimulation += (
+                    external.detach().float().std(dim=0, correction=0).mean(dim=1)
+                )
                 edge_flow[target_site, slot] += flow / observations
                 stimulation += step_stimulation / observations
                 load += step_load / observations
@@ -316,7 +357,7 @@ class CellularSequenceModel(nn.Module):
             if hidden.requires_grad:
                 hidden.retain_grad()
                 retained.append(hidden)
-            position_logits = self._read_logits(hidden, compact)
+            position_logits = self._read_logits(hidden, output_compact, output_alive)
             logits.append(position_logits)
             if capture_trace:
                 frame = self.make_frame(

@@ -165,7 +165,11 @@ def build_sequence_snapshot(experiment: SequenceExperiment) -> dict[str, Any]:
             "parametersPerLivingCell": round(active_parameters / max(1, living_count), 3),
             "device": str(experiment.device),
         },
-        "configuration": {"parameters": hyperparameter_payload(cfg, include_sequence=True)},
+        "configuration": {
+            "parameters": hyperparameter_payload(
+                cfg, include_sequence=True, task_key=experiment.task.key
+            )
+        },
     }
 
 

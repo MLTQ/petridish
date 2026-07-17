@@ -33,12 +33,19 @@ class SequenceExperiment:
         *,
         seed: int = 1,
         device: str = "auto",
+        amp_mode: str = "off",
     ) -> None:
         self.task = resolve_sequence_task(task)
         self.experiment_name = self.task.key
         self.config = config or sequence_config(self.task.key)
         self.seed = seed
         self.device = resolve_device(device)
+        if amp_mode not in {"off", "bfloat16"}:
+            raise ValueError("amp_mode must be 'off' or 'bfloat16'")
+        if amp_mode != "off" and self.device.type != "cuda":
+            raise ValueError("AMP is supported only on CUDA")
+        self.amp_mode = amp_mode
+        self.amp_dtype = torch.bfloat16 if amp_mode == "bfloat16" else None
         self.generator = torch.Generator().manual_seed(seed)
         self.eval_generator = torch.Generator().manual_seed(seed + 10_000)
         self.recall_pair_count = 1 if self.task.key == "associative_recall" else 0
@@ -51,6 +58,7 @@ class SequenceExperiment:
             max_length=max(12, self.task.sequence_length),
             seed=seed,
         ).to(self.device)
+        self.compute_model: Callable[..., SequenceForward] = self.model
         synapse = self.model.substrate.synapse_weight
         shared = [parameter for parameter in self.model.shared_parameters()]
         readout_ids = {
@@ -106,6 +114,13 @@ class SequenceExperiment:
         self.last_accuracy_improvement_step = 0
         self._prime_preview()
 
+    def enable_compile(self, mode: str = "default") -> None:
+        """Compile only model forward computation; optimizer and topology stay eager."""
+
+        if mode not in {"default", "reduce-overhead", "max-autotune"}:
+            raise ValueError(f"unsupported compile mode: {mode}")
+        self.compute_model = torch.compile(self.model, mode=mode)
+
     def _batch(self, size: int, *, evaluation: bool = False) -> SequenceBatch:
         generator = self.eval_generator if evaluation else self.generator
         batch = (
@@ -121,7 +136,7 @@ class SequenceExperiment:
         self, logits: torch.Tensor, batch: SequenceBatch
     ) -> tuple[torch.Tensor, float]:
         selected = batch.loss_mask
-        loss = F.cross_entropy(logits[selected], batch.targets[selected])
+        loss = F.cross_entropy(logits[selected].float(), batch.targets[selected])
         metric_mask = selected
         if self.task.key == "tiny_language":
             metric_mask = torch.zeros_like(selected)
@@ -171,11 +186,16 @@ class SequenceExperiment:
             progress_callback("forward", position + 1, batch.tokens.shape[1])
 
         self.optimizer.zero_grad(set_to_none=True)
-        result = self.model(
-            batch.tokens,
-            capture_trace=capture_trace,
-            frame_callback=observe_frame if progress_callback is not None else None,
-        )
+        with torch.autocast(
+            device_type=self.device.type,
+            dtype=self.amp_dtype,
+            enabled=self.amp_dtype is not None,
+        ):
+            result = self.compute_model(
+                batch.tokens,
+                capture_trace=capture_trace,
+                frame_callback=observe_frame if progress_callback is not None else None,
+            )
         task_loss, accuracy = self._masked_loss_accuracy(result.logits, batch)
         loss = task_loss + self.model.regularization()
         gradient_hooks: list[torch.utils.hooks.RemovableHandle] = []
@@ -327,10 +347,11 @@ class SequenceExperiment:
         if rolling >= self.best_rolling_accuracy + self.config.structure_plateau_delta:
             self.best_rolling_accuracy = rolling
             self.last_accuracy_improvement_step = completed
-        self._remember(
-            result, batch, replace_trace=capture_trace,
-            cursor_at_end=progress_callback is not None,
-        )
+        if capture_trace:
+            self._remember(
+                result, batch, replace_trace=True,
+                cursor_at_end=progress_callback is not None,
+            )
         self._maybe_advance_recall_curriculum()
         if auto_evaluate and completed % self.config.evaluation_interval == 0:
             self.evaluate(
@@ -509,13 +530,41 @@ class SequenceExperiment:
         *,
         progress_callback: Callable[[str, int, int], None] | None = None,
     ) -> float:
+        """Evaluate held-out accuracy while preserving the historical API."""
+
+        return self.evaluate_metrics(
+            batches, progress_callback=progress_callback
+        )["accuracy"]
+
+    @torch.no_grad()
+    def evaluate_metrics(
+        self,
+        batches: int = 8,
+        *,
+        progress_callback: Callable[[str, int, int], None] | None = None,
+    ) -> dict[str, float]:
+        """Return held-out loss and accuracy without mutating training state."""
+
         self.model.eval()
         correct = 0
         total = 0
+        loss_sum = 0.0
+        loss_items = 0
         batch_count = max(1, min(50, batches))
         for index in range(batch_count):
             batch = self._batch(self.config.batch_size, evaluation=True)
-            logits = self.model(batch.tokens, capture_trace=False).logits
+            with torch.autocast(
+                device_type=self.device.type,
+                dtype=self.amp_dtype,
+                enabled=self.amp_dtype is not None,
+            ):
+                logits = self.compute_model(batch.tokens, capture_trace=False).logits
+            selected_logits = logits[batch.loss_mask].float()
+            selected_targets = batch.targets[batch.loss_mask]
+            loss_sum += float(
+                F.cross_entropy(selected_logits, selected_targets, reduction="sum")
+            )
+            loss_items += int(selected_targets.numel())
             metric_mask = batch.loss_mask
             if self.task.key == "tiny_language":
                 metric_mask = torch.zeros_like(batch.loss_mask)
@@ -525,7 +574,10 @@ class SequenceExperiment:
             if progress_callback is not None:
                 progress_callback("evaluation", index + 1, batch_count)
         self.test_accuracy = correct / max(1, total)
-        return self.test_accuracy
+        return {
+            "loss": loss_sum / max(1, loss_items),
+            "accuracy": self.test_accuracy,
+        }
 
     @torch.no_grad()
     def _replay_current(self, *, events: list[dict[str, Any]] | None = None) -> None:

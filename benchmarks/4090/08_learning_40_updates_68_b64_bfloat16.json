@@ -1,0 +1,361 @@
+{
+  "schemaVersion": 1,
+  "configuration": {
+    "width": 68,
+    "height": 68,
+    "hidden_channels": 12,
+    "genotype_channels": 8,
+    "edge_slots": 4,
+    "axon_slots": 8,
+    "candidate_slots": 4,
+    "candidate_probes": 32,
+    "initial_density": 0.25,
+    "max_initial_neurons": 4096,
+    "initial_weight_scale": 0.25,
+    "local_radius": 16,
+    "message_steps": 2,
+    "message_gain": 2.0,
+    "attention_temperature": 1.0,
+    "emit_gate_bias": 1.5,
+    "broadcast_slots": 4,
+    "broadcast_gain": 0.3,
+    "broadcast_decay": 0.85,
+    "fast_weight_gain": 0.0,
+    "fast_weight_decay": 0.95,
+    "batch_size": 64,
+    "learning_rate": 0.0015,
+    "readout_learning_rate": 0.006,
+    "synapse_learning_rate": 0.002,
+    "trajectory_loss_weight": 0.0,
+    "readout_only_trials": 0,
+    "synapse_unlock_trials": 0,
+    "curriculum_window_trials": 40,
+    "curriculum_min_trials": 40,
+    "gradient_clip": 1.0,
+    "weight_decay": 0.0002,
+    "max_weight": 2.0,
+    "structural_interval": 16,
+    "structural_warmup_trials": 5000,
+    "structure_accuracy_threshold": 0.82,
+    "structure_plateau_trials": 256,
+    "structure_plateau_delta": 0.005,
+    "evaluation_interval": 50,
+    "evaluation_batches": 8,
+    "candidate_decay": 0.88,
+    "candidate_threshold": 0.11,
+    "emission_threshold": 0.018,
+    "edge_utility_decay": 0.97,
+    "edge_stat_rate": 0.08,
+    "edge_grace_trials": 32,
+    "prune_utility": 0.012,
+    "max_pruned_per_generation": 96,
+    "lifecycle_enabled": 0,
+    "lifecycle_warmup_trials": 5000,
+    "lifecycle_interval": 16,
+    "juvenile_trials": 64,
+    "target_stimulation_min": 0.018,
+    "target_stimulation_max": 0.42,
+    "energy_recovery": 0.012,
+    "starvation_cost": 0.3,
+    "overload_cost": 0.3,
+    "maintenance_cost": 0.00035,
+    "task_energy_bonus": 0.006,
+    "death_energy": 0.035,
+    "max_deaths_per_generation": 48,
+    "births_per_generation": 12,
+    "birth_signal": 0.08,
+    "birth_local_density_max": 0.38,
+    "birth_energy": 0.65,
+    "inheritance_noise": 0.035,
+    "max_visible_edges": 6000,
+    "task": "tiny_shakespeare",
+    "contextLength": 64,
+    "warmupUpdates": 0,
+    "measuredUpdates": 40,
+    "seed": 1,
+    "amp": "bfloat16",
+    "compile": "off"
+  },
+  "environment": {
+    "device": "cuda",
+    "deviceName": "NVIDIA GeForce RTX 4090",
+    "pytorchVersion": "2.13.0+cu130",
+    "cudaVersion": "13.0"
+  },
+  "population": {
+    "livingNeurons": 1262,
+    "activeEdges": 4473
+  },
+  "timing": {
+    "compileSetupSeconds": 0.0,
+    "warmupSeconds": 8.902803529053926e-05,
+    "measuredSeconds": 27.251120081054978,
+    "meanUpdateSeconds": 0.6812681691924809,
+    "medianUpdateSeconds": 0.6684830369777046,
+    "updatesPerSecond": 1.4678295747486747,
+    "sequencesPerSecond": 93.94109278391518,
+    "targetCharactersPerSecond": 6012.229938170572
+  },
+  "memory": {
+    "peakAllocatedBytes": 18437524480,
+    "peakReservedBytes": 18656264192
+  },
+  "training": {
+    "rollingLoss": 3.61376296877861,
+    "rollingAccuracy": 0.116192626953125,
+    "curve": [
+      {
+        "update": 1,
+        "loss": 4.423577308654785,
+        "accuracy": 0.00927734375,
+        "latencySeconds": 1.1854972050059587
+      },
+      {
+        "update": 2,
+        "loss": 3.7490575313568115,
+        "accuracy": 0.069580078125,
+        "latencySeconds": 0.6430885220179334
+      },
+      {
+        "update": 3,
+        "loss": 3.7642524242401123,
+        "accuracy": 0.0947265625,
+        "latencySeconds": 0.6420836100587621
+      },
+      {
+        "update": 4,
+        "loss": 3.885524034500122,
+        "accuracy": 0.07666015625,
+        "latencySeconds": 0.6911987599451095
+      },
+      {
+        "update": 5,
+        "loss": 3.6740756034851074,
+        "accuracy": 0.12744140625,
+        "latencySeconds": 0.6495309990132228
+      },
+      {
+        "update": 6,
+        "loss": 3.675051212310791,
+        "accuracy": 0.097412109375,
+        "latencySeconds": 0.6628522329265252
+      },
+      {
+        "update": 7,
+        "loss": 3.538450241088867,
+        "accuracy": 0.146728515625,
+        "latencySeconds": 0.6475468840217218
+      },
+      {
+        "update": 8,
+        "loss": 3.7000732421875,
+        "accuracy": 0.142578125,
+        "latencySeconds": 0.6689372570253909
+      },
+      {
+        "update": 9,
+        "loss": 3.568856716156006,
+        "accuracy": 0.117919921875,
+        "latencySeconds": 0.6347905530128628
+      },
+      {
+        "update": 10,
+        "loss": 3.544235944747925,
+        "accuracy": 0.109619140625,
+        "latencySeconds": 0.6476638539461419
+      },
+      {
+        "update": 11,
+        "loss": 3.5362355709075928,
+        "accuracy": 0.118408203125,
+        "latencySeconds": 0.689808132010512
+      },
+      {
+        "update": 12,
+        "loss": 3.653531312942505,
+        "accuracy": 0.13232421875,
+        "latencySeconds": 0.7629884589696303
+      },
+      {
+        "update": 13,
+        "loss": 3.58101749420166,
+        "accuracy": 0.140869140625,
+        "latencySeconds": 0.671448944020085
+      },
+      {
+        "update": 14,
+        "loss": 3.435976982116699,
+        "accuracy": 0.131591796875,
+        "latencySeconds": 0.6970644009998068
+      },
+      {
+        "update": 15,
+        "loss": 3.5627665519714355,
+        "accuracy": 0.103759765625,
+        "latencySeconds": 0.67736597196199
+      },
+      {
+        "update": 16,
+        "loss": 3.520780563354492,
+        "accuracy": 0.072509765625,
+        "latencySeconds": 0.6477050110697746
+      },
+      {
+        "update": 17,
+        "loss": 3.4157040119171143,
+        "accuracy": 0.151611328125,
+        "latencySeconds": 0.6721280530327931
+      },
+      {
+        "update": 18,
+        "loss": 3.450955867767334,
+        "accuracy": 0.1533203125,
+        "latencySeconds": 0.6702949230093509
+      },
+      {
+        "update": 19,
+        "loss": 3.4069089889526367,
+        "accuracy": 0.142822265625,
+        "latencySeconds": 0.6747705469606444
+      },
+      {
+        "update": 20,
+        "loss": 3.4871108531951904,
+        "accuracy": 0.110595703125,
+        "latencySeconds": 0.6681982659501955
+      },
+      {
+        "update": 21,
+        "loss": 3.5278396606445312,
+        "accuracy": 0.15283203125,
+        "latencySeconds": 0.6663048620102927
+      },
+      {
+        "update": 22,
+        "loss": 3.645995855331421,
+        "accuracy": 0.152587890625,
+        "latencySeconds": 0.6586802299134433
+      },
+      {
+        "update": 23,
+        "loss": 3.686941623687744,
+        "accuracy": 0.142822265625,
+        "latencySeconds": 0.6685472829267383
+      },
+      {
+        "update": 24,
+        "loss": 3.483609914779663,
+        "accuracy": 0.091796875,
+        "latencySeconds": 0.6596735500497743
+      },
+      {
+        "update": 25,
+        "loss": 3.6346428394317627,
+        "accuracy": 0.078857421875,
+        "latencySeconds": 0.6678274280857295
+      },
+      {
+        "update": 26,
+        "loss": 3.4574055671691895,
+        "accuracy": 0.091796875,
+        "latencySeconds": 0.6728742279810831
+      },
+      {
+        "update": 27,
+        "loss": 3.465942621231079,
+        "accuracy": 0.149658203125,
+        "latencySeconds": 0.6999536090297624
+      },
+      {
+        "update": 28,
+        "loss": 3.467808246612549,
+        "accuracy": 0.152587890625,
+        "latencySeconds": 0.6929583420278504
+      },
+      {
+        "update": 29,
+        "loss": 3.578876495361328,
+        "accuracy": 0.14990234375,
+        "latencySeconds": 0.668418791028671
+      },
+      {
+        "update": 30,
+        "loss": 3.656601905822754,
+        "accuracy": 0.1328125,
+        "latencySeconds": 0.650502527016215
+      },
+      {
+        "update": 31,
+        "loss": 3.5766210556030273,
+        "accuracy": 0.10107421875,
+        "latencySeconds": 0.6357101140310988
+      },
+      {
+        "update": 32,
+        "loss": 3.512237071990967,
+        "accuracy": 0.10498046875,
+        "latencySeconds": 0.6830811999971047
+      },
+      {
+        "update": 33,
+        "loss": 3.617659091949463,
+        "accuracy": 0.0859375,
+        "latencySeconds": 0.6806446840055287
+      },
+      {
+        "update": 34,
+        "loss": 3.5953588485717773,
+        "accuracy": 0.141357421875,
+        "latencySeconds": 0.6566847249632701
+      },
+      {
+        "update": 35,
+        "loss": 3.6958155632019043,
+        "accuracy": 0.138671875,
+        "latencySeconds": 0.6508733759401366
+      },
+      {
+        "update": 36,
+        "loss": 3.5890440940856934,
+        "accuracy": 0.1181640625,
+        "latencySeconds": 0.6741248819744214
+      },
+      {
+        "update": 37,
+        "loss": 3.656116485595703,
+        "accuracy": 0.0927734375,
+        "latencySeconds": 0.6737580219050869
+      },
+      {
+        "update": 38,
+        "loss": 3.871840476989746,
+        "accuracy": 0.07958984375,
+        "latencySeconds": 0.6680208219913766
+      },
+      {
+        "update": 39,
+        "loss": 3.6758484840393066,
+        "accuracy": 0.090087890625,
+        "latencySeconds": 0.6459091309225187
+      },
+      {
+        "update": 40,
+        "loss": 3.5801703929901123,
+        "accuracy": 0.149658203125,
+        "latencySeconds": 0.6712163769407198
+      }
+    ]
+  },
+  "heldOut": {
+    "loss": 3.5424988865852356,
+    "accuracy": 0.15228271484375
+  },
+  "numerics": {
+    "finiteLoss": true,
+    "finiteGradients": true
+  },
+  "profiler": {
+    "trace": null,
+    "topOperations": null
+  }
+}

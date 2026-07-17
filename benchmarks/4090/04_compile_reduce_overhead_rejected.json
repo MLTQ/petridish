@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "status": "rejected",
+  "configuration": {
+    "task": "tiny_shakespeare",
+    "fieldSize": 68,
+    "batchSize": 16,
+    "contextLength": 64,
+    "messageSteps": 2,
+    "amp": "off",
+    "compile": "reduce-overhead"
+  },
+  "reason": "No steady-state result: dynamic-shape graph breaks at living-site and active-edge nonzero operations, native outer-product graph breaks, and an invalid repeated-backward failure. Compile remains disabled."
+}

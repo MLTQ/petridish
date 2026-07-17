@@ -16,3 +16,6 @@ being judged, and whether delayed or autoregressive accuracy improves.
 During a streamed forward pass, not-yet-computed predictions are represented by an
 explicit em dash and zero confidence. They are never populated from stale or guessed
 values.
+
+The Tiny Shakespeare configuration payload includes 68 among its discrete field
+choices; other tasks retain only their existing power-of-two choices.

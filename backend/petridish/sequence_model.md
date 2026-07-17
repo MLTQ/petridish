@@ -35,3 +35,18 @@ full graph copies while retaining aggregate stimulation, load, edge flow, and gr
 state required by learning and lifecycle rules. Attention entropy remains on the
 accelerator throughout the recurrent loop and crosses to the CPU only once, avoiding
 one synchronization stall per microstep.
+
+Topology-derived compact source/target mappings, input/output compact ports,
+indegree normalization, stable edge-weight views, normalized broadcast slot keys,
+batch row indices, and scalar gains are computed once per forward pass. They are not
+cached across forwards, so a lifecycle topology mutation cannot leave stale indices.
+
+CUDA autocast constructs differentiable recurrent tensors in the active compute
+dtype, including synaptic weights before scatter/index-add operations. Detached slow
+statistics remain FP32, and edge-attention denominators and entropy reductions use
+FP32 before messages return to the recurrent dtype.
+
+The documented `fast_weight_gain = 0` ablation bypasses fast-key/value projections,
+outer-product memory updates, and memory reads entirely. Positive configured gains
+retain the original differentiable path; the primary Tiny Shakespeare baseline keeps
+it disabled.
