@@ -12,4 +12,5 @@ continuous lifecycle repaired function rapidly and then destabilized it, so this
 hypothesis-generating rather than an independent confirmatory result.
 
 Every atomic `repair_phase_r8` artifact records its repair window and whether mutation
-has frozen. Branches fail if the matched lesions remove different cells.
+has frozen. Branches fail if the matched lesions remove different cells, and every
+branch restores the same CPU/CUDA global RNG stream before stochastic repair begins.

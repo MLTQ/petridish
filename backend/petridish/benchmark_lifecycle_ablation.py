@@ -12,7 +12,13 @@ from typing import Any
 
 import torch
 
-from .benchmark_recovery import _apply_branch_config, _artifact, _checkpoint
+from .benchmark_recovery import (
+    _apply_branch_config,
+    _artifact,
+    _capture_global_rng,
+    _checkpoint,
+    _restore_global_rng,
+)
 from .benchmark_sequences import PROFILES, _write_result
 from .sequence_config import sequence_config
 from .sequence_experiment import SequenceExperiment
@@ -76,10 +82,12 @@ def run_ablation(
     }
     if len(severe_counts) != 1:
         raise RuntimeError("matched radius-8 branches removed different cells")
+    branch_rng = _capture_global_rng(base.device)
 
     summaries: dict[str, Any] = {}
     for spec in BRANCH_SPECS:
         experiment = branches[spec.name]
+        _restore_global_rng(branch_rng, experiment.device)
         _apply_branch_config(
             experiment, lifecycle=spec.lifecycle, interval=spec.interval,
             births_per_generation=spec.births_per_generation,

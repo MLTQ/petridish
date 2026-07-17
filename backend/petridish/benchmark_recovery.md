@@ -3,7 +3,9 @@
 `benchmark_recovery` trains one deterministic separated-owner GRU on fixed
 three-binding recall, evaluates competence, and deep-copies the complete experiment.
 Model, optimizer, topology, slow statistics, task/evaluation generators, counters,
-and RNG state are therefore identical before intervention.
+and owned RNG state are therefore identical before intervention. The runner also
+captures and restores PyTorch's process-global CPU/CUDA RNG at each branch boundary;
+birth genotype noise uses that device-global stream and is not cloned by `deepcopy`.
 
 Three branches are run sequentially:
 

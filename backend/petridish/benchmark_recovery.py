@@ -20,6 +20,27 @@ from .sequence_experiment import SequenceExperiment
 BRANCHES = ("control", "lesion_static", "lesion_lifecycle")
 
 
+def _capture_global_rng(device: torch.device) -> tuple[torch.Tensor, torch.Tensor | None]:
+    """Capture process-global RNG used by stochastic substrate mutations."""
+
+    cpu_state = torch.random.get_rng_state().clone()
+    cuda_state = (
+        torch.cuda.get_rng_state(device).clone() if device.type == "cuda" else None
+    )
+    return cpu_state, cuda_state
+
+
+def _restore_global_rng(
+    state: tuple[torch.Tensor, torch.Tensor | None], device: torch.device
+) -> None:
+    """Give a cloned branch the same CPU/CUDA mutation-noise stream."""
+
+    cpu_state, cuda_state = state
+    torch.random.set_rng_state(cpu_state)
+    if cuda_state is not None:
+        torch.cuda.set_rng_state(cuda_state, device)
+
+
 def _apply_branch_config(
     experiment: SequenceExperiment, *, lifecycle: bool,
     topology: bool | None = None, interval: int = 8,
@@ -112,6 +133,7 @@ def _artifact(
         "seed": seed,
         "device": str(experiment.device),
         "deterministic": True,
+        "globalRngMatched": True,
         "steps": steps,
         "completedSteps": checkpoints[-1]["update"] if checkpoints else 0,
         "baseSteps": base_steps,
@@ -169,9 +191,11 @@ def run_recovery(
     ].model.substrate.lesion(center_x, center_y, lesion_radius)
     if lesion_counts["lesion_static"] != lesion_counts["lesion_lifecycle"]:
         raise RuntimeError("matched lesion branches removed different cells")
+    branch_rng = _capture_global_rng(base.device)
 
     summaries: dict[str, Any] = {}
     for branch, experiment in branches.items():
+        _restore_global_rng(branch_rng, experiment.device)
         _apply_branch_config(experiment, lifecycle=branch == "lesion_lifecycle")
         checkpoints = [_checkpoint(experiment, 0, evaluation_batches=8)]
         started = time.perf_counter()

@@ -10,7 +10,11 @@ import pytest
 import torch
 
 from petridish.benchmark_sequences import _write_result
-from petridish.benchmark_recovery import _apply_branch_config
+from petridish.benchmark_recovery import (
+    _apply_branch_config,
+    _capture_global_rng,
+    _restore_global_rng,
+)
 from petridish.graph_layout import LAYOUTS, sequence_layout
 from petridish.mnist_hyperparameters import configured, hyperparameter_payload
 from petridish.mnist_substrate import SpatialSubstrate
@@ -43,6 +47,18 @@ def test_benchmark_artifact_replacement_is_atomic(tmp_path: Path) -> None:
 
     assert json.loads(output.read_text(encoding="utf-8"))["status"] == "complete"
     assert list(output.parent.glob(".*.tmp")) == []
+
+
+def test_recovery_branch_restores_process_global_rng() -> None:
+    device = torch.device("cpu")
+    torch.manual_seed(808)
+    state = _capture_global_rng(device)
+    first = torch.rand(12)
+
+    _restore_global_rng(state, device)
+    second = torch.rand(12)
+
+    assert torch.equal(first, second)
 
 
 def test_recovery_branch_clone_is_independent_and_consistently_configured() -> None:

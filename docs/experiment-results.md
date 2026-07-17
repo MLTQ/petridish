@@ -236,9 +236,11 @@ stabilize it. The next matrix separates lifecycle-without-lesion from lesion eff
 uses a stronger radius-8 physical intervention, and tests a lower-cadence bounded-
 turnover lifecycle without tuning this recorded baseline.
 
-## Radius-8 lifecycle ablation matrix — 2026-07-17
+## Discarded radius-8 lifecycle ablation matrix — 2026-07-17
 
-Five deterministic branches were cloned from one 1,200-update fixed-three base. The
+These values are retained only as a diagnostic that motivated a finite repair phase;
+they are not accepted comparative evidence. Five deterministic branches were cloned
+from one 1,200-update fixed-three base. The
 radius-8 intervention was matched across branches and removed 106/250 neurons plus
 624/867 active edges, reducing immediate held-out accuracy to 23.18%.
 
@@ -261,3 +263,10 @@ deaths, population falls to 115, and final accuracy is 13.02%. Mutation frequenc
 therefore not the sole control variable. The data support a finite repair phase:
 activate birth/death/topology after damage, then freeze mutation when competence
 returns and let gradients consolidate the repaired substrate.
+
+Audit of the subsequent repair-window run exposed a branch-order confound: newborn
+genotype inheritance uses PyTorch's device-global RNG, which is not part of a deep-
+copied experiment. Later lifecycle branches therefore received different mutation-
+noise streams. All ablation and partial repair artifacts were moved out of the live
+laboratory, explicit CPU/CUDA RNG restoration was added at each branch boundary, and
+the matrix must be rerun before any numerical comparison above is accepted.

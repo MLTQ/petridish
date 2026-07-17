@@ -18,3 +18,5 @@ artifacts use profile `lifecycle_ablation_r8`, carry explicit lifecycle configur
 and report the same accuracy, topology, turnover, and death-cause checkpoints as the
 first recovery experiment. The gentle branch is an a priori pressure reduction, not a
 post-outcome fit.
+Each branch also starts from the same restored device-global RNG state, so stochastic
+birth inheritance is independent of branch execution order.

@@ -48,3 +48,5 @@ The static-branch regression also proves that a competent cloned organism cannot
 re-unlock topology during the recovery window.
 Lifecycle branch configuration tests cover explicit cadence and per-generation birth
 and death budgets used by the severe-lesion ablation matrix.
+The global-RNG regression proves that clone branches can replay the same stochastic
+mutation stream; owned experiment generators alone do not cover birth genotype noise.
