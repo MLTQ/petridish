@@ -567,6 +567,9 @@ class SequenceExperiment:
         loss_items = 0
         slot_correct = [0] * self.recall_pair_count
         slot_total = [0] * self.recall_pair_count
+        presented_value_predictions = 0
+        distractor_predictions = 0
+        absent_value_predictions = 0
         batch_count = max(1, min(50, batches))
         for index in range(batch_count):
             batch = self._batch(self.config.batch_size, evaluation=True)
@@ -591,7 +594,17 @@ class SequenceExperiment:
             if self.task.key == "associative_recall":
                 keys = batch.tokens[:, : self.recall_pair_count * 2 : 2]
                 query_slots = (keys == batch.tokens[:, -1].unsqueeze(1)).long().argmax(dim=1)
-                row_correct = logits[:, -1].argmax(dim=1) == batch.targets[:, -1]
+                predictions = logits[:, -1].argmax(dim=1)
+                row_correct = predictions == batch.targets[:, -1]
+                values = batch.tokens[:, 1 : self.recall_pair_count * 2 : 2]
+                predicts_presented_value = (
+                    predictions.unsqueeze(1) == values
+                ).any(dim=1)
+                presented_value_predictions += int(predicts_presented_value.sum())
+                distractor_predictions += int(
+                    (predicts_presented_value & ~row_correct).sum()
+                )
+                absent_value_predictions += int((~predicts_presented_value).sum())
                 for slot in range(self.recall_pair_count):
                     selected_rows = query_slots == slot
                     slot_total[slot] += int(selected_rows.sum())
@@ -608,6 +621,9 @@ class SequenceExperiment:
                 slot_correct[index] / max(1, slot_total[index])
                 for index in range(self.recall_pair_count)
             ]
+            metrics["presentedValueRate"] = presented_value_predictions / max(1, total)
+            metrics["distractorRate"] = distractor_predictions / max(1, total)
+            metrics["absentValueRate"] = absent_value_predictions / max(1, total)
         return metrics
 
     @torch.no_grad()

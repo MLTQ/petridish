@@ -57,6 +57,9 @@ interface BenchmarkCheckpoint {
   trainingAccuracy?: number;
   heldOutAccuracy: number;
   heldOutSlotAccuracy?: number[];
+  heldOutPresentedValueRate?: number;
+  heldOutDistractorRate?: number;
+  heldOutAbsentValueRate?: number;
   loss?: number;
   recallPairs?: number;
 }
@@ -190,6 +193,9 @@ export class LaboratoryView {
         final?.heldOutSlotAccuracy?.length
           ? final.heldOutSlotAccuracy.map((accuracy) => this.percent(accuracy)).join(" / ")
           : "—",
+        final?.heldOutPresentedValueRate === undefined
+          ? "—"
+          : `${this.percent(final.heldOutPresentedValueRate)} (${this.percent(final.heldOutDistractorRate)} distractor)`,
         benchmark.peakCudaAllocatedGiB === null ? "—" : `${benchmark.peakCudaAllocatedGiB.toFixed(2)} GiB`,
         benchmark.seconds === null ? "—" : `${benchmark.seconds.toFixed(1)} s`,
         benchmark.status,
@@ -203,7 +209,7 @@ export class LaboratoryView {
     });
     if (rows.length === 0) {
       const row = document.createElement("tr");
-      row.innerHTML = '<td colspan="11">No persisted benchmark artifacts found.</td>';
+      row.innerHTML = '<td colspan="12">No persisted benchmark artifacts found.</td>';
       rows.push(row);
     }
     this.benchmarksHost.replaceChildren(...rows);

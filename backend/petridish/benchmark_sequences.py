@@ -119,6 +119,15 @@ def run_benchmark(
                         round(float(accuracy), 4)
                         for accuracy in held_out.get("slotAccuracy", [])
                     ],
+                    "heldOutPresentedValueRate": round(
+                        float(held_out.get("presentedValueRate", 0.0)), 4
+                    ),
+                    "heldOutDistractorRate": round(
+                        float(held_out.get("distractorRate", 0.0)), 4
+                    ),
+                    "heldOutAbsentValueRate": round(
+                        float(held_out.get("absentValueRate", 0.0)), 4
+                    ),
                     "loss": round(experiment.rolling_loss, 5),
                     "recallPairs": experiment.recall_pair_count,
                 }

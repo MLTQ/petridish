@@ -30,6 +30,8 @@ validated launch or stop requests.
   peak CUDA allocation when the benchmark publisher provides them.
 - **Does**: Shows final held-out accuracy for each queried binding slot so a
   one-memory solution is visible without inferring it from the aggregate curve.
+- **Does**: Shows presented-value coverage and distractor errors when available,
+  separating value storage from correct key/value association.
 - **Does**: Marks the measured checkpoint where each run changes curriculum
   difficulty; peak and final values remain separately visible in the table.
 - **Rationale**: A high peak before a curriculum transition must not be mistaken

@@ -19,6 +19,8 @@ recall's chance baseline is 25%. Run it with:
 Associative-recall checkpoints include held-out accuracy for each queried binding
 slot. A near-perfect slot beside a chance slot is direct evidence of single-binding
 retention rather than a generic optimization plateau.
+They also report presented-value, distractor, and absent-value rates. These distinguish
+failure to store values from failure to bind stored values to their keys.
 
 `--fixed-recall-pairs 2` begins and remains at two bindings. This control separates
 ordinary convergence at the harder task from interference caused by advancing an

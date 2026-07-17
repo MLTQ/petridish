@@ -54,6 +54,9 @@ benchmark timing and never mutate optimizer or topology state.
 For associative recall, the same evaluation forward passes also report accuracy by
 queried binding slot. This distinguishes first-pair memory, recency, and mixed failure
 modes that aggregate accuracy cannot identify.
+They also separate predictions into the correct value, another value that appeared in
+the sequence, and an absent value. High presented-value coverage with high distractor
+errors means the organism retains the value set but loses key/value binding identity.
 
 An optional CUDA bfloat16 autocast mode wraps the shared model forward path. Task
 loss and held-out loss are reduced in FP32; the default live experiment remains FP32.

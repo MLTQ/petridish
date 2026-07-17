@@ -35,3 +35,5 @@ Benchmark artifact replacement is required to be atomic so the polling laborator
 sees either the previous complete JSON document or the next one, never a partial write.
 Recall evaluation also reports one accuracy per queried binding slot so aggregate
 plateaus can be assigned to primacy, recency, or mixed retrieval failure.
+Presented-value, distractor, and absent-value rates further distinguish lost content
+from lost key/value association.

@@ -134,6 +134,10 @@ def test_associative_recall_evaluation_reports_each_query_slot() -> None:
 
     assert len(metrics["slotAccuracy"]) == 2
     assert all(0.0 <= accuracy <= 1.0 for accuracy in metrics["slotAccuracy"])
+    assert metrics["presentedValueRate"] == pytest.approx(
+        metrics["accuracy"] + metrics["distractorRate"]
+    )
+    assert metrics["presentedValueRate"] + metrics["absentValueRate"] == pytest.approx(1.0)
 
 
 def test_sequence_model_retains_state_and_backpropagates() -> None:
