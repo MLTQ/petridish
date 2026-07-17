@@ -26,6 +26,16 @@ key-addressed binding without creating fictitious persistent edges. Fast weights
 between examples, while axons, genotypes, rule parameters, and lifecycle state persist.
 `fast_weight_gain = 0` removes this path independently.
 
+The optional neuron-owned binding memory is a narrower relational intervention.
+Every living neuron's genotype defines a content address. After adjacent tokens are
+processed, the successor state is softly written into physical owner neurons selected
+by the predecessor token's key. A later occurrence of that token reads the owners and
+injects the retrieved state only at the stimulated input port; ordinary dendrites must
+still transport it to outputs. This tests learned token-conditioned ownership without
+granting the readout direct access to a global key/value table. The memory resets per
+example and is omitted entirely when `binding_memory_gain = 0`, preserving legacy and
+corpus checkpoints.
+
 Frames contain one measured state per token rather than every microstep. This makes the
 live sequence causally readable without inventing presentation-only traffic.
 An optional frame callback fires immediately after each such frame and its aligned

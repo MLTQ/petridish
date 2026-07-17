@@ -39,6 +39,12 @@ PROFILES: dict[str, dict[str, Any]] = {
         "local_radius": 8, "candidate_probes": 28, "initial_density": 0.48,
         "message_gain": 2.0, "fast_weight_gain": 0.5,
     },
+    "compact24_binding_owners": {
+        "width": 24, "height": 24, "message_steps": 6,
+        "local_radius": 8, "candidate_probes": 28, "initial_density": 0.48,
+        "message_gain": 2.0, "binding_memory_gain": 1.0,
+        "binding_memory_temperature": 0.08,
+    },
 }
 
 

@@ -39,6 +39,8 @@ the declared protocol.
 `compact24_no_broadcast` removes slot broadcasting, while
 `compact24_no_global_memory` removes both slot and fast-weight memory.
 `compact24_fast_weights` enables recurrent linear-attention memory at gain 0.5.
+`compact24_binding_owners` enables successor values stored at genotype-addressed
+living neurons and read back through the queried token's physical input port.
 
 ```bash
 python -m petridish.benchmark_sequences --task associative_recall \

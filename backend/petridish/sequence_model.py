@@ -99,6 +99,19 @@ class CellularSequenceModel(nn.Module):
         self.fast_value = nn.Linear(hidden, hidden, bias=False)
         self.fast_write_gate = nn.Linear(hidden, 1)
         self.fast_weight_gain = nn.Parameter(torch.tensor(config.fast_weight_gain))
+        self.binding_owner_address: nn.Linear | None = None
+        self.binding_token_key: nn.Linear | None = None
+        self.binding_value: nn.Linear | None = None
+        self.binding_read: nn.Linear | None = None
+        self.binding_gain: nn.Parameter | None = None
+        if config.binding_memory_gain > 0:
+            self.binding_owner_address = nn.Linear(
+                config.genotype_channels, hidden, bias=False
+            )
+            self.binding_token_key = nn.Linear(hidden, hidden, bias=False)
+            self.binding_value = nn.Linear(hidden, hidden, bias=False)
+            self.binding_read = nn.Linear(hidden, hidden, bias=False)
+            self.binding_gain = nn.Parameter(torch.tensor(config.binding_memory_gain))
         self.cell_rule = SequenceCellRule(config.cell_architecture, hidden)
         self.state_norm = nn.LayerNorm(hidden)
         self.output_bank_readout = nn.Linear(hidden * vocab_size, vocab_size)
@@ -231,14 +244,48 @@ class CellularSequenceModel(nn.Module):
             if use_fast_weights
             else None
         )
+        use_binding_memory = self.binding_owner_address is not None
+        binding_owner_addresses = (
+            F.normalize(self.binding_owner_address(genotype), dim=1)
+            if self.binding_owner_address is not None else None
+        )
+        binding_memory = (
+            torch.zeros(
+                batch, site_count, cfg.hidden_channels,
+                device=tokens.device, dtype=hidden.dtype,
+            )
+            if use_binding_memory else None
+        )
+        previous_binding_key: torch.Tensor | None = None
 
         for position in range(length):
             external = torch.zeros_like(hidden)
             token_compact = input_compact[tokens[:, position]]
             alive_batch = token_compact >= 0
             rows = batch_rows[alive_batch]
-            drive = self.token_identity(tokens[alive_batch, position])
+            token_embedding = self.token_identity(tokens[:, position])
+            drive = token_embedding[alive_batch]
             drive = drive + self.position_identity.weight[position]
+            current_binding_key: torch.Tensor | None = None
+            if use_binding_memory:
+                assert self.binding_token_key is not None
+                assert self.binding_read is not None
+                assert self.binding_gain is not None
+                assert binding_owner_addresses is not None
+                assert binding_memory is not None
+                current_binding_key = F.normalize(
+                    self.binding_token_key(token_embedding), dim=1
+                )
+                read_attention = torch.softmax(
+                    torch.einsum(
+                        "bh,nh->bn", current_binding_key, binding_owner_addresses
+                    ) / cfg.binding_memory_temperature,
+                    dim=1,
+                )
+                retrieved = torch.einsum(
+                    "bn,bnh->bh", read_attention, binding_memory
+                )
+                drive = drive + self.binding_read(retrieved[alive_batch]) * self.binding_gain
             drive = drive.to(external.dtype)
             external[rows, token_compact[alive_batch]] = drive
             input_signal = torch.zeros(sites.numel(), device=tokens.device)
@@ -353,6 +400,33 @@ class CellularSequenceModel(nn.Module):
                 )
                 updated = updated * (1 + film_scale.unsqueeze(0)) + film_bias.unsqueeze(0)
                 hidden = self.state_norm(updated + incoming)
+            if use_binding_memory:
+                assert self.binding_value is not None
+                assert binding_owner_addresses is not None
+                assert binding_memory is not None
+                assert current_binding_key is not None
+                if previous_binding_key is not None:
+                    write_attention = torch.softmax(
+                        torch.einsum(
+                            "bh,nh->bn", previous_binding_key,
+                            binding_owner_addresses,
+                        ) / cfg.binding_memory_temperature,
+                        dim=1,
+                    )
+                    write_value = torch.zeros(
+                        batch, cfg.hidden_channels,
+                        device=tokens.device, dtype=hidden.dtype,
+                    )
+                    if alive_batch.any():
+                        write_value[rows] = self.binding_value(
+                            hidden[rows, token_compact[alive_batch]]
+                        )
+                    ownership = write_attention.unsqueeze(2)
+                    binding_memory = (
+                        binding_memory * (1 - ownership)
+                        + ownership * write_value.unsqueeze(1)
+                    )
+                previous_binding_key = current_binding_key
             if hidden.requires_grad:
                 hidden.retain_grad()
                 retained.append(hidden)

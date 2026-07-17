@@ -172,7 +172,8 @@ def test_mnist_experiment_emits_real_feedback_and_sparse_snapshot() -> None:
     expected_parameter_keys = (
         set(SPECS)
         - {"width", "height", "broadcast_slots", "broadcast_gain", "broadcast_decay",
-           "fast_weight_gain", "fast_weight_decay"}
+           "fast_weight_gain", "fast_weight_decay", "binding_memory_gain",
+           "binding_memory_temperature"}
     ) | {"field_size"}
     assert mnist_parameter_keys == expected_parameter_keys
     assert "broadcast_slots" not in mnist_parameter_keys

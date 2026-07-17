@@ -48,7 +48,8 @@ substrate and synthetic images.
 - **Does**: Requires power-of-two square sizes from 16 through 1024 and a
   field-derived broadcast-radius ceiling.
 - **Does**: Requires the MNIST snapshot to omit sequence-only broadcast and
-  fast-weight controls so every displayed slider has an effect on that experiment.
+  fast-weight/binding-memory controls so every displayed slider has an effect on
+  that experiment.
 
 ### Fixed-connectome learning regression
 - **Does**: Requires the organism to lower loss on an easy spatial digit task,

@@ -55,6 +55,8 @@ SPECS: dict[str, HyperparameterSpec] = {
     "broadcast_decay": HyperparameterSpec("broadcast memory decay", "geometry & compute", 0, 0.99, 0.01),
     "fast_weight_gain": HyperparameterSpec("fast-weight memory gain", "geometry & compute", 0, 2, 0.05),
     "fast_weight_decay": HyperparameterSpec("fast-weight memory decay", "geometry & compute", 0, 0.999, 0.001),
+    "binding_memory_gain": HyperparameterSpec("neuron-owned binding gain", "geometry & compute", 0, 2, 0.05),
+    "binding_memory_temperature": HyperparameterSpec("binding address temperature", "geometry & compute", 0.01, 1, 0.01),
     "batch_size": HyperparameterSpec("batch size", "geometry & compute", 4, 128, 4),
     "max_visible_edges": HyperparameterSpec("rendered edge cap", "geometry & compute", 100, 20_000, 100),
     "learning_rate": HyperparameterSpec("shared-rule learning rate", "learning", 0.0001, 0.01, 0.0001),
@@ -147,6 +149,7 @@ def hyperparameter_payload(
         if include_sequence or key not in {
             "broadcast_slots", "broadcast_gain", "broadcast_decay",
             "fast_weight_gain", "fast_weight_decay",
+            "binding_memory_gain", "binding_memory_temperature",
         }
         ]
     )

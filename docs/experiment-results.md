@@ -76,3 +76,35 @@ then restored in a second Python process and trained update 1→2. The append-on
 metric log contains exactly updates 1 and 2, and the second process reported starting
 at update 1. This verifies the new architecture wrapper's save/restart boundary in
 addition to the read-only legacy-checkpoint migration above.
+
+## Query-slot decomposition — 2026-07-17
+
+GRU and temporal transformer were rerun for 400 fixed-two updates with atomic live
+artifacts and held-out accuracy separated by which binding position was queried.
+
+| Cell rule | Parameters | Peak CUDA | Time (s) | Overall | Query slot 1 | Query slot 2 |
+|-----------|-----------:|----------:|---------:|--------:|-------------:|-------------:|
+| GRU | 11,725 | 1.2868 GiB | 82.84 | 47.92% | 47.92% | 47.92% |
+| temporal transformer | 12,337 | 1.6450 GiB | 109.88 | 47.92% | 47.92% | 47.92% |
+
+The exact symmetry falsifies fixed primacy and recency explanations: neither model
+always preserves a particular pair position. The transformer uses 5.2% more parameters,
+27.8% more peak allocated memory, and 32.6% more wall time without changing retrieval.
+The next diagnostic measures whether predictions remain inside the set of presented
+values; high set coverage with 50% correctness would isolate lost key/value association.
+
+## Presented-value decomposition — 2026-07-17
+
+The fixed-two GRU control was repeated for 400 updates with each held-out prediction
+classified as correct, another value presented in the same episode, or a value absent
+from the episode. Final overall and per-slot accuracy were again 47.92%.
+
+| Presented-value coverage | Correct | Presented distractor | Absent value |
+|-------------------------:|--------:|---------------------:|-------------:|
+| 100.00% | 47.92% | 52.08% | 0.00% |
+
+This isolates the failure: the organism transports and retains the complete value set
+but loses which key owns which value. Additional generic memory capacity, training
+budget, or homogeneous cell complexity is therefore the wrong next variable. The next
+intervention stores successor state in content-addressed physical owner neurons and
+reads it back only through the queried token's input port.

@@ -155,6 +155,30 @@ def test_sequence_model_retains_state_and_backpropagates() -> None:
     assert float(model.substrate.synapse_weight.grad.abs().sum()) > 0
 
 
+def test_neuron_owned_binding_memory_is_optional_and_differentiable() -> None:
+    task = resolve_sequence_task("associative_recall")
+    config = sequence_config(
+        width=20, height=20, hidden_channels=8, genotype_channels=6,
+        initial_density=0.30, batch_size=2, message_steps=1,
+        candidate_probes=12, local_radius=4, max_visible_edges=100,
+        binding_memory_gain=1.0, binding_memory_temperature=0.08,
+    )
+    batch = associative_recall_batch(2, torch.Generator().manual_seed(21), 2)
+    model = CellularSequenceModel(config, layout=task.key, seed=21)
+
+    result = model(batch.tokens, capture_trace=False)
+    loss = torch.nn.functional.cross_entropy(
+        result.logits[batch.loss_mask], batch.targets[batch.loss_mask]
+    )
+    loss.backward()
+
+    assert model.binding_owner_address is not None
+    assert model.binding_owner_address.weight.grad is not None
+    assert float(model.binding_owner_address.weight.grad.abs().sum()) > 0
+    baseline = CellularSequenceModel(small_config(), layout=task.key, seed=21)
+    assert baseline.binding_owner_address is None
+
+
 @pytest.mark.parametrize("architecture", ("gru", "lstm", "esn", "transformer"))
 def test_sequence_cell_architectures_share_graph_and_gradient_contract(
     architecture: str,

@@ -26,6 +26,9 @@ optimizer rates, and independently gated lifecycle/topology thresholds.
   configure the optional low-rank advertisement memory; zero gain is its ablation.
 - **Rationale**: Fast-weight gain and decay configure a recurrent linear-attention
   matrix written and queried by sequence neurons; zero gain is its ablation.
+- **Rationale**: Neuron-owned binding gain and address temperature configure an
+  optional episodic relation memory whose storage locations are living physical
+  cells; zero gain omits its parameters and preserves baseline checkpoints.
 - **Rationale**: Readout and shared-rule learning rates are independent because
   the initial fixed-reservoir probe must converge on a much smaller parameter set.
 - **Rationale**: Early-output trajectory supervision is optional and disabled by
