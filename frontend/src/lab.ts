@@ -71,6 +71,7 @@ interface BenchmarkSnapshot {
   architecture: string;
   recallMode: string;
   seed: number | null;
+  deterministic: boolean;
   device: string | null;
   steps: number | null;
   completedSteps: number;
@@ -236,7 +237,7 @@ export class LaboratoryView {
       && benchmark.recallMode === newest.recallMode
       && benchmark.steps === newest.steps
     ));
-    this.benchmarkSummary.value = `${newest.profile} · ${newest.recallMode.replace("_", " ")} · seed ${newest.seed ?? "—"} · ${newest.steps ?? "—"} updates`;
+    this.benchmarkSummary.value = `${newest.profile} · ${newest.recallMode.replace("_", " ")} · seed ${newest.seed ?? "—"} · ${newest.deterministic ? "deterministic" : "seeded"} · ${newest.steps ?? "—"} updates`;
     this.drawBenchmarkChart(cohort.slice(0, SERIES_CLASSES.length));
   }
 
@@ -286,7 +287,7 @@ export class LaboratoryView {
       }
       const legend = document.createElement("span");
       legend.className = seriesClass;
-      legend.textContent = `${benchmark.architecture.toUpperCase()} · seed ${benchmark.seed ?? "—"}`;
+      legend.textContent = benchmark.id;
       this.benchmarkLegend.append(legend);
     });
   }

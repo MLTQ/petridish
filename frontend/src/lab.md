@@ -26,8 +26,10 @@ validated launch or stop requests.
 ### `renderBenchmarks` / `drawBenchmarkChart`
 - **Does**: Tabulates persisted architecture sweeps and plots the newest matched
   task/profile/update cohort on a shared 0–100% held-out accuracy scale.
-- **Does**: Keeps seed in each direct series label rather than excluding replication
-  runs from the matched cohort.
+- **Does**: Keeps replication seeds in the matched cohort; artifact IDs distinguish
+  repeated runs directly.
+- **Does**: Directly labels curves by artifact ID and states whether the newest cohort
+  used deterministic or ordinary seeded execution.
 - **Does**: Shows atomic live progress, completion state, elapsed time, and measured
   peak CUDA allocation when the benchmark publisher provides them.
 - **Does**: Shows final held-out accuracy for each queried binding slot so a
