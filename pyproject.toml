@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "neural-petridish"
+version = "0.1.0"
+description = "Interactive neural cellular automata with a self-growing graph"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.115",
+  "numpy>=2.0",
+  "torch>=2.5",
+  "torchvision>=0.20",
+  "uvicorn[standard]>=0.30",
+]
+
+[project.optional-dependencies]
+dev = [
+  "httpx>=0.28",
+  "pytest>=8.3",
+  "pytest-asyncio>=0.25",
+]
+
+[tool.setuptools]
+package-dir = {"" = "backend"}
+
+[tool.setuptools.packages.find]
+where = ["backend"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+pythonpath = ["backend"]
+testpaths = ["backend/tests"]

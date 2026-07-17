@@ -1,0 +1,87 @@
+Metadata-Version: 2.4
+Name: neural-petridish
+Version: 0.1.0
+Summary: Interactive neural cellular automata with a self-growing graph
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: fastapi>=0.115
+Requires-Dist: numpy>=2.0
+Requires-Dist: torch>=2.5
+Requires-Dist: torchvision>=0.20
+Requires-Dist: uvicorn[standard]>=0.30
+Provides-Extra: dev
+Requires-Dist: httpx>=0.28; extra == "dev"
+Requires-Dist: pytest>=8.3; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.25; extra == "dev"
+
+# Petri Dish
+
+Petri Dish is a live neural cellular-automata laboratory. A continuous 2D cell
+field communicates through mutable local state and a sparse directed graph whose
+weighted edges grow, learn, and prune while the experiment runs.
+
+The first experiment is deliberately small: a 32×32 field, 16 state channels per
+cell, four outgoing edge slots per cell, a delayed-XOR task, reward-modulated
+eligibility traces, and interactive lesioning.
+
+## Quick start
+
+Requirements: Python 3.11+, [uv](https://docs.astral.sh/uv/), and Node.js 20+.
+
+```bash
+uv sync --extra dev
+cd frontend && npm install && cd ..
+```
+
+Run the backend in one terminal:
+
+```bash
+uv run uvicorn petridish.server:app --app-dir backend --reload
+```
+
+Run the viewer in another:
+
+```bash
+cd frontend
+npm run dev
+```
+
+Open <http://localhost:5173>. The Vite development server proxies `/ws` and
+`/api` to the simulation server on port 8000.
+
+## What to try
+
+- Switch the field layer between phase, activation, energy, growth, and reward.
+- Use **Stim A**, **Stim B**, and **Reward** to inject signals.
+- Arm the lesion brush, then drag across the field to kill cells and cut their
+  incident axons.
+- Reset with the same seed to reproduce an episode exactly.
+- Watch young axons brighten, weighted signals pulse toward their destinations,
+  and low-utility connections disappear.
+
+## Architecture
+
+```text
+PyTorch simulation → FastAPI snapshot stream → PixiJS field renderer
+        ↑                       ↓                      ↓
+ delayed-XOR task       WebSocket controls       live charts/inspection
+```
+
+The simulation is authoritative. Rendering runs at a lower rate than physics,
+so viewer load never determines the learning timestep. See `docs/architecture.md`
+for state and update contracts.
+
+## Verification
+
+```bash
+uv run pytest
+cd frontend && npm run check && npm run build
+```
+
+## Current scientific status
+
+This is an experimental substrate, not evidence that local plasticity has
+already discovered a robust XOR-solving developmental program. The current
+hand-designed rule exists to expose and test all of the mechanisms. Its shared
+parameters are intentionally centralized so an evolutionary or differentiable
+outer loop can optimize them next.
