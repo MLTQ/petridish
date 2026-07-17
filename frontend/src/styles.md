@@ -22,8 +22,9 @@ control states, canvas sizing, metrics, task readouts, and chart encoding.
   cannot reflow the side controls.
 
 ### Side panels
-- **Does**: Styles interventions, cadence, history, hyperparameter controls, and
-  inspector as compact peers independent of the dynamic task readout.
+- **Does**: Styles interventions, cadence, saved-organism loading, history,
+  hyperparameter controls, and inspector as compact peers independent of the
+  dynamic task readout.
 - **Interacts with**: Semantic sections in `index.html`.
 
 ### Trial phases
@@ -50,6 +51,10 @@ control states, canvas sizing, metrics, task readouts, and chart encoding.
 ### Fast training status
 - **Does**: Aligns the single training action with a terse authoritative mode
   status; no animation or decorative progress is implied while traces are disabled.
+
+### Saved organism status
+- **Does**: Aligns checkpoint selection and loading while keeping pending and
+  loaded identity in a compact monospace status line.
 
 ## Contracts
 

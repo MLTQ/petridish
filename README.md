@@ -109,6 +109,9 @@ for measured results and negative findings.
 - **Edge floor**: presentation-only minimum absolute synaptic weight.
 - **Hyperparameters**: stage any numeric model, learning, growth, pruning, or
   homeostasis settings and apply them together by restarting the organism.
+- **Saved organism**: select a trusted `runs/*/latest.pt` trainer checkpoint and
+  load its learned graph, model, optimizer, histories, and random state paused for
+  held-out evaluation or interactive generation.
 - **Square field size**: choose 16, 32, 64, 128, 256, 512, or 1024; Tiny Shakespeare
   additionally offers its exact 68×68 single-column port geometry. Tensor extent
   and initial population are separate controls, so a large address space need

@@ -16,6 +16,12 @@ throughput.
 - **Does**: Allows interruption during forward, before backward, or before the
   optimizer, while requiring post-optimizer credit/lifecycle bookkeeping to finish.
 
+### Saved-organism tests
+- **Does**: Ensures discovery ignores directories without `latest.pt`.
+- **Does**: Rejects path traversal instead of accepting browser-provided paths.
+- **Does**: Ensures loading selects the restored experiment, records its source,
+  and pauses both visualization and headless training.
+
 ## Contracts
 
 | Dependent | Expects | Breaking changes |

@@ -33,6 +33,16 @@ training and intervention mutations behind one lock.
   forward passes and evaluation batches.
 - **Does**: Includes a monotonic control revision so observers reject snapshots
   serialized before a newer Play, Pause, or cadence command.
+- **Does**: Publishes discovered local checkpoint identifiers and the source of
+  the currently loaded organism.
+
+### `_discover_saved_organisms` / `_load_saved_organism`
+- **Does**: Discovers only `runs/*/latest.pt` files and exposes opaque directory
+  identifiers rather than accepting arbitrary paths from the viewer.
+- **Does**: Validates Tiny Shakespeare task metadata, vocabulary, and configuration,
+  restores the complete trainer checkpoint, and rebuilds one measured visual trace.
+- **Rationale**: Checkpoints use trusted local PyTorch payloads; the WebSocket
+  command cannot escape the repository run directory.
 
 ### `_run_sequence_visual_update`
 - **Does**: Runs one sequence optimizer update in a worker while relaying sampled
@@ -60,6 +70,8 @@ training and intervention mutations behind one lock.
   before acquiring that lock.
 - **Does**: Passes the active task identity into configuration validation so the
   68×68 geometry is accepted only for Tiny Shakespeare.
+- **Does**: Loads saved organisms paused for testing and clears their checkpoint
+  identity if Reset or Apply & restart replaces them.
 
 ## Contracts
 

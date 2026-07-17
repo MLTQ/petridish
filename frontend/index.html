@@ -169,6 +169,21 @@
         <div class="device-row"><span>effective parameters</span><strong id="metric-parameters">—</strong></div>
       </section>
 
+      <section class="panel">
+        <div class="section-heading compact">
+          <div>
+            <span class="eyebrow">checkpoint laboratory</span>
+            <h2>Saved organism</h2>
+          </div>
+        </div>
+        <div class="saved-organism-control">
+          <select id="saved-organism-select" aria-label="Saved organism" disabled></select>
+          <button id="saved-organism-load" type="button" disabled>Load</button>
+        </div>
+        <output id="saved-organism-status" class="saved-organism-status">no checkpoints found</output>
+        <p class="hint">Loads a trusted local checkpoint paused, with its learned graph and optimizer state intact.</p>
+      </section>
+
       <section class="panel hyperparameter-panel" id="hyperparameter-panel">
         <details>
           <summary>

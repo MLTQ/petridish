@@ -34,6 +34,9 @@ const generationPrompt = required<HTMLTextAreaElement>("#generation-prompt");
 const fastTraining = required<HTMLButtonElement>("#fast-training");
 const trainingStatus = required<HTMLOutputElement>("#training-status");
 const sequenceTrainingControls = required<HTMLElement>("#sequence-training-controls");
+const savedOrganismSelect = required<HTMLSelectElement>("#saved-organism-select");
+const savedOrganismLoad = required<HTMLButtonElement>("#saved-organism-load");
+const savedOrganismStatus = required<HTMLOutputElement>("#saved-organism-status");
 
 let currentSnapshot: ExperimentSnapshot | null = null;
 let playing = true;
@@ -47,6 +50,8 @@ let pendingExperiment: ExperimentSnapshot["experiment"] | null = null;
 let pendingSpeed: number | null = null;
 let lastControlRevision = -1;
 let cadenceKind: ExperimentSnapshot["task"]["kind"] | null = null;
+let savedOrganismSignature = "";
+let pendingSavedOrganism: string | null = null;
 const pendingHyperparameters = new Map<string, number>();
 
 const socket = new ExperimentSocket(
@@ -59,6 +64,8 @@ const socket = new ExperimentSocket(
       pendingExperiment = null;
       experimentSelect.disabled = false;
       pendingSpeed = null;
+      pendingSavedOrganism = null;
+      savedOrganismLoad.disabled = savedOrganismSelect.options.length === 0;
     }
     connection.className = `connection ${status}`;
     connection.querySelector("span:last-child")!.textContent = status;
@@ -70,6 +77,7 @@ const socket = new ExperimentSocket(
       hyperparameterStatus.value = message;
       hyperparameterApply.disabled = false;
     }
+    if (pendingSavedOrganism !== null) savedOrganismStatus.value = message;
     pendingTrainingMode = null;
     fastTraining.disabled = false;
     pendingPlayback = null;
@@ -77,6 +85,9 @@ const socket = new ExperimentSocket(
     pendingExperiment = null;
     experimentSelect.disabled = false;
     pendingSpeed = null;
+    pendingSavedOrganism = null;
+    savedOrganismSelect.disabled = savedOrganismSelect.options.length === 0;
+    savedOrganismLoad.disabled = savedOrganismSelect.options.length === 0;
   },
 );
 
@@ -152,6 +163,15 @@ experimentSelect.addEventListener("change", () => {
     name: pendingExperiment,
   });
 });
+savedOrganismLoad.addEventListener("click", () => {
+  const organism = savedOrganismSelect.value;
+  if (!organism || pendingSavedOrganism !== null) return;
+  pendingSavedOrganism = organism;
+  savedOrganismSelect.disabled = true;
+  savedOrganismLoad.disabled = true;
+  savedOrganismStatus.value = "loading checkpoint…";
+  socket.send({ type: "load", organism });
+});
 hyperparameterControls.addEventListener("input", (event) => {
   const input = event.target;
   if (!(input instanceof HTMLInputElement) || input.type !== "range") return;
@@ -211,6 +231,7 @@ function receiveSnapshot(snapshot: ExperimentSnapshot): void {
     experimentSelect.disabled = false;
   }
   experimentSelect.value = pendingExperiment ?? snapshot.experiment;
+  updateSavedOrganisms(snapshot.runtime);
   connection.className = "connection connected";
   connection.querySelector("span:last-child")!.textContent = "connected";
   host.setAttribute(
@@ -299,6 +320,41 @@ function receiveSnapshot(snapshot: ExperimentSnapshot): void {
     `${(snapshot.metrics.activeParameters ?? 0).toLocaleString()} · ${(snapshot.metrics.parametersPerLivingCell ?? 0).toFixed(1)}/cell`,
   );
   if (snapshot.configuration) renderHyperparameters(snapshot.configuration.parameters);
+}
+
+function updateSavedOrganisms(runtime: ExperimentSnapshot["runtime"]): void {
+  const signature = runtime.savedOrganisms
+    .map((organism) => `${organism.id}:${organism.label}`)
+    .join("|");
+  if (signature !== savedOrganismSignature) {
+    const previous = savedOrganismSelect.value;
+    savedOrganismSelect.replaceChildren(
+      ...runtime.savedOrganisms.map((organism) => {
+        const option = document.createElement("option");
+        option.value = organism.id;
+        option.textContent = organism.label;
+        return option;
+      }),
+    );
+    savedOrganismSignature = signature;
+    if (runtime.savedOrganisms.some((organism) => organism.id === previous)) {
+      savedOrganismSelect.value = previous;
+    }
+  }
+  if (pendingSavedOrganism === runtime.loadedOrganism) pendingSavedOrganism = null;
+  if (runtime.loadedOrganism && document.activeElement !== savedOrganismSelect) {
+    savedOrganismSelect.value = runtime.loadedOrganism;
+  }
+  const empty = runtime.savedOrganisms.length === 0;
+  savedOrganismSelect.disabled = empty || pendingSavedOrganism !== null;
+  savedOrganismLoad.disabled = empty || pendingSavedOrganism !== null;
+  savedOrganismStatus.value = pendingSavedOrganism !== null
+    ? "loading checkpoint…"
+    : runtime.loadedOrganism
+      ? `loaded · ${runtime.loadedOrganism}`
+      : empty
+        ? "no checkpoints found"
+        : `${runtime.savedOrganisms.length} checkpoint${runtime.savedOrganisms.length === 1 ? "" : "s"} available`;
 }
 
 function updateMnistTask(task: MnistTaskSnapshot): void {

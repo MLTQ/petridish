@@ -14,6 +14,7 @@ Types every server snapshot and viewer command at the Python/TypeScript boundary
   phase with numeric progress.
 - **Does**: Carries a monotonic control revision used to reject pre-command
   snapshots that arrive after an immediate acknowledgement.
+- **Does**: Carries the saved-organism catalog and current checkpoint identity.
 
 ### `MnistTaskSnapshot`
 - **Does**: Provides the sole task status inside the field and graph envelope.
@@ -46,6 +47,7 @@ Types every server snapshot and viewer command at the Python/TypeScript boundary
 - **Interacts with**: Backend `ExperimentRuntime.handle_command`.
 - **Does**: Includes corpus prompt replacement and single-token generation.
 - **Does**: Includes explicit entry to and exit from headless trace-free sequence training.
+- **Does**: Includes loading a trusted saved organism by opaque identifier.
 
 ### `ServerMessage`
 - **Does**: Discriminates snapshots from command errors.

@@ -4,15 +4,20 @@ from __future__ import annotations
 
 import asyncio
 from contextlib import suppress
+from pathlib import Path
 import time
 from typing import Any
 
+import torch
 from fastapi import WebSocket
 
+from .corpus_task import load_tiny_shakespeare_task
+from .mnist_config import MnistModelConfig
 from .mnist_experiment import MnistExperiment
 from .mnist_hyperparameters import configured
 from .protocol import build_snapshot
 from .sequence_experiment import SequenceExperiment
+from .train_shakespeare import load_checkpoint, restore_checkpoint
 
 
 LiveExperiment = MnistExperiment | SequenceExperiment
@@ -33,6 +38,9 @@ class ExperimentRuntime:
         }
         self.experiment: LiveExperiment = self.experiments["mnist"]
         self.experiment_name = "mnist"
+        self.checkpoint_root = Path(__file__).resolve().parents[2] / "runs"
+        self.saved_organisms = self._discover_saved_organisms()
+        self.experiment_sources: dict[str, str] = {}
         self.running = True
         self.training_mode = False
         self.steps_per_frame = 1
@@ -240,7 +248,62 @@ class ExperimentRuntime:
             "computeProgress": self.compute_progress,
             "computeTotal": self.compute_total,
             "controlRevision": self.control_revision,
+            "savedOrganisms": getattr(self, "saved_organisms", []),
+            "loadedOrganism": getattr(self, "experiment_sources", {}).get(
+                getattr(self, "experiment_name", "")
+            ),
         }
+
+    def _discover_saved_organisms(self) -> list[dict[str, str]]:
+        """List local trainer checkpoints without deserializing trusted payloads."""
+
+        if not self.checkpoint_root.is_dir():
+            return []
+        return [
+            {"id": directory.name, "label": directory.name}
+            for directory in sorted(self.checkpoint_root.iterdir())
+            if directory.is_dir() and (directory / "latest.pt").is_file()
+        ]
+
+    def _load_saved_organism(self, identifier: str) -> SequenceExperiment:
+        """Reconstruct one trusted local checkpoint for testing in the viewer."""
+
+        if not identifier or Path(identifier).name != identifier:
+            raise ValueError("invalid saved organism identifier")
+        root = self.checkpoint_root.resolve()
+        checkpoint = (root / identifier / "latest.pt").resolve()
+        if checkpoint.parent.parent != root or not checkpoint.is_file():
+            raise ValueError(f"unknown saved organism: {identifier}")
+
+        device = torch.device(str(self.experiment.device))
+        payload = load_checkpoint(checkpoint, device)
+        task_payload = payload.get("task", {})
+        if not isinstance(task_payload, dict):
+            raise ValueError("checkpoint task metadata is invalid")
+        task_key = str(task_payload.get("key", ""))
+        if task_key != "tiny_shakespeare":
+            raise ValueError(f"unsupported saved organism task: {task_key or 'missing'}")
+        context_length = int(task_payload["context_length"])
+        task = load_tiny_shakespeare_task(context_length)
+        if tuple(task_payload.get("vocabulary", ())) != task.vocabulary:
+            raise ValueError("checkpoint vocabulary does not match the cached corpus")
+
+        config_payload = payload.get("configuration")
+        if not isinstance(config_payload, dict):
+            raise ValueError("checkpoint configuration is invalid")
+        config = MnistModelConfig(**config_payload)
+        saved_amp = str(task_payload.get("amp_mode", "off"))
+        amp_mode = saved_amp if device.type == "cuda" else "off"
+        experiment = SequenceExperiment(
+            task,
+            config,
+            seed=int(task_payload.get("seed", self.seed)),
+            device=str(device),
+            amp_mode=amp_mode,
+        )
+        restore_checkpoint(experiment, payload)
+        experiment.refresh_visual_trace()
+        return experiment
 
     def _cached_snapshot(self) -> dict[str, Any] | None:
         """Copy the last serialized scientific state with current controls."""
@@ -319,6 +382,7 @@ class ExperimentRuntime:
                     )
                 self.experiment = replacement
                 self.experiments[current.experiment_name] = replacement
+                self.experiment_sources.pop(current.experiment_name, None)
             elif command == "experiment":
                 self.training_mode = False
                 name = str(message.get("name", "mnist"))
@@ -332,6 +396,24 @@ class ExperimentRuntime:
                     )
                 self.experiment = self.experiments[name]
                 self.experiment_name = name
+            elif command == "load":
+                identifier = str(message.get("organism", ""))
+                try:
+                    replacement = await asyncio.to_thread(
+                        self._load_saved_organism, identifier
+                    )
+                except ValueError:
+                    raise
+                except Exception as error:
+                    raise ValueError(
+                        f"could not load saved organism {identifier!r}: {error}"
+                    ) from error
+                self.training_mode = False
+                self.running = False
+                self.experiment = replacement
+                self.experiment_name = replacement.experiment_name
+                self.experiments[replacement.experiment_name] = replacement
+                self.experiment_sources[replacement.experiment_name] = identifier
             elif command == "training":
                 if not isinstance(self.experiment, SequenceExperiment):
                     raise ValueError("headless training requires a sequence experiment")
@@ -390,6 +472,7 @@ class ExperimentRuntime:
                     )
                 self.experiment = replacement
                 self.experiments[current.experiment_name] = replacement
+                self.experiment_sources.pop(current.experiment_name, None)
             else:
                 raise ValueError(f"unknown command: {command}")
             snapshot = await asyncio.to_thread(self._snapshot)

@@ -160,6 +160,9 @@ aside { display: grid; align-content: start; gap: 10px; }
 .button-row button { padding: 0 6px; }
 .training-control { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 9px; margin-bottom: 10px; }
 .training-control output { color: #738b88; font: 500 10px ui-monospace, SFMono-Regular, Menlo, monospace; text-align: right; }
+.saved-organism-control { display: grid; grid-template-columns: 1fr auto; gap: 7px; }
+.saved-organism-control select { min-width: 0; }
+.saved-organism-status { display: block; margin-top: 8px; color: #738b88; font: 500 10px ui-monospace, SFMono-Regular, Menlo, monospace; }
 .range-control.wide { display: grid; grid-template-columns: auto 1fr; margin: 0; }
 .range-control.wide input { grid-column: 1 / -1; width: 100%; }
 .hint { color: #69807d; font-size: 11px; line-height: 1.5; margin: 11px 0 0; }

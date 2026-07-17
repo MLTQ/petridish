@@ -15,6 +15,8 @@ interactive corpus generation, metrics, and cell inspection for every organism.
   pending, preventing repeated clicks from queuing contradictory commands.
 - **Does**: Clears pending controls and revision history on reconnect so a
   restarted server can establish a fresh authoritative stream.
+- **Does**: Submits saved-organism selections as pending operations until the
+  backend confirms the loaded checkpoint identity.
 
 ### `receiveSnapshot`
 - **Does**: Applies one authoritative MNIST frame, clears transient loading
@@ -82,6 +84,12 @@ interactive corpus generation, metrics, and cell inspection for every organism.
   partial organisms.
 - **Does**: Maps backend-provided discrete choices to slider indices while
   sending the selected scientific value, including power-of-two field sizes.
+
+### `updateSavedOrganisms`
+- **Does**: Reconciles the backend checkpoint catalog into a native selector,
+  reports pending/loaded state, and disables loading when no checkpoints exist.
+- **Rationale**: The browser sends an opaque checkpoint identifier; local paths
+  and PyTorch deserialization remain backend-only concerns.
 
 ## Contracts
 

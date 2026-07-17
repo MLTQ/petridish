@@ -133,6 +133,8 @@ export interface ExperimentSnapshot {
     computeProgress: number;
     computeTotal: number;
     controlRevision: number;
+    savedOrganisms: { id: string; label: string }[];
+    loadedOrganism: string | null;
   };
   field: {
     width: number;
@@ -182,6 +184,7 @@ export type ExperimentCommand =
   | { type: "evaluate"; batches?: number }
   | { type: "lifecycle" }
   | { type: "experiment"; name: ExperimentSnapshot["experiment"] }
+  | { type: "load"; organism: string }
   | { type: "prompt"; text: string }
   | { type: "generate" }
   | { type: "configure"; values: Record<string, number> };
