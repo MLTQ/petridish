@@ -23,9 +23,11 @@ runtime = ExperimentRuntime(device=os.getenv("PETRIDISH_DEVICE", "auto"))
 if os.getenv("PETRIDISH_AUTOPLAY", "1") == "0":
     runtime.running = False
 configured_run_root = os.getenv("PETRIDISH_RUN_ROOT")
+configured_benchmark_root = os.getenv("PETRIDISH_BENCHMARK_ROOT")
 laboratory = Laboratory(
     repository_root,
     run_root=Path(configured_run_root) if configured_run_root else None,
+    benchmark_root=Path(configured_benchmark_root) if configured_benchmark_root else None,
     control_enabled=os.getenv("PETRIDISH_LAB_CONTROL") == "1",
 )
 

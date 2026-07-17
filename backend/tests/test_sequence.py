@@ -98,6 +98,18 @@ def test_associative_recall_curriculum_preserves_queried_value() -> None:
             assert int(target[-1]) == bindings[query]
 
 
+def test_associative_recall_can_hold_a_fixed_difficulty() -> None:
+    experiment = SequenceExperiment(
+        "associative_recall", small_config(), seed=7, device="cpu",
+        recall_pair_count=2, recall_pair_max=2,
+    )
+    experiment.stage_accuracy_history.extend([1.0] * 24)
+
+    experiment._maybe_advance_recall_curriculum()
+
+    assert experiment.recall_pair_count == 2
+
+
 def test_sequence_model_retains_state_and_backpropagates() -> None:
     task = resolve_sequence_task("tiny_language")
     batch = task.batch(3, torch.Generator().manual_seed(2))

@@ -16,6 +16,9 @@ chart encoding.
 - **Does**: Gives two measured GPU lanes equal stable width, keeps run comparison
   tabular, and places the loss chart beside it without affecting dish geometry.
 - **Interacts with**: `.laboratory`, `.gpu-lane`, `.run-table`, and `lab.ts`.
+- **Does**: Places the controlled benchmark table beside its shared-scale held-out
+  accuracy curve and uses point markers only for actual curriculum transitions.
+- **Interacts with**: `.benchmark-grid`, `#benchmark-chart`, and persisted artifacts.
 - **Does**: Reflows the launch form and GPU lanes at existing responsive breakpoints.
 
 ### Dish layout

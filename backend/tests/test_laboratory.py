@@ -67,3 +67,37 @@ def test_discovery_summarizes_latest_train_and_evaluation(tmp_path: Path) -> Non
     assert summary["status"] == "checkpointed"
     assert summary["latestTrain"]["loss"] == 3.5
     assert summary["latestHeldOut"]["loss"] == 3.6
+
+
+def test_snapshot_discovers_bounded_benchmark_artifacts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    benchmark_root = tmp_path / "benchmarks"
+    benchmark_root.mkdir()
+    (benchmark_root / "recall-gru.json").write_text(
+        json.dumps(
+            {
+                "task": "associative_recall",
+                "profile": "compact24",
+                "architecture": "gru",
+                "recallMode": "fixed_2",
+                "seed": 11,
+                "steps": 40,
+                "seconds": 9.5,
+                "checkpoints": [
+                    {"update": 20, "heldOutAccuracy": 0.75, "recallPairs": 1},
+                    {"update": 40, "heldOutAccuracy": 0.5, "recallPairs": 2},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    laboratory = Laboratory(tmp_path, benchmark_root=benchmark_root)
+    monkeypatch.setattr(laboratory, "_gpu_snapshot", lambda: ([], []))
+
+    benchmark = laboratory.snapshot()["benchmarks"][0]
+
+    assert benchmark["id"] == "recall-gru"
+    assert benchmark["architecture"] == "gru"
+    assert benchmark["recallMode"] == "fixed_2"
+    assert benchmark["checkpoints"][-1]["recallPairs"] == 2

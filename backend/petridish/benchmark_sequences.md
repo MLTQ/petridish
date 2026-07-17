@@ -15,13 +15,18 @@ recall curriculum size, graph reachability, living cells, edge count, device, an
 wall time. Language accuracy is the context-dependent verb/object metric; recall's
 chance baseline is 25%. Run it with:
 
+`--fixed-recall-pairs 2` begins and remains at two bindings. This control separates
+ordinary convergence at the harder task from interference caused by advancing an
+already-trained one-binding organism.
+
 `compact24_no_broadcast` removes slot broadcasting, while
 `compact24_no_global_memory` removes both slot and fast-weight memory.
 `compact24_fast_weights` enables recurrent linear-attention memory at gain 0.5.
 
 ```bash
 python -m petridish.benchmark_sequences --task associative_recall \
-  --profile compact24 --architecture transformer --steps 80
+  --profile compact24 --architecture transformer --steps 80 \
+  --fixed-recall-pairs 2
 ```
 
 These short sweeps compare local choices; they do not claim globally optimal

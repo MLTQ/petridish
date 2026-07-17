@@ -57,6 +57,27 @@
         <div id="laboratory-chart-legend" class="laboratory-chart-legend"></div>
       </section>
     </div>
+    <section class="benchmark-section" aria-labelledby="benchmark-title">
+      <div class="section-heading compact benchmark-heading">
+        <div>
+          <span class="eyebrow">controlled stepping stones</span>
+          <h2 id="benchmark-title">Associative recall curriculum</h2>
+        </div>
+        <output id="benchmark-summary">no persisted benchmark artifacts</output>
+      </div>
+      <div class="benchmark-grid">
+        <div class="run-table-wrap">
+          <table class="run-table">
+            <thead><tr><th>Artifact</th><th>Cell</th><th>Seed</th><th>Updates</th><th>Pairs</th><th>Peak held out</th><th>Final held out</th><th>Time</th></tr></thead>
+            <tbody id="laboratory-benchmarks"></tbody>
+          </table>
+        </div>
+        <div>
+          <svg id="benchmark-chart" viewBox="0 0 720 190" role="img" aria-label="Held-out associative recall accuracy by update, with curriculum transitions marked"></svg>
+          <div id="benchmark-chart-legend" class="laboratory-chart-legend"></div>
+        </div>
+      </div>
+    </section>
     <details class="launch-panel">
       <summary>Launch controlled experiment</summary>
       <form id="laboratory-launch-form">

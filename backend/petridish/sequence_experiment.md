@@ -12,6 +12,10 @@ on the context-dependent verb and object positions, while loss still trains ever
 next token. This prevents easy EOS/frequency predictions from masquerading as
 context learning.
 
+Controlled benchmark construction may set both an initial binding count and a
+curriculum maximum. Setting both to two creates a fixed two-binding control without
+changing the default adaptive live experiment.
+
 Task gradients update the shared neuron rule, token/output embeddings, per-site
 genotypes, readout, and active synaptic weights jointly. Gradient×state and
 gradient×weight credit are also recorded as slow local utility. After warm-up, the

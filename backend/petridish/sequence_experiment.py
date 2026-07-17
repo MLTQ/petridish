@@ -34,6 +34,8 @@ class SequenceExperiment:
         seed: int = 1,
         device: str = "auto",
         amp_mode: str = "off",
+        recall_pair_count: int | None = None,
+        recall_pair_max: int = 3,
     ) -> None:
         self.task = resolve_sequence_task(task)
         self.experiment_name = self.task.key
@@ -48,7 +50,17 @@ class SequenceExperiment:
         self.amp_dtype = torch.bfloat16 if amp_mode == "bfloat16" else None
         self.generator = torch.Generator().manual_seed(seed)
         self.eval_generator = torch.Generator().manual_seed(seed + 10_000)
-        self.recall_pair_count = 1 if self.task.key == "associative_recall" else 0
+        if self.task.key == "associative_recall":
+            initial_pairs = 1 if recall_pair_count is None else recall_pair_count
+            if initial_pairs not in {1, 2, 3} or recall_pair_max not in {1, 2, 3}:
+                raise ValueError("recall pair count and maximum must be between one and three")
+            if initial_pairs > recall_pair_max:
+                raise ValueError("initial recall pairs cannot exceed the curriculum maximum")
+            self.recall_pair_count = initial_pairs
+            self.recall_pair_max = recall_pair_max
+        else:
+            self.recall_pair_count = 0
+            self.recall_pair_max = 0
         self.stage_accuracy_history: deque[float] = deque(maxlen=24)
         layout = sequence_layout(self.task.key, len(self.task.vocabulary))
         self.model = CellularSequenceModel(
@@ -497,7 +509,10 @@ class SequenceExperiment:
     def _maybe_advance_recall_curriculum(self) -> None:
         """Increase binding count only after the current memory task is reliable."""
 
-        if self.task.key != "associative_recall" or self.recall_pair_count >= 3:
+        if (
+            self.task.key != "associative_recall"
+            or self.recall_pair_count >= self.recall_pair_max
+        ):
             return
         if len(self.stage_accuracy_history) < self.stage_accuracy_history.maxlen:
             return

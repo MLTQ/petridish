@@ -3,8 +3,9 @@
 ## Purpose
 
 Owns the slower-cadence two-GPU experiment laboratory independently from the
-high-frequency organism WebSocket. It polls measured hardware/run state, compares
-bounded loss histories, and submits validated launch or stop requests.
+high-frequency organism WebSocket. It polls measured hardware, corpus runs, and
+stepping-stone benchmark artifacts; compares bounded histories; and submits
+validated launch or stop requests.
 
 ## Components
 
@@ -22,6 +23,14 @@ bounded loss histories, and submits validated launch or stop requests.
 ### `drawChart`
 - **Does**: Draws comparable rolling loss against optimizer update using measured JSONL records.
 
+### `renderBenchmarks` / `drawBenchmarkChart`
+- **Does**: Tabulates persisted architecture sweeps and plots the newest matched
+  task/profile/seed/update cohort on a shared 0–100% held-out accuracy scale.
+- **Does**: Marks the measured checkpoint where each run changes curriculum
+  difficulty; peak and final values remain separately visible in the table.
+- **Rationale**: A high peak before a curriculum transition must not be mistaken
+  for retention at the harder level.
+
 ### `launch` / `stop`
 - **Does**: Submit bounded same-origin commands and preserve authoritative server status.
 
@@ -30,7 +39,7 @@ bounded loss histories, and submits validated launch or stop requests.
 | Dependent | Expects | Breaking changes |
 |-----------|---------|------------------|
 | `main.ts` | `LaboratoryView.start()` is non-blocking | Constructor/start signature |
-| `index.html` | Laboratory IDs use native controls and one SVG | ID or element changes |
+| `index.html` | Laboratory IDs use native controls and two measured SVG plots | ID or element changes |
 | Backend | `/api/lab` payloads retain documented camelCase fields | API schema changes |
 
 ## Notes

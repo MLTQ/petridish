@@ -48,10 +48,14 @@ class Laboratory:
         repository_root: Path,
         *,
         run_root: Path | None = None,
+        benchmark_root: Path | None = None,
         control_enabled: bool = False,
     ) -> None:
         self.repository_root = repository_root.resolve()
         self.run_root = (run_root or self.repository_root / "runs").resolve()
+        self.benchmark_root = (
+            benchmark_root or self.repository_root / "benchmarks" / "lab"
+        ).resolve()
         self.control_enabled = control_enabled
         self._processes: dict[str, subprocess.Popen[bytes]] = {}
         self._logs: dict[str, Any] = {}
@@ -70,6 +74,7 @@ class Laboratory:
             },
             "gpus": gpus,
             "runs": self._discover_runs(active_runs),
+            "benchmarks": self._discover_benchmarks(),
             "timestamp": time.time(),
         }
 
@@ -239,6 +244,53 @@ class Laboratory:
                     "latestTrain": latest_train,
                     "latestHeldOut": latest_held_out,
                     "hasCheckpoint": has_checkpoint,
+                }
+            )
+        return summaries
+
+    def _discover_benchmarks(self) -> list[dict[str, Any]]:
+        """Return bounded, measured stepping-stone benchmark artifacts."""
+
+        if not self.benchmark_root.is_dir():
+            return []
+        artifacts = sorted(
+            self.benchmark_root.glob("*.json"),
+            key=lambda path: path.stat().st_mtime,
+            reverse=True,
+        )[:100]
+        summaries: list[dict[str, Any]] = []
+        for path in artifacts:
+            payload = self._read_json(path)
+            checkpoints = payload.get("checkpoints")
+            if not isinstance(checkpoints, list) or not checkpoints:
+                continue
+            valid_checkpoints = [
+                checkpoint for checkpoint in checkpoints
+                if isinstance(checkpoint, dict)
+                and isinstance(checkpoint.get("update"), int)
+                and isinstance(checkpoint.get("heldOutAccuracy"), (int, float))
+            ][:2_000]
+            if not valid_checkpoints:
+                continue
+            summaries.append(
+                {
+                    "id": path.stem,
+                    "task": payload.get("task", "unknown"),
+                    "profile": payload.get("profile", "unknown"),
+                    "architecture": payload.get("architecture", "unknown"),
+                    "recallMode": payload.get("recallMode", "adaptive"),
+                    "seed": payload.get("seed"),
+                    "device": payload.get("device"),
+                    "steps": payload.get("steps"),
+                    "seconds": payload.get("seconds"),
+                    "livingCells": payload.get("livingCells"),
+                    "edgeCount": payload.get("edgeCount"),
+                    "minimumOutputHops": payload.get("minimumOutputHops"),
+                    "temporallyReachableOutputs": payload.get(
+                        "temporallyReachableOutputs"
+                    ),
+                    "checkpoints": valid_checkpoints,
+                    "artifactMtime": path.stat().st_mtime,
                 }
             )
         return summaries

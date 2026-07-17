@@ -54,4 +54,6 @@ runtime device is configurable independently from trainer workers.
 - Set `PETRIDISH_AUTOPLAY=0` to construct the viewer paused rather than spending
   CPU continuously, and `PETRIDISH_RUN_ROOT` when deployment uses a worktree
   separate from the trainer's shared run directory.
+- Set `PETRIDISH_BENCHMARK_ROOT` to a shared directory of persisted sequence
+  benchmark JSON artifacts when the server runs from a disposable worktree.
 - Mutating laboratory routes require `PETRIDISH_LAB_CONTROL=1` at server startup.

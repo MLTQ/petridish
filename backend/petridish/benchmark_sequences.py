@@ -41,6 +41,7 @@ PROFILES: dict[str, dict[str, Any]] = {
 def run_benchmark(
     task: str, profile: str, *, steps: int, seed: int, device: str,
     architecture: str = "gru",
+    fixed_recall_pairs: int | None = None,
 ) -> dict[str, Any]:
     """Train one controlled run and return checkpointed held-out metrics."""
 
@@ -52,7 +53,13 @@ def run_benchmark(
         structural_warmup_trials=max(steps + 1, 10_000),
         **PROFILES[profile],
     )
-    experiment = SequenceExperiment(task, config, seed=seed, device=device)
+    if fixed_recall_pairs is not None and task != "associative_recall":
+        raise ValueError("fixed recall pairs apply only to associative recall")
+    experiment = SequenceExperiment(
+        task, config, seed=seed, device=device,
+        recall_pair_count=fixed_recall_pairs,
+        recall_pair_max=fixed_recall_pairs or 3,
+    )
     started = time.perf_counter()
     checkpoints: list[dict[str, Any]] = []
     interval = max(1, min(20, steps))
@@ -71,6 +78,9 @@ def run_benchmark(
     diagnostics = experiment.model.substrate.graph_diagnostics()
     return {
         "task": task, "profile": profile, "architecture": architecture,
+        "recallMode": (
+            f"fixed_{fixed_recall_pairs}" if fixed_recall_pairs is not None else "adaptive"
+        ),
         "seed": seed, "device": str(experiment.device),
         "steps": steps, "seconds": round(time.perf_counter() - started, 2),
         "livingCells": int(experiment.model.substrate.occupied.sum()),
@@ -89,10 +99,12 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--device", default="auto")
     parser.add_argument("--architecture", choices=CELL_ARCHITECTURES, default="gru")
+    parser.add_argument("--fixed-recall-pairs", type=int, choices=(1, 2, 3))
     args = parser.parse_args()
     result = run_benchmark(
         args.task, args.profile, steps=max(1, args.steps), seed=args.seed,
         device=args.device, architecture=args.architecture,
+        fixed_recall_pairs=args.fixed_recall_pairs,
     )
     print(json.dumps(result, indent=2))
 

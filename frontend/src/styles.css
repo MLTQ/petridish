@@ -66,6 +66,10 @@ select { min-height: 34px; padding: 0 30px 0 9px; }
 .gpu-memory { height: 5px; margin: 8px 0 6px; background: #132326; }
 .gpu-memory i { display: block; height: 100%; background: #65d5bc; }
 .laboratory-grid { display: grid; grid-template-columns: minmax(620px, 1.4fr) minmax(360px, 1fr); gap: 18px; margin-top: 16px; }
+.benchmark-section { margin-top: 16px; padding-top: 14px; border-top: 1px solid #17282b; }
+.benchmark-heading { display: flex; align-items: end; justify-content: space-between; gap: 16px; }
+.benchmark-heading output { color: #738b88; font: 500 10px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.benchmark-grid { display: grid; grid-template-columns: minmax(620px, 1.4fr) minmax(360px, 1fr); gap: 18px; align-items: start; }
 .run-table-wrap { overflow-x: auto; }
 .run-table { width: 100%; border-collapse: collapse; font-size: 10px; }
 .run-table th { color: #607b78; font-weight: 600; text-align: left; text-transform: uppercase; letter-spacing: .06em; }
@@ -76,6 +80,7 @@ select { min-height: 34px; padding: 0 30px 0 9px; }
 .run-state.running { color: #75d8c1; }
 .run-state button { min-height: 25px; margin-left: 7px; padding: 0 7px; font-size: 10px; }
 #laboratory-chart { display: block; width: 100%; height: 190px; }
+#benchmark-chart { display: block; width: 100%; height: 190px; }
 .lab-axis { stroke: #294044; stroke-width: 1; }
 .lab-axis-label, .chart-empty { fill: #738b88; font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; }
 .chart-empty { text-anchor: middle; }
@@ -84,6 +89,11 @@ select { min-height: 34px; padding: 0 30px 0 9px; }
 .lab-series.series-b, .laboratory-chart-legend .series-b::before { stroke: #f0c765; background: #f0c765; }
 .lab-series.series-c, .laboratory-chart-legend .series-c::before { stroke: #8daee8; background: #8daee8; }
 .lab-series.series-d, .laboratory-chart-legend .series-d::before { stroke: #d38bd1; background: #d38bd1; }
+.curriculum-transition { stroke-width: 2; fill: #0a1417; }
+.curriculum-transition.series-a { stroke: #65d5bc; }
+.curriculum-transition.series-b { stroke: #f0c765; }
+.curriculum-transition.series-c { stroke: #8daee8; }
+.curriculum-transition.series-d { stroke: #d38bd1; }
 .laboratory-chart-legend { justify-content: flex-end; flex-wrap: wrap; gap: 12px; color: #738b88; font-size: 10px; }
 .laboratory-chart-legend span::before { content: ""; display: inline-block; width: 12px; height: 2px; margin: 0 5px 2px 0; }
 .launch-panel { margin-top: 12px; border-top: 1px solid #17282b; }
@@ -258,6 +268,7 @@ aside { display: grid; align-content: start; gap: 10px; }
   aside { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .laboratory { margin: 8px; }
   .laboratory-grid { grid-template-columns: 1fr; }
+  .benchmark-grid { grid-template-columns: 1fr; }
   #laboratory-launch-form { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
 }
 

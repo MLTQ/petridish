@@ -48,7 +48,34 @@ interface LaboratorySnapshot {
   };
   gpus: GpuSnapshot[];
   runs: RunSnapshot[];
+  benchmarks: BenchmarkSnapshot[];
   timestamp: number;
+}
+
+interface BenchmarkCheckpoint {
+  update: number;
+  trainingAccuracy?: number;
+  heldOutAccuracy: number;
+  loss?: number;
+  recallPairs?: number;
+}
+
+interface BenchmarkSnapshot {
+  id: string;
+  task: string;
+  profile: string;
+  architecture: string;
+  recallMode: string;
+  seed: number | null;
+  device: string | null;
+  steps: number | null;
+  seconds: number | null;
+  livingCells: number | null;
+  edgeCount: number | null;
+  minimumOutputHops: number | null;
+  temporallyReachableOutputs: number | null;
+  checkpoints: BenchmarkCheckpoint[];
+  artifactMtime: number;
 }
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -72,6 +99,10 @@ export class LaboratoryView {
   private readonly architectureSelect = required<HTMLSelectElement>("#lab-architecture");
   private readonly launchButton = required<HTMLButtonElement>("#lab-launch");
   private readonly launchStatus = required<HTMLOutputElement>("#lab-launch-status");
+  private readonly benchmarksHost = required<HTMLTableSectionElement>("#laboratory-benchmarks");
+  private readonly benchmarkChart = required<SVGSVGElement>("#benchmark-chart");
+  private readonly benchmarkLegend = required<HTMLElement>("#benchmark-chart-legend");
+  private readonly benchmarkSummary = required<HTMLOutputElement>("#benchmark-summary");
   private selectedRuns = new Set<string>();
   private histories = new Map<string, MetricRecord[]>();
   private snapshot: LaboratorySnapshot | null = null;
@@ -109,6 +140,7 @@ export class LaboratoryView {
 
   private renderSnapshot(snapshot: LaboratorySnapshot): void {
     this.renderGpus(snapshot.gpus);
+    this.renderBenchmarks(snapshot.benchmarks ?? []);
     if (this.selectedRuns.size === 0) {
       const running = snapshot.runs.find((run) => run.status === "running");
       const fallback = running ?? snapshot.runs.at(-1);
@@ -133,6 +165,103 @@ export class LaboratoryView {
     this.launchStatus.value = snapshot.controlEnabled
       ? "new runs receive immutable manifests"
       : "launch control disabled on server";
+  }
+
+  private renderBenchmarks(benchmarks: BenchmarkSnapshot[]): void {
+    const rows = benchmarks.map((benchmark) => {
+      const final = benchmark.checkpoints.at(-1);
+      const peak = Math.max(...benchmark.checkpoints.map((checkpoint) => checkpoint.heldOutAccuracy));
+      const row = document.createElement("tr");
+      const values = [
+        benchmark.id,
+        benchmark.architecture.toUpperCase(),
+        benchmark.seed?.toString() ?? "—",
+        benchmark.steps?.toLocaleString() ?? final?.update.toLocaleString() ?? "—",
+        final?.recallPairs?.toString() ?? "—",
+        this.percent(peak),
+        this.percent(final?.heldOutAccuracy),
+        benchmark.seconds === null ? "—" : `${benchmark.seconds.toFixed(1)} s`,
+      ];
+      for (const value of values) {
+        const cell = document.createElement("td");
+        cell.textContent = value;
+        row.append(cell);
+      }
+      return row;
+    });
+    if (rows.length === 0) {
+      const row = document.createElement("tr");
+      row.innerHTML = '<td colspan="8">No persisted benchmark artifacts found.</td>';
+      rows.push(row);
+    }
+    this.benchmarksHost.replaceChildren(...rows);
+
+    const newest = benchmarks.at(0);
+    if (!newest) {
+      this.benchmarkSummary.value = "no persisted benchmark artifacts";
+      this.drawBenchmarkChart([]);
+      return;
+    }
+    const cohort = benchmarks.filter((benchmark) => (
+      benchmark.task === newest.task
+      && benchmark.profile === newest.profile
+      && benchmark.recallMode === newest.recallMode
+      && benchmark.seed === newest.seed
+      && benchmark.steps === newest.steps
+    ));
+    this.benchmarkSummary.value = `${newest.profile} · ${newest.recallMode.replace("_", " ")} · seed ${newest.seed ?? "—"} · ${newest.steps ?? "—"} updates`;
+    this.drawBenchmarkChart(cohort.slice(0, SERIES_CLASSES.length));
+  }
+
+  private drawBenchmarkChart(benchmarks: BenchmarkSnapshot[]): void {
+    this.benchmarkChart.replaceChildren();
+    this.benchmarkLegend.replaceChildren();
+    if (benchmarks.length === 0) {
+      const label = this.svg("text", { x: "360", y: "98", class: "chart-empty" });
+      label.textContent = "No matched benchmark cohort";
+      this.benchmarkChart.append(label);
+      return;
+    }
+    const maxUpdate = Math.max(...benchmarks.flatMap((benchmark) => benchmark.checkpoints.map((checkpoint) => checkpoint.update)));
+    const left = 46; const right = 706; const top = 12; const bottom = 164;
+    const x = (value: number) => left + value / Math.max(1, maxUpdate) * (right - left);
+    const y = (value: number) => bottom - Math.max(0, Math.min(1, value)) * (bottom - top);
+    this.benchmarkChart.append(
+      this.svg("line", { x1: String(left), y1: String(bottom), x2: String(right), y2: String(bottom), class: "lab-axis" }),
+      this.svg("line", { x1: String(left), y1: String(top), x2: String(left), y2: String(bottom), class: "lab-axis" }),
+    );
+    for (const [text, px, py, anchor] of [
+      ["0", left, 184, "start"], [String(maxUpdate), right, 184, "end"],
+      ["100%", left - 6, top + 4, "end"], ["0%", left - 6, bottom + 4, "end"],
+    ] as const) {
+      const label = this.svg("text", { x: String(px), y: String(py), "text-anchor": anchor, class: "lab-axis-label" });
+      label.textContent = text;
+      this.benchmarkChart.append(label);
+    }
+    benchmarks.forEach((benchmark, index) => {
+      const seriesClass: string = SERIES_CLASSES[index] ?? "series-a";
+      const path = this.svg("polyline", {
+        points: benchmark.checkpoints.map((checkpoint) => (
+          `${x(checkpoint.update).toFixed(2)},${y(checkpoint.heldOutAccuracy).toFixed(2)}`
+        )).join(" "),
+        class: `lab-series ${seriesClass}`,
+      });
+      this.benchmarkChart.append(path);
+      let previousPairs = benchmark.checkpoints[0]?.recallPairs;
+      for (const checkpoint of benchmark.checkpoints) {
+        if (checkpoint.recallPairs !== previousPairs) {
+          this.benchmarkChart.append(this.svg("circle", {
+            cx: x(checkpoint.update).toFixed(2), cy: y(checkpoint.heldOutAccuracy).toFixed(2),
+            r: "3.2", class: `curriculum-transition ${seriesClass}`,
+          }));
+          previousPairs = checkpoint.recallPairs;
+        }
+      }
+      const legend = document.createElement("span");
+      legend.className = seriesClass;
+      legend.textContent = benchmark.architecture.toUpperCase();
+      this.benchmarkLegend.append(legend);
+    });
   }
 
   private renderGpus(gpus: GpuSnapshot[]): void {
@@ -327,6 +456,10 @@ export class LaboratoryView {
 
   private number(value: number | undefined, digits: number): string {
     return value === undefined || !Number.isFinite(value) ? "—" : value.toFixed(digits);
+  }
+
+  private percent(value: number | undefined): string {
+    return value === undefined || !Number.isFinite(value) ? "—" : `${(value * 100).toFixed(1)}%`;
   }
 
   private escape(value: string): string {
