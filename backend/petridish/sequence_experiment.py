@@ -557,7 +557,7 @@ class SequenceExperiment:
         batches: int = 8,
         *,
         progress_callback: Callable[[str, int, int], None] | None = None,
-    ) -> dict[str, float]:
+    ) -> dict[str, Any]:
         """Return held-out loss and accuracy without mutating training state."""
 
         self.model.eval()
@@ -565,6 +565,8 @@ class SequenceExperiment:
         total = 0
         loss_sum = 0.0
         loss_items = 0
+        slot_correct = [0] * self.recall_pair_count
+        slot_total = [0] * self.recall_pair_count
         batch_count = max(1, min(50, batches))
         for index in range(batch_count):
             batch = self._batch(self.config.batch_size, evaluation=True)
@@ -586,13 +588,27 @@ class SequenceExperiment:
                 metric_mask[:, 2:4] = True
             correct += int((logits.argmax(dim=2)[metric_mask] == batch.targets[metric_mask]).sum())
             total += int(metric_mask.sum())
+            if self.task.key == "associative_recall":
+                keys = batch.tokens[:, : self.recall_pair_count * 2 : 2]
+                query_slots = (keys == batch.tokens[:, -1].unsqueeze(1)).long().argmax(dim=1)
+                row_correct = logits[:, -1].argmax(dim=1) == batch.targets[:, -1]
+                for slot in range(self.recall_pair_count):
+                    selected_rows = query_slots == slot
+                    slot_total[slot] += int(selected_rows.sum())
+                    slot_correct[slot] += int(row_correct[selected_rows].sum())
             if progress_callback is not None:
                 progress_callback("evaluation", index + 1, batch_count)
         self.test_accuracy = correct / max(1, total)
-        return {
+        metrics: dict[str, Any] = {
             "loss": loss_sum / max(1, loss_items),
             "accuracy": self.test_accuracy,
         }
+        if self.task.key == "associative_recall":
+            metrics["slotAccuracy"] = [
+                slot_correct[index] / max(1, slot_total[index])
+                for index in range(self.recall_pair_count)
+            ]
+        return metrics
 
     @torch.no_grad()
     def _replay_current(self, *, events: list[dict[str, Any]] | None = None) -> None:

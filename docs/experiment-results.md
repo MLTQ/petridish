@@ -30,3 +30,12 @@ rather than to the recurrent cell family.
 The next controlled sweep should keep the same seed and topology while extending
 the two-binding training budget. A fixed two-binding control is also needed to
 separate catastrophic curriculum transition from ordinary convergence speed.
+
+## Legacy checkpoint migration — 2026-07-17
+
+The live 4090 checkpoint at update 15,300 was loaded read-only on CPU through the
+new architecture wrapper. Model state, all 31 populated optimizer states,
+experiment state, and random-generator state restored successfully as a GRU with
+64 model-state entries and last loss 2.821059. The migration did not write to or
+pause the live trainer. A later checkpoint-and-resume continuation test remains
+necessary to verify the full save/restart boundary.

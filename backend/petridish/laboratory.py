@@ -262,7 +262,7 @@ class Laboratory:
         for path in artifacts:
             payload = self._read_json(path)
             checkpoints = payload.get("checkpoints")
-            if not isinstance(checkpoints, list) or not checkpoints:
+            if not isinstance(checkpoints, list):
                 continue
             valid_checkpoints = [
                 checkpoint for checkpoint in checkpoints
@@ -270,7 +270,8 @@ class Laboratory:
                 and isinstance(checkpoint.get("update"), int)
                 and isinstance(checkpoint.get("heldOutAccuracy"), (int, float))
             ][:2_000]
-            if not valid_checkpoints:
+            status = payload.get("status", "complete")
+            if not valid_checkpoints and status != "running":
                 continue
             summaries.append(
                 {
@@ -283,6 +284,15 @@ class Laboratory:
                     "device": payload.get("device"),
                     "steps": payload.get("steps"),
                     "seconds": payload.get("seconds"),
+                    "completedSteps": payload.get(
+                        "completedSteps",
+                        valid_checkpoints[-1]["update"] if valid_checkpoints else 0,
+                    ),
+                    "status": status,
+                    "parameterCount": payload.get("parameterCount"),
+                    "trainableParameterCount": payload.get("trainableParameterCount"),
+                    "cudaAllocatedGiB": payload.get("cudaAllocatedGiB"),
+                    "peakCudaAllocatedGiB": payload.get("peakCudaAllocatedGiB"),
                     "livingCells": payload.get("livingCells"),
                     "edgeCount": payload.get("edgeCount"),
                     "minimumOutputHops": payload.get("minimumOutputHops"),

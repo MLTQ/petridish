@@ -30,3 +30,8 @@ The homogeneous architecture regression runs GRU, LSTM, ESN, and temporal-transf
 rules through the same physical graph and verifies finite logits plus synaptic gradients.
 Checkpoint migration protects pre-architecture GRU model keys while leaving unrelated
 state untouched.
+
+Benchmark artifact replacement is required to be atomic so the polling laboratory
+sees either the previous complete JSON document or the next one, never a partial write.
+Recall evaluation also reports one accuracy per queried binding slot so aggregate
+plateaus can be assigned to primacy, recency, or mixed retrieval failure.

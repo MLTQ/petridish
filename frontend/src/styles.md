@@ -18,6 +18,8 @@ chart encoding.
 - **Interacts with**: `.laboratory`, `.gpu-lane`, `.run-table`, and `lab.ts`.
 - **Does**: Places the controlled benchmark table beside its shared-scale held-out
   accuracy curve and uses point markers only for actual curriculum transitions.
+- **Does**: Keeps progress and resource columns in the existing horizontally
+  bounded table wrapper rather than expanding the laboratory or dish geometry.
 - **Interacts with**: `.benchmark-grid`, `#benchmark-chart`, and persisted artifacts.
 - **Does**: Reflows the launch form and GPU lanes at existing responsive breakpoints.
 

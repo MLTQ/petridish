@@ -84,6 +84,9 @@ def test_snapshot_discovers_bounded_benchmark_artifacts(
                 "seed": 11,
                 "steps": 40,
                 "seconds": 9.5,
+                "status": "complete",
+                "completedSteps": 40,
+                "peakCudaAllocatedGiB": 1.25,
                 "checkpoints": [
                     {"update": 20, "heldOutAccuracy": 0.75, "recallPairs": 1},
                     {"update": 40, "heldOutAccuracy": 0.5, "recallPairs": 2},
@@ -100,4 +103,27 @@ def test_snapshot_discovers_bounded_benchmark_artifacts(
     assert benchmark["id"] == "recall-gru"
     assert benchmark["architecture"] == "gru"
     assert benchmark["recallMode"] == "fixed_2"
+    assert benchmark["completedSteps"] == 40
+    assert benchmark["peakCudaAllocatedGiB"] == 1.25
     assert benchmark["checkpoints"][-1]["recallPairs"] == 2
+
+
+def test_running_benchmark_is_visible_before_first_checkpoint(tmp_path: Path) -> None:
+    benchmark_root = tmp_path / "benchmarks"
+    benchmark_root.mkdir()
+    (benchmark_root / "running.json").write_text(
+        json.dumps(
+            {
+                "task": "associative_recall", "architecture": "gru",
+                "status": "running", "completedSteps": 0, "checkpoints": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    benchmark = Laboratory(
+        tmp_path, benchmark_root=benchmark_root
+    )._discover_benchmarks()[0]
+
+    assert benchmark["status"] == "running"
+    assert benchmark["checkpoints"] == []

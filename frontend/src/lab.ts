@@ -56,6 +56,7 @@ interface BenchmarkCheckpoint {
   update: number;
   trainingAccuracy?: number;
   heldOutAccuracy: number;
+  heldOutSlotAccuracy?: number[];
   loss?: number;
   recallPairs?: number;
 }
@@ -69,7 +70,13 @@ interface BenchmarkSnapshot {
   seed: number | null;
   device: string | null;
   steps: number | null;
+  completedSteps: number;
+  status: "running" | "complete";
   seconds: number | null;
+  parameterCount: number | null;
+  trainableParameterCount: number | null;
+  cudaAllocatedGiB: number | null;
+  peakCudaAllocatedGiB: number | null;
   livingCells: number | null;
   edgeCount: number | null;
   minimumOutputHops: number | null;
@@ -176,11 +183,16 @@ export class LaboratoryView {
         benchmark.id,
         benchmark.architecture.toUpperCase(),
         benchmark.seed?.toString() ?? "—",
-        benchmark.steps?.toLocaleString() ?? final?.update.toLocaleString() ?? "—",
+        `${benchmark.completedSteps.toLocaleString()} / ${benchmark.steps?.toLocaleString() ?? "—"}`,
         final?.recallPairs?.toString() ?? "—",
         this.percent(peak),
         this.percent(final?.heldOutAccuracy),
+        final?.heldOutSlotAccuracy?.length
+          ? final.heldOutSlotAccuracy.map((accuracy) => this.percent(accuracy)).join(" / ")
+          : "—",
+        benchmark.peakCudaAllocatedGiB === null ? "—" : `${benchmark.peakCudaAllocatedGiB.toFixed(2)} GiB`,
         benchmark.seconds === null ? "—" : `${benchmark.seconds.toFixed(1)} s`,
+        benchmark.status,
       ];
       for (const value of values) {
         const cell = document.createElement("td");
@@ -191,7 +203,7 @@ export class LaboratoryView {
     });
     if (rows.length === 0) {
       const row = document.createElement("tr");
-      row.innerHTML = '<td colspan="8">No persisted benchmark artifacts found.</td>';
+      row.innerHTML = '<td colspan="11">No persisted benchmark artifacts found.</td>';
       rows.push(row);
     }
     this.benchmarksHost.replaceChildren(...rows);

@@ -24,6 +24,9 @@ explicitly enabled trainer processes.
 ### `Laboratory._discover_benchmarks`
 - **Does**: Reads up to 100 recent JSON benchmark artifacts and returns at most
   2,000 valid held-out checkpoints per artifact.
+- **Does**: Preserves atomic publisher status, completed updates, parameter counts,
+  and measured CUDA allocation so in-progress experiments remain distinguishable
+  from completed evidence.
 - **Rationale**: Curriculum transitions and architecture comparisons should be
   based on persisted measurements while keeping the polling payload bounded.
 

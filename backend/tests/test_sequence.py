@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import pytest
 import torch
 
+from petridish.benchmark_sequences import _write_result
 from petridish.graph_layout import LAYOUTS, sequence_layout
 from petridish.mnist_hyperparameters import configured, hyperparameter_payload
 from petridish.mnist_substrate import SpatialSubstrate
@@ -27,6 +31,16 @@ def small_config():
         initial_density=0.30, batch_size=3, message_steps=1,
         candidate_probes=12, local_radius=4, max_visible_edges=100,
     )
+
+
+def test_benchmark_artifact_replacement_is_atomic(tmp_path: Path) -> None:
+    output = tmp_path / "nested" / "result.json"
+
+    _write_result(output, {"status": "running", "completedSteps": 20})
+    _write_result(output, {"status": "complete", "completedSteps": 40})
+
+    assert json.loads(output.read_text(encoding="utf-8"))["status"] == "complete"
+    assert list(output.parent.glob(".*.tmp")) == []
 
 
 def test_sequence_layouts_are_directional_port_permutations() -> None:
@@ -108,6 +122,18 @@ def test_associative_recall_can_hold_a_fixed_difficulty() -> None:
     experiment._maybe_advance_recall_curriculum()
 
     assert experiment.recall_pair_count == 2
+
+
+def test_associative_recall_evaluation_reports_each_query_slot() -> None:
+    experiment = SequenceExperiment(
+        "associative_recall", small_config(), seed=9, device="cpu",
+        recall_pair_count=2, recall_pair_max=2,
+    )
+
+    metrics = experiment.evaluate_metrics(2)
+
+    assert len(metrics["slotAccuracy"]) == 2
+    assert all(0.0 <= accuracy <= 1.0 for accuracy in metrics["slotAccuracy"])
 
 
 def test_sequence_model_retains_state_and_backpropagates() -> None:
