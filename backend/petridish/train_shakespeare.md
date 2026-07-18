@@ -52,6 +52,9 @@ buffers, generation and update counters, configuration, vocabulary, rolling metr
 and Python, NumPy, Torch, CUDA, sampler, evaluation, and substrate lifecycle random states.
 The payload also contains continuous corpus positions and detached neuron, private
 memory, workspace, fast-memory, and binding-memory state when active.
+Training and scientific records expose `electricalStateTokens`, the exact absolute
+token position carried by that runtime state; a continuous run therefore proves its
+electrical age directly instead of inferring it from update count.
 
 By default a fresh invocation resumes `latest.pt` when present. Resume restores the
 saved configuration, context, seed, vocabulary contract, AMP mode, organism, and

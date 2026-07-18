@@ -83,6 +83,8 @@ validated launch or stop requests.
 - **Does**: Launches and displays continuous state-carrying experience separately
   from the cold-window control; legacy runs are labeled windowed rather than guessed
   to be continuous.
+- **Does**: Displays measured electrical-state age in tokens beside routing so a
+  nominal continuous run cannot masquerade as one while repeatedly reinitializing.
 - **Does**: Launches and displays fixed/adaptive topology independently from the
   selected lifecycle profile, and accepts a measured `failed` run state.
 - **Does**: Launches a bounded common learning-rate scale so stability controls are

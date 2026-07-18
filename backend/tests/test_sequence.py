@@ -897,6 +897,7 @@ def test_headless_scientific_metrics_separate_routing_and_lifecycle() -> None:
     assert metrics["outputCount"] == 64
     assert metrics["cumulativeGrownEdges"] == 0
     assert metrics["cumulativePrunedEdges"] == 0
+    assert metrics["electricalStateTokens"] == 0
 
 
 def test_structural_update_reports_unbounded_exact_prune_count() -> None:

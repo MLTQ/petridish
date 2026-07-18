@@ -187,6 +187,10 @@ def _scientific_metrics(experiment: SequenceExperiment) -> dict[str, Any]:
     diagnostics = substrate.graph_diagnostics()
     context_budget = config.message_steps * experiment.task.sequence_length
     return {
+        "electricalStateTokens": (
+            experiment._training_runtime_state.position
+            if experiment._training_runtime_state is not None else 0
+        ),
         "generation": substrate.generation,
         "livingCells": int(living.numel()),
         "stunnedCells": int(substrate.stunned[living].sum()),
@@ -420,6 +424,10 @@ def main() -> None:
             "rollingLoss": experiment.rolling_loss,
             "rollingAccuracy": experiment.rolling_accuracy,
             "streamMode": experiment.stream_mode,
+            "electricalStateTokens": (
+                experiment._training_runtime_state.position
+                if experiment._training_runtime_state is not None else 0
+            ),
             "updateSeconds": update_seconds,
             "targetCharactersPerSecond": config.batch_size * args.context_length / update_seconds,
             "targetTokensPerSecond": config.batch_size * args.context_length / update_seconds,
