@@ -16,6 +16,7 @@ from petridish.benchmark_recovery import (
     _restore_global_rng,
 )
 from petridish.graph_layout import LAYOUTS, sequence_layout
+from petridish.lifecycle_profiles import apply_lifecycle_profile
 from petridish.mnist_hyperparameters import configured, hyperparameter_payload
 from petridish.mnist_substrate import SpatialSubstrate
 from petridish.protocol import build_snapshot
@@ -184,6 +185,29 @@ def test_headless_token_launch_preserves_task_specific_warmups() -> None:
     assert config.lifecycle_enabled == 1
     assert config.lifecycle_warmup_trials == 500
     assert config.structural_warmup_trials == 1_000
+
+
+def test_balanced_lifecycle_retains_biomimicry_without_death_budget_collapse() -> None:
+    baseline = sequence_config("tiny_stories")
+    balanced = apply_lifecycle_profile(baseline, "balanced")
+
+    assert balanced.lifecycle_enabled == 1
+    assert balanced.lifecycle_warmup_trials == baseline.lifecycle_warmup_trials
+    assert balanced.structural_warmup_trials == baseline.structural_warmup_trials
+    assert balanced.max_deaths_per_generation == balanced.births_per_generation == 16
+    assert balanced.target_stimulation_min < baseline.target_stimulation_min
+    assert balanced.stun_load_threshold > baseline.stun_load_threshold
+    assert balanced.stun_recovery_probability > baseline.stun_recovery_probability
+    assert balanced.excitotoxic_death_threshold > baseline.excitotoxic_death_threshold
+
+    launched = _fresh_config(
+        "tiny_stories", field_size=68, batch_size=1, message_steps=4,
+        architecture="gru", lifecycle=True, lifecycle_profile="balanced",
+    )
+    assert launched.max_deaths_per_generation == 16
+    assert launched.births_per_generation == 16
+    assert launched.starvation_cost == balanced.starvation_cost
+    assert launched.lifecycle_enabled == 1
 
 
 def test_associative_recall_curriculum_preserves_queried_value() -> None:

@@ -12,11 +12,13 @@ service files and checkpoints. Metrics report token throughput for both task typ
 The token profile retains its task-specific 500-update lifecycle and 1,000-update
 pruning warm-ups; the Shakespeare profile retains its conservative 5,000-update
 warm-ups. CLI lifecycle selection changes activation, not those task definitions.
+`--lifecycle-profile off|baseline|balanced` records an explicit intervention.
+The legacy `--lifecycle` flag maps to `baseline` when no profile is supplied.
 
 ### `_fresh_config`
 
-Applies field, batch, microtick, architecture, and lifecycle launch choices while
-preserving all other task-specific defaults, including structural timing.
+Applies field, batch, microtick, architecture, and named lifecycle launch choices
+while preserving all other task-specific defaults, including structural timing.
 
 `--architecture` selects a checkpointed homogeneous GRU, LSTM, ESN, or temporal
 transformer population. GRU remains the default and preserves existing checkpoints.

@@ -22,6 +22,14 @@ control-enable contracts without requiring NVIDIA hardware or launching trainers
 - **Does**: Keeps 68×68 mandatory for both 66-port and 64-port single-column
   corpus layouts.
 
+### Lifecycle profile tests
+- **Does**: Preserve an explicit named policy in trainer commands and map the legacy
+  enabled boolean to the original baseline policy.
+- **Does**: Treat a named non-off profile as authoritative over the compatibility
+  boolean so the command cannot silently disable the recorded intervention.
+- **Rationale**: Commands and manifests must describe the homeostasis intervention
+  that actually ran.
+
 ## Contracts
 
 | Dependent | Expects | Breaking changes |

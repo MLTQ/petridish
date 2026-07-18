@@ -70,6 +70,7 @@ interface LaboratorySnapshot {
     tasks: string[];
     architectures: string[];
     ampModes: string[];
+    lifecycleProfiles: string[];
   };
   gpus: GpuSnapshot[];
   runs: RunSnapshot[];
@@ -151,6 +152,7 @@ export class LaboratoryView {
   private readonly gpuSelect = required<HTMLSelectElement>("#lab-gpu");
   private readonly taskSelect = required<HTMLSelectElement>("#lab-task");
   private readonly architectureSelect = required<HTMLSelectElement>("#lab-architecture");
+  private readonly lifecycleProfileSelect = required<HTMLSelectElement>("#lab-lifecycle-profile");
   private readonly launchButton = required<HTMLButtonElement>("#lab-launch");
   private readonly launchStatus = required<HTMLOutputElement>("#lab-launch-status");
   private readonly benchmarksHost = required<HTMLTableSectionElement>("#laboratory-benchmarks");
@@ -218,6 +220,10 @@ export class LaboratoryView {
     this.populateSelect(
       this.architectureSelect,
       snapshot.capabilities.architectures.map((name) => ({ value: name, label: name.toUpperCase() })),
+    );
+    this.populateSelect(
+      this.lifecycleProfileSelect,
+      snapshot.capabilities.lifecycleProfiles.map((name) => ({ value: name, label: name })),
     );
     for (const control of this.form.elements) {
       if (control instanceof HTMLInputElement || control instanceof HTMLSelectElement || control instanceof HTMLButtonElement) {
@@ -494,7 +500,7 @@ export class LaboratoryView {
         ? `${diagnostic.minimumOutputHops ?? "—"}/${diagnostic.medianOutputHops ?? "—"} hops · ${diagnostic.tokenReachableOutputs ?? 0}/${diagnostic.contextReachableOutputs ?? 0}/${diagnostic.reachableOutputs ?? 0} token/context/graph`
         : "—";
       const lifecycle = diagnostic
-        ? `${diagnostic.stunnedCells ?? 0} stunned · +${diagnostic.cumulativeBirths ?? 0}/−${diagnostic.cumulativeDeaths ?? 0} cells · ${diagnostic.cumulativeStuns ?? 0}/${diagnostic.cumulativeRecoveries ?? 0} stun/recover`
+        ? `${String(run.configuration.lifecycleProfile ?? (run.configuration.lifecycle ? "baseline" : "off"))} · ${diagnostic.stunnedCells ?? 0} stunned · +${diagnostic.cumulativeBirths ?? 0}/−${diagnostic.cumulativeDeaths ?? 0} cells · ${diagnostic.cumulativeStuns ?? 0}/${diagnostic.cumulativeRecoveries ?? 0} stun/recover`
         : "—";
       const structure = diagnostic
         ? `+${diagnostic.cumulativeGrownEdges ?? 0}/−${diagnostic.cumulativePrunedEdges ?? 0} edges · ${diagnostic.pruneEligibleEdges ?? 0} eligible · gen ${diagnostic.generation ?? 0}`
@@ -587,6 +593,7 @@ export class LaboratoryView {
     this.launchButton.disabled = true;
     this.launchStatus.value = "launching";
     const form = new FormData(this.form);
+    const lifecycleProfile = String(form.get("lifecycleProfile"));
     const body = {
       runId: String(form.get("runId")), gpuUuid: String(form.get("gpuUuid")),
       task: String(form.get("task")),
@@ -595,7 +602,8 @@ export class LaboratoryView {
       batchSize: Number(form.get("batchSize")), contextLength: 64,
       messageSteps: String(form.get("task")) === "tiny_stories" ? 4 : 2,
       updates: Number(form.get("updates")), seed: Number(form.get("seed")),
-      amp: String(form.get("amp")), lifecycle: form.get("lifecycle") === "on",
+      amp: String(form.get("amp")), lifecycle: lifecycleProfile !== "off",
+      lifecycleProfile,
     };
     try {
       const response = await fetch("/api/lab/runs", {

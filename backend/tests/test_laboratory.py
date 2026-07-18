@@ -52,6 +52,45 @@ def test_spec_preserves_single_column_geometry(tmp_path: Path) -> None:
     )
 
 
+def test_laboratory_preserves_named_lifecycle_profile(tmp_path: Path) -> None:
+    laboratory = Laboratory(tmp_path, run_root=tmp_path / "runs", control_enabled=True)
+    spec = LaunchSpec(
+        "trial", "GPU-example", task="tiny_stories", field_size=68,
+        lifecycle=True, lifecycle_profile="balanced",
+    )
+
+    laboratory._validate_spec(spec)
+    command = laboratory._trainer_command(spec, tmp_path / "runs" / "trial")
+
+    assert command[command.index("--lifecycle-profile") + 1] == "balanced"
+    assert "--lifecycle" in command
+
+
+def test_legacy_lifecycle_flag_resolves_to_recorded_baseline(tmp_path: Path) -> None:
+    laboratory = Laboratory(tmp_path, run_root=tmp_path / "runs", control_enabled=True)
+    spec = LaunchSpec(
+        "trial", "GPU-example", task="tiny_stories", field_size=68,
+        lifecycle=True,
+    )
+
+    command = laboratory._trainer_command(spec, tmp_path / "runs" / "trial")
+
+    assert command[command.index("--lifecycle-profile") + 1] == "baseline"
+
+
+def test_explicit_profile_is_authoritative_over_compatibility_flag(tmp_path: Path) -> None:
+    laboratory = Laboratory(tmp_path, run_root=tmp_path / "runs", control_enabled=True)
+    spec = LaunchSpec(
+        "trial", "GPU-example", task="tiny_stories", field_size=68,
+        lifecycle=False, lifecycle_profile="balanced",
+    )
+
+    command = laboratory._trainer_command(spec, tmp_path / "runs" / "trial")
+
+    assert command[command.index("--lifecycle-profile") + 1] == "balanced"
+    assert "--lifecycle" in command
+
+
 def test_discovery_summarizes_latest_train_and_evaluation(tmp_path: Path) -> None:
     run = tmp_path / "runs" / "trial"
     run.mkdir(parents=True)

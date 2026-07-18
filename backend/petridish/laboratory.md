@@ -15,6 +15,10 @@ explicitly enabled trainer processes.
 - **Does**: Requires the 68×68 geometry that gives both corpus tasks one linear
   input column and one linear output column.
 - **Rationale**: Process commands are assembled from typed fields rather than shell text.
+- **Does**: Records `off`, original `baseline`, or empirically `balanced` lifecycle
+  policy in the immutable run manifest.
+- **Does**: Derives the compatibility lifecycle boolean from the resolved profile so
+  the manifest and trainer command cannot disagree.
 
 ### `Laboratory.snapshot`
 - **Does**: Reports GPU telemetry, compute processes, capabilities, and run summaries.

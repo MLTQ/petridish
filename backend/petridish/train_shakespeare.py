@@ -18,6 +18,9 @@ import numpy as np
 import torch
 
 from .corpus_task import load_tiny_shakespeare_task
+from .lifecycle_profiles import (
+    LIFECYCLE_PROFILES, apply_lifecycle_profile, resolve_lifecycle_profile,
+)
 from .token_corpus_task import load_tiny_stories_task
 from .mnist_config import MnistModelConfig
 from .sequence_config import sequence_config
@@ -236,12 +239,13 @@ def _fresh_config(
     message_steps: int | None,
     architecture: str,
     lifecycle: bool,
+    lifecycle_profile: str = "off",
 ) -> MnistModelConfig:
     """Apply launch overrides without erasing task-specific warm-up policy."""
 
     defaults = sequence_config(task)
     size = field_size or defaults.width
-    return sequence_config(
+    config = sequence_config(
         task,
         width=size,
         height=size,
@@ -250,6 +254,8 @@ def _fresh_config(
         cell_architecture=architecture,
         lifecycle_enabled=int(lifecycle),
     )
+    profile = resolve_lifecycle_profile(lifecycle_profile, enabled=lifecycle)
+    return apply_lifecycle_profile(config, profile)
 
 
 def _append_metric(path: Path, record: dict[str, Any]) -> None:
@@ -286,6 +292,9 @@ def main() -> None:
     parser.add_argument("--progress-interval", type=int, default=10)
     parser.add_argument("--resume", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--lifecycle", action=argparse.BooleanOptionalAction, default=False)
+    parser.add_argument(
+        "--lifecycle-profile", choices=LIFECYCLE_PROFILES, default="off"
+    )
     args = parser.parse_args()
 
     latest = args.checkpoint_dir / "latest.pt"
@@ -307,6 +316,7 @@ def main() -> None:
             message_steps=args.message_steps,
             architecture=args.architecture,
             lifecycle=args.lifecycle,
+            lifecycle_profile=args.lifecycle_profile,
         )
     task = (
         load_tiny_stories_task(args.context_length)

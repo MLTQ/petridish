@@ -16,6 +16,9 @@ distributed token organism's 64 ports each occupy one unique boundary column on
 68×68, preserve graph-layout semantic order, and keep 68 unavailable to non-corpus tasks.
 The headless-launch regression also prevents CLI overrides from silently replacing
 the token task's lifecycle and pruning warm-up schedule with Shakespeare defaults.
+Named lifecycle-profile tests preserve the original baseline while proving the
+balanced intervention keeps stun, recovery, starvation, and eventual death but
+equalizes maximum births/deaths and lowers the empirically saturated pressures.
 
 The trace-free regression requires optimizer updates to advance metrics and examples
 without replacing the visible frame buffer, then verifies an explicit refresh rebuilds

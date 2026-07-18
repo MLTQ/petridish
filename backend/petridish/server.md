@@ -29,6 +29,8 @@ runtime device is configurable independently from trainer workers.
 
 ### `LabLaunchRequest`
 - **Does**: Bounds the selected corpus task and every process argument accepted from the browser.
+- **Does**: Carries a named lifecycle intervention separately from the compatibility
+  enable flag.
 - **Rationale**: The API never accepts a shell command or arbitrary path.
 
 ### `websocket_endpoint`

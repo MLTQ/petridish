@@ -14,6 +14,7 @@ import time
 from typing import Any
 
 from .sequence_cells import CELL_ARCHITECTURES
+from .lifecycle_profiles import LIFECYCLE_PROFILES, resolve_lifecycle_profile
 
 
 RUN_ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
@@ -39,6 +40,7 @@ class LaunchSpec:
     seed: int = 1
     amp: str = "bfloat16"
     lifecycle: bool = False
+    lifecycle_profile: str = "off"
 
 
 class Laboratory:
@@ -72,6 +74,7 @@ class Laboratory:
                 "tasks": ["tiny_shakespeare", "tiny_stories"],
                 "architectures": list(CELL_ARCHITECTURES),
                 "ampModes": ["off", "bfloat16"],
+                "lifecycleProfiles": list(LIFECYCLE_PROFILES),
             },
             "gpus": gpus,
             "runs": self._discover_runs(active_runs),
@@ -112,6 +115,10 @@ class Laboratory:
             raise ValueError(f"run already exists: {spec.run_id}")
         directory.mkdir(parents=True)
         command = self._trainer_command(spec, directory)
+        lifecycle_profile = resolve_lifecycle_profile(
+            spec.lifecycle_profile, enabled=spec.lifecycle
+        )
+        lifecycle_enabled = lifecycle_profile != "off"
         manifest = {
             "version": 1,
             "runId": spec.run_id,
@@ -126,7 +133,8 @@ class Laboratory:
                 "updates": spec.updates,
                 "seed": spec.seed,
                 "amp": spec.amp,
-                "lifecycle": spec.lifecycle,
+                "lifecycle": lifecycle_enabled,
+                "lifecycleProfile": lifecycle_profile,
             },
             "createdAt": time.time(),
             "commit": self._git_commit(),
@@ -193,6 +201,8 @@ class Laboratory:
             raise ValueError("updates must be positive")
         if spec.amp not in {"off", "bfloat16"}:
             raise ValueError("unsupported AMP mode")
+        if spec.lifecycle_profile not in LIFECYCLE_PROFILES:
+            raise ValueError("unknown lifecycle profile")
 
     def _trainer_command(self, spec: LaunchSpec, directory: Path) -> list[str]:
         command = [
@@ -209,7 +219,9 @@ class Laboratory:
             "--eval-interval", "500", "--eval-batches", "4",
             "--progress-interval", "10", "--no-resume",
         ]
-        command.append("--lifecycle" if spec.lifecycle else "--no-lifecycle")
+        profile = resolve_lifecycle_profile(spec.lifecycle_profile, enabled=spec.lifecycle)
+        command.extend(("--lifecycle-profile", profile))
+        command.append("--lifecycle" if profile != "off" else "--no-lifecycle")
         return command
 
     def _discover_runs(self, active: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
