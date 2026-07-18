@@ -298,7 +298,7 @@ class Laboratory:
             else spec.training_shard_tokens
         )
         phase_name = spec.phase_name or self._phase_name(topology_profile, profile)
-        if spec.training_shard_tokens is not None:
+        if spec.training_shard_tokens is not None and spec.phase_name is None:
             curriculum = (
                 "full-stream curriculum"
                 if training_shard_tokens == 0
