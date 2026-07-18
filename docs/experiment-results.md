@@ -1443,3 +1443,56 @@ domain until its next natural wrap, then proceeds into a larger corpus domain in
 of wrapping to token zero. The transition becomes checkpointed lane metadata and is
 auditable independently for every lane. This widens what the living organism senses
 without resetting it or applying gradients from a disposable counterfactual.
+
+## Phase 21 — Carried streams enter new text without resetting
+
+Commits `1a69a7c` and `68657e7` implement and measure explicit carried-stream domain
+expansion. The operation changes only each restored stream's future wrap length. Its
+next-token cursor, hidden/private/workspace state, absolute electrical age, cells,
+graph, parameters, optimizer moments, and RNG remain untouched. The old per-row
+domain lengths are checkpointed as measurement origins, and every train window
+reports the exact fraction of input-token indices beyond those origins plus the
+number of affected rows. The laboratory exposes the operation separately from
+append-only cold lanes and labels the phase in lineage diagnostics.
+
+The phase-20 endpoint at update 15,750 and SHA
+`407d11abdb986df9da64ca16f68033f02c4a7a028df2fd241a4320f577aa9567`
+was copied byte-for-byte into control and treatment descendants. Both retained
+organism ID `organism-b2505376398a491e8cf4150a5daf3fab`, 2,224 cells, 13,737 fixed
+directed edges, all 169 active runtime trajectories, optimizer/RNG, auxiliary weight
+zero, and lifecycle off. Control retained its 16×2K, 89×4K, and 64×8K stream
+domains. Treatment changed all current wrap lengths to 16K but kept those exact old
+counts as origins. Its first persistent checkpoint confirmed 169/169 runtime states,
+169×16K current domains, and the original 16/89/64 origin tensor.
+
+The first genuinely novel treatment window appeared at update 15,761, exactly where
+the preserved cursor simulation predicted. It contained 84.38% beyond-boundary
+tokens. Across 500 updates, treatment lived through 571 novel tokens in eleven
+windows: 1.784% of its 32,000 input tokens. This makes phase 21 a continuity and
+measurement test rather than a meaningful breadth dose.
+
+Control reached 68.08% / 1.30636 overall and 67.45% / 1.32994 over the final 160
+windows. Its 2K/4K/8K domains measured 88.35% / 0.51272, 78.46% / 0.79286, and
+48.97% / 2.20014. Treatment reached 67.53% / 1.34044 overall and 66.46% / 1.37270
+over the final 160. The apparent drop localized to new input: its 489 familiar
+windows reached 67.99% / 1.31413, within 0.10 point of control, while the eleven
+novel windows measured 47.30% / 2.51027. Median clip scales were matched at 0.06470
+control and 0.06483 treatment.
+
+Read-only breadth metrics were directionally small, as expected from 1.784% exposure.
+Full-corpus cold context measured 7.23% / 4.98138 control and 7.32% / 4.94380
+treatment. Validation top-one was exactly 10.74% for both, with loss 5.10954 control
+and 5.05150 treatment; cold validation was 9.77% in both. Neither approaches the
+19.09% unigram baseline. Audit execution left terminal checkpoints byte-identical at
+`839275ae9474522ac227f1a743d48045ac009ff0658bb3313dd96be1d1437bad`
+control and
+`3377863fe20c1c5ccd10c02f563568d9c8d09da611d8fc3e3154c1e3375b589b`
+treatment.
+
+The mechanism passes its safety test: it preserves familiar competence, introduces
+new difficulty only at measured old-domain boundaries, and never resets the organism.
+The treatment must now continue long enough to receive an actual breadth dose. A
+2,500-update continuation produces 3,000 cumulative expansion updates and about
+10.2% genuinely novel input under the preserved cursor schedule. Its 500-update
+endpoint remains frozen as the short-exposure reference; a matched long control can
+be run sequentially on the 2070 while the unrelated 4090 workload remains untouched.
