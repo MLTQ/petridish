@@ -1330,9 +1330,9 @@ export class LaboratoryView {
       : phase?.trainingShardTokens === 0 ? " · full stream" : "";
     const lanes = phase?.stateLanes ?? Number(run.configuration.stateLanes ?? 1);
     const branch = run.parentCheckpoint
-      ? ` · fork ← ${run.parentCheckpoint.runId}@${run.parentCheckpoint.update.toLocaleString()}`
+      ? ` · exact fork d${run.branchDepth ?? "?"} ← ${run.parentCheckpoint.runId}@${run.parentCheckpoint.update.toLocaleString()} sha ${run.parentCheckpoint.sha256.slice(0, 12)}`
       : "";
-    return `${lineage} · p${phase?.index ?? 0} ${phase?.name ?? "training"}${curriculum} · ${lanes} lane${lanes === 1 ? "" : "s"}${branch}`;
+    return `organism ${lineage} · p${phase?.index ?? 0} ${phase?.name ?? "training"}${curriculum} · ${lanes} lane${lanes === 1 ? "" : "s"}${branch}`;
   }
 
   private populateSelect(select: HTMLSelectElement, choices: { value: string; label: string }[]): void {

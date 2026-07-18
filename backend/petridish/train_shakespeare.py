@@ -602,6 +602,7 @@ def _held_out_diagnostics_from_current_sampler(
 ) -> dict[str, Any]:
     """Evaluate one checkpoint on a named split with matched counterfactuals."""
 
+    matched_sampler_state = experiment.eval_generator.get_state().clone()
     if experiment.stream_mode == "continuous":
         held_out, cold_state = experiment.evaluate_state_ablation(
             max(1, batches), evaluation_split=evaluation_split,
@@ -624,6 +625,7 @@ def _held_out_diagnostics_from_current_sampler(
             max(1, batches), evaluation_split=evaluation_split,
             trajectory_lane=trajectory_lane,
         )
+    experiment.eval_generator.set_state(matched_sampler_state)
     (
         graph_reference, graph_silenced, source_rotated, weight_reassigned,
         broadcast_silenced,

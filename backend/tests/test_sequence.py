@@ -1339,6 +1339,8 @@ def test_fixed_seed_checkpoint_audit_is_repeatable_and_sampler_read_only() -> No
     assert first["evaluationSeed"] == 12345
     assert first["evaluationBatches"] == 3
     assert first["evaluatedTokens"] == 24
+    assert first["accuracy"] == first["graphReferenceAccuracy"]
+    assert first["loss"] == pytest.approx(first["graphReferenceLoss"])
     assert torch.equal(before, middle)
     assert torch.equal(before, experiment.eval_generator.get_state())
 

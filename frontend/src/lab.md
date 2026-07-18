@@ -169,7 +169,10 @@ validated launch or stop requests.
   connectome, weights, optimizer, stream position, and electrical memory persist,
   while checkpoint evaluations operate only on disposable copies.
 - **Does**: Displays the immutable lineage ID and current phase, and marks measured
-  phase boundaries directly on the existing rolling-loss trace.
+  phase boundaries directly on the existing rolling-loss trace. Exact branches also
+  expose branch depth, parent update, and the first twelve hexadecimal digits of the
+  byte-identical parent-checkpoint fingerprint so a copied organism cannot be mistaken
+  for a fresh initialization.
 - **Does**: Shows the current repeated-shard size or full-stream curriculum directly
   beside the lineage phase before the next held-out audit is available.
 - **Does**: Displays rolling training and held-out accuracy separately in the run

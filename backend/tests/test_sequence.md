@@ -99,7 +99,9 @@ independent clone of the real saved hidden/private/workspace state, report its
 absolute seed age, and leave the live runtime tensors unchanged. The
 fixed-audit regression requires repeated checkpoint evaluations to use the same
 validation slice, publish seed/batch/token counts, and restore the checkpoint sampler
-bit-for-bit. The
+bit-for-bit. It also requires the headline carried-state result and intact-graph
+reference to use that same slice and agree exactly, preventing random-offset variance
+from masquerading as a graph effect. The
 active-training-shard audit must use the independent evaluation RNG, report its split
 explicitly, and restore graph sources and weights after every counterfactual. The
 trajectory audit must clone the exact next stream position and matching state lane,

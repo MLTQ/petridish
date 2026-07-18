@@ -90,8 +90,10 @@ actual electrical/private/workspace state and report its seed age. An identical
 contiguous-token cold-state ablation begins without that state; their accuracy delta
 and cold-minus-saved loss delta measure the value of the organism's real accumulated
 electricity above and below the top-one decision boundary.
-They include matched intact, graph-silenced, and source-rotated loss/accuracy deltas;
-positive deltas mean the organism's dendritic computation or endpoint organization
+They include matched intact, graph-silenced, and source-rotated loss/accuracy deltas.
+The intact graph reference replays the exact same sampler slice as the record's
+headline carried-state result, so those two loss/accuracy values must agree; positive
+ablation deltas mean the organism's dendritic computation or endpoint organization
 causally improves prediction on identical tokens.
 The same fixed slice also reassigns weights among each destination neuron's existing
 sources, preserving its incoming edge set while testing learned weight/source pairing,
