@@ -40,7 +40,9 @@ explicitly enabled trainer processes.
 - **Does**: Preserves optional neuron-owner address diagnostics for relational-memory
   experiments without synthesizing values for baseline artifacts.
 - **Does**: Preserves message-microtick, output-count, and chance-baseline metadata
-  for one-token physical-routing controls.
+  for physical-routing and context-memory controls.
+- **Does**: Preserves sequence length, dependency horizon, and token/context route
+  coverage so temporal-memory results retain their physical communication budget.
 - **Does**: Preserves the declared broadcast gain so global-workspace and purely
   dendritic routing controls remain distinguishable.
 - **Does**: Preserves the deterministic-execution flag from benchmark artifacts.

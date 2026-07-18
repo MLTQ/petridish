@@ -15,6 +15,7 @@ import torch
 from .sequence_config import sequence_config
 from .sequence_cells import CELL_ARCHITECTURES
 from .sequence_experiment import SequenceExperiment
+from .token_context_task import token_context_task
 from .token_routing_task import token_routing_task
 
 
@@ -61,6 +62,13 @@ PROFILES: dict[str, dict[str, Any]] = {
         "binding_address_regularization": 0.02,
     },
     "token_route68": {},
+    "token_context68": {},
+}
+
+
+TOKEN_CONTROL_PROFILES = {
+    "token_routing": "token_route68",
+    "token_context": "token_context68",
 }
 
 
@@ -87,12 +95,15 @@ def run_benchmark(
 
     if profile not in PROFILES:
         raise ValueError(f"unknown profile: {profile}")
-    if (task == "token_routing") != (profile == "token_route68"):
-        raise ValueError("token_routing requires the token_route68 profile exclusively")
-    if message_steps is not None and task != "token_routing":
-        raise ValueError("message-step overrides apply only to token_routing")
-    if broadcast_gain is not None and task != "token_routing":
-        raise ValueError("broadcast-gain overrides apply only to token_routing")
+    expected_profile = TOKEN_CONTROL_PROFILES.get(task)
+    if expected_profile is not None and profile != expected_profile:
+        raise ValueError(f"{task} requires the {expected_profile} profile")
+    if expected_profile is None and profile in TOKEN_CONTROL_PROFILES.values():
+        raise ValueError("token-control profiles require their matching task")
+    if message_steps is not None and expected_profile is None:
+        raise ValueError("message-step overrides apply only to token controls")
+    if broadcast_gain is not None and expected_profile is None:
+        raise ValueError("broadcast-gain overrides apply only to token controls")
     if broadcast_gain is not None and broadcast_gain < 0:
         raise ValueError("broadcast gain cannot be negative")
     if deterministic:
@@ -104,7 +115,7 @@ def run_benchmark(
     if broadcast_gain is not None:
         overrides["broadcast_gain"] = broadcast_gain
     config = sequence_config(
-        "tiny_stories" if task == "token_routing" else None,
+        "tiny_stories" if expected_profile is not None else None,
         cell_architecture=architecture,
         lifecycle_enabled=0,
         structural_warmup_trials=max(steps + 1, 10_000),
@@ -112,7 +123,11 @@ def run_benchmark(
     )
     if fixed_recall_pairs is not None and task != "associative_recall":
         raise ValueError("fixed recall pairs apply only to associative recall")
-    task_definition = token_routing_task() if task == "token_routing" else task
+    task_definition = (
+        token_routing_task() if task == "token_routing"
+        else token_context_task() if task == "token_context"
+        else task
+    )
     experiment = SequenceExperiment(
         task_definition, config, seed=seed, device=device,
         recall_pair_count=fixed_recall_pairs,
@@ -139,16 +154,20 @@ def run_benchmark(
             "intervention": (
                 f"{config.message_steps} ticks · "
                 f"broadcast {'on' if config.broadcast_gain > 0 else 'off'}"
-                if task == "token_routing" else None
+                if expected_profile is not None else None
             ),
             "messageSteps": config.message_steps,
             "broadcastGain": config.broadcast_gain,
             "outputCount": experiment.model.substrate.output_count,
+            "sequenceLength": experiment.task.sequence_length,
+            "dependencyTokens": 1 if task == "token_context" else 0,
             "chanceAccuracy": (
-                1 / 8 if task == "token_routing" else None
+                1 / 8 if task == "token_routing"
+                else 0.5 if task == "token_context" else None
             ),
             "recallMode": (
                 "direct_mapping" if task == "token_routing" else
+                "context_xor" if task == "token_context" else
                 f"fixed_{fixed_recall_pairs}"
                 if fixed_recall_pairs is not None else "adaptive"
             ),
@@ -167,6 +186,10 @@ def run_benchmark(
             "edgeCount": int(experiment.model.substrate.active_edge_mask.sum()),
             "minimumOutputHops": diagnostics.minimum_output_hops,
             "temporallyReachableOutputs": diagnostics.temporally_reachable_outputs,
+            "contextReachableOutputs": sum(
+                hops <= config.message_steps * experiment.task.sequence_length
+                for hops in diagnostics.output_hops
+            ),
             "checkpoints": list(checkpoints),
         }
 
@@ -237,7 +260,9 @@ def _write_result(path: Path, payload: dict[str, Any]) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--task", choices=("associative_recall", "tiny_language", "token_routing"),
+        "--task", choices=(
+            "associative_recall", "tiny_language", "token_routing", "token_context",
+        ),
         required=True,
     )
     parser.add_argument("--profile", choices=tuple(PROFILES), default="default32")

@@ -1,7 +1,8 @@
 # benchmark_sequences.py
 
 This command runs reproducible, hardware-bounded learning sweeps for associative
-recall, tiny language, and direct one-token physical routing. Profiles vary field size and recurrent microsteps while
+recall, tiny language, direct physical routing, and distributed context composition.
+Profiles vary field size and recurrent microsteps while
 holding the task, seed, optimizer, and lifecycle state constant. Lifecycle and
 structural mutation are disabled so a run measures the differentiable substrate
 before testing turnover as a separate intervention.
@@ -76,4 +77,16 @@ python -m petridish.benchmark_sequences --task token_routing \
   --profile token_route68 --message-steps 12 --steps 200 \
   --broadcast-gain 0 \
   --output benchmarks/lab/token-route-12.json
+```
+
+`token_context` with `token_context68` enumerates all four two-token bit pairs and
+supervises their XOR only after the second token. Its 50% restricted-target baseline
+cannot be beaten using position, class frequency, the context token alone, or the
+query token alone. It reuses the same 68×68 population, 64-port distributed I/O,
+microtick override, and hard broadcast ablation as the routing control.
+
+```bash
+python -m petridish.benchmark_sequences --task token_context \
+  --profile token_context68 --message-steps 12 --broadcast-gain 0 \
+  --steps 1000 --output benchmarks/lab/token-context-local.json
 ```

@@ -31,6 +31,7 @@ from petridish.sequence_tasks import (
     resolve_sequence_task,
 )
 from petridish.token_corpus_task import build_token_task
+from petridish.token_context_task import token_context_task
 from petridish.token_routing_task import token_routing_task
 from petridish.train_shakespeare import (
     _fresh_config,
@@ -535,6 +536,23 @@ def test_token_routing_control_is_balanced_and_has_no_position_shortcut() -> Non
     assert batch.tokens[:, 0].tolist() == list(range(8))
     assert batch.targets[:, 0].tolist() == list(range(8, 16))
     assert bool(batch.loss_mask.all())
+
+
+def test_token_context_control_requires_both_distributed_tokens() -> None:
+    task = token_context_task()
+    batch = task.batch(8, torch.Generator().manual_seed(5))
+
+    assert task.key == "tiny_stories"
+    assert batch.tokens[:4].tolist() == [[0, 2], [0, 3], [1, 2], [1, 3]]
+    assert batch.targets[:4, 1].tolist() == [4, 5, 5, 4]
+    assert not bool(batch.loss_mask[:, 0].any())
+    assert bool(batch.loss_mask[:, 1].all())
+    for column in (0, 1):
+        selected = batch.targets[batch.tokens[:, 0] == column, 1]
+        assert sorted(selected.unique().tolist()) == [4, 5]
+    for query in (2, 3):
+        selected = batch.targets[batch.tokens[:, 1] == query, 1]
+        assert sorted(selected.unique().tolist()) == [4, 5]
 
 
 def test_zero_broadcast_gain_is_a_hard_workspace_ablation() -> None:

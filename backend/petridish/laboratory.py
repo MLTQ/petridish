@@ -338,9 +338,12 @@ class Laboratory:
                     "temporallyReachableOutputs": payload.get(
                         "temporallyReachableOutputs"
                     ),
+                    "contextReachableOutputs": payload.get("contextReachableOutputs"),
                     "messageSteps": payload.get("messageSteps"),
                     "broadcastGain": payload.get("broadcastGain"),
                     "outputCount": payload.get("outputCount"),
+                    "sequenceLength": payload.get("sequenceLength"),
+                    "dependencyTokens": payload.get("dependencyTokens"),
                     "chanceAccuracy": payload.get("chanceAccuracy"),
                     "checkpoints": valid_checkpoints,
                     "artifactMtime": path.stat().st_mtime,

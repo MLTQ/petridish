@@ -127,9 +127,12 @@ interface BenchmarkSnapshot {
   edgeCount: number | null;
   minimumOutputHops: number | null;
   temporallyReachableOutputs: number | null;
+  contextReachableOutputs: number | null;
   messageSteps: number | null;
   broadcastGain: number | null;
   outputCount: number | null;
+  sequenceLength: number | null;
+  dependencyTokens: number | null;
   chanceAccuracy: number | null;
   checkpoints: BenchmarkCheckpoint[];
   artifactMtime: number;
@@ -249,8 +252,9 @@ export class LaboratoryView {
       const peak = benchmark.checkpoints.length
         ? Math.max(...benchmark.checkpoints.map((checkpoint) => checkpoint.heldOutAccuracy))
         : undefined;
-      const topology = benchmark.task === "token_routing"
-        ? `min ${benchmark.minimumOutputHops ?? "—"} hops · ${benchmark.temporallyReachableOutputs ?? 0}/${benchmark.outputCount ?? "—"} within ${benchmark.messageSteps ?? "—"} ticks`
+      const tokenControl = benchmark.task === "token_routing" || benchmark.task === "token_context";
+      const topology = tokenControl
+        ? `min ${benchmark.minimumOutputHops ?? "—"} hops · ${benchmark.temporallyReachableOutputs ?? 0}/${benchmark.contextReachableOutputs ?? 0}/${benchmark.outputCount ?? "—"} token/context/graph · ${benchmark.messageSteps ?? "—"}×${benchmark.sequenceLength ?? "—"} ticks`
         : final?.livingCells === undefined
           ? "—"
           : `${final.livingCells} cells · ${final.edgeCount ?? "—"} edges · +${final.cumulativeBirths ?? 0}/−${final.cumulativeDeaths ?? 0}`;
@@ -261,8 +265,8 @@ export class LaboratoryView {
         benchmark.architecture.toUpperCase(),
         benchmark.seed?.toString() ?? "—",
         `${benchmark.completedSteps.toLocaleString()} / ${benchmark.steps?.toLocaleString() ?? "—"}`,
-        benchmark.task === "token_routing"
-          ? `${benchmark.messageSteps ?? "—"} ticks`
+        tokenControl
+          ? `${benchmark.messageSteps ?? "—"}×${benchmark.sequenceLength ?? "—"} ticks`
           : final?.recallPairs?.toString() ?? "—",
         this.percent(peak),
         this.percent(final?.heldOutAccuracy),

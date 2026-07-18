@@ -186,6 +186,9 @@ def test_snapshot_discovers_bounded_benchmark_artifacts(
                 "messageSteps": 12,
                 "broadcastGain": 0.0,
                 "outputCount": 64,
+                "sequenceLength": 2,
+                "dependencyTokens": 1,
+                "contextReachableOutputs": 64,
                 "chanceAccuracy": 0.125,
                 "checkpoints": [
                     {"update": 20, "heldOutAccuracy": 0.75, "recallPairs": 1},
@@ -208,6 +211,9 @@ def test_snapshot_discovers_bounded_benchmark_artifacts(
     assert benchmark["messageSteps"] == 12
     assert benchmark["broadcastGain"] == 0.0
     assert benchmark["outputCount"] == 64
+    assert benchmark["sequenceLength"] == 2
+    assert benchmark["dependencyTokens"] == 1
+    assert benchmark["contextReachableOutputs"] == 64
     assert benchmark["chanceAccuracy"] == 0.125
     assert benchmark["checkpoints"][-1]["recallPairs"] == 2
 

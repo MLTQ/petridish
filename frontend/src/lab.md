@@ -71,6 +71,8 @@ validated launch or stop requests.
 - **Does**: Renders direct-routing controls with microticks, minimum hops, and
   one-token output reach instead of recall-only columns, with the measured task's
   chance baseline drawn directly on the accuracy plot.
+- **Does**: Renders distributed context controls with sequence length, dependency
+  horizon, and token/context/graph reach on the same measured accuracy surface.
 - **Does**: Keeps broadcast-on/off identity in the persisted intervention label so
   global-workspace shortcuts are not conflated with physical dendritic routing.
 

@@ -14,6 +14,7 @@ control-enable contracts without requiring NVIDIA hardware or launching trainers
   held-out/generation records.
 - **Does**: Preserves physical-routing microticks, output count, and chance accuracy
   from benchmark artifacts.
+- **Does**: Preserves sequence length, dependency horizon, and full-context route reach.
 - **Does**: Preserves a zero broadcast gain rather than treating it as missing data.
 
 ### Safety tests
