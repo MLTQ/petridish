@@ -216,6 +216,34 @@ class CellularSequenceModel(nn.Module):
         vocabulary = F.normalize(self.token_identity.weight.float(), dim=1)
         return code @ vocabulary.T * self.logit_scale.clamp(1, 20) + self.class_bias
 
+    def _resting_hidden(
+        self, sites: torch.Tensor, batch: int, dtype: torch.dtype
+    ) -> torch.Tensor:
+        """Construct each physical neuron's genotype/role/homeostasis resting state."""
+
+        genotype = self.substrate.genotype[sites]
+        hidden = self.context_rule(self._persistent_features(sites, batch))
+        hidden = hidden + torch.tanh(self.genotype_context(genotype)).unsqueeze(0)
+        compact = torch.full(
+            (self.config.site_count,), -1, dtype=torch.long, device=sites.device
+        )
+        compact[sites] = torch.arange(sites.numel(), device=sites.device)
+        output_compact = compact[self.substrate.output_sites]
+        output_alive = (
+            (output_compact >= 0)
+            & ~self.substrate.stunned[self.substrate.output_sites]
+        )
+        if output_alive.any():
+            hidden = hidden.index_add(
+                1,
+                output_compact[output_alive],
+                self.output_identity.weight[output_alive]
+                .to(hidden.dtype)
+                .unsqueeze(0)
+                .expand(batch, -1, -1),
+            )
+        return hidden.to(dtype)
+
     @torch.no_grad()
     def reconcile_runtime_state(
         self, runtime_state: SequenceRuntimeState
@@ -227,10 +255,7 @@ class CellularSequenceModel(nn.Module):
         if torch.equal(state.sites, sites):
             return state
         batch = state.hidden.shape[0]
-        genotype = self.substrate.genotype[sites]
-        hidden = self.context_rule(self._persistent_features(sites, batch))
-        hidden = hidden + torch.tanh(self.genotype_context(genotype)).unsqueeze(0)
-        hidden = hidden.to(state.hidden.dtype)
+        hidden = self._resting_hidden(sites, batch, state.hidden.dtype)
         compact = torch.full(
             (self.config.site_count,), -1, dtype=torch.long, device=sites.device
         )
@@ -252,6 +277,31 @@ class CellularSequenceModel(nn.Module):
             cell_memory.detach() if cell_memory is not None else None,
             state.workspace, state.fast_memory, binding_memory,
             state.previous_binding_key, state.position,
+        )
+
+    @torch.no_grad()
+    def relax_runtime_state(
+        self, runtime_state: SequenceRuntimeState, retention: float
+    ) -> SequenceRuntimeState:
+        """Relax electrical memory toward physical resting state without a reset."""
+
+        if not 0 <= retention <= 1:
+            raise ValueError("state retention must be between zero and one")
+        state = self.reconcile_runtime_state(runtime_state)
+        if retention == 1:
+            return state
+        resting = self._resting_hidden(
+            state.sites, state.hidden.shape[0], state.hidden.dtype
+        )
+        hidden = retention * state.hidden + (1 - retention) * resting
+
+        def decay(value: torch.Tensor | None) -> torch.Tensor | None:
+            return None if value is None else value * retention
+
+        return SequenceRuntimeState(
+            state.sites, hidden, decay(state.cell_memory),
+            state.workspace * retention, decay(state.fast_memory),
+            decay(state.binding_memory), state.previous_binding_key, state.position,
         )
 
     def forward(

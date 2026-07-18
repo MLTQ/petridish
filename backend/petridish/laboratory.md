@@ -26,6 +26,9 @@ explicitly enabled trainer processes.
   preserving the same 64-port physical population code.
 - **Does**: Records continuous organism experience versus the random cold-window
   control and passes that immutable mode to the trainer.
+- **Does**: Records and bounds electrical retention independently from structure;
+  the default 0.9 is a homeostatic-relaxation intervention, while 1.0 is the exact
+  indefinite-state control.
 - **Does**: Derives the compatibility lifecycle boolean from the resolved profile so
   the manifest and trainer command cannot disagree.
 

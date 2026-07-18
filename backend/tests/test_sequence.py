@@ -642,18 +642,21 @@ def test_continuous_training_state_survives_checkpoint_resume(tmp_path: Path) ->
         corpus_config(), batch_size=1, structural_enabled=0, lifecycle_enabled=0
     )
     original = SequenceExperiment(
-        task, config, seed=45, device="cpu", stream_mode="continuous"
+        task, config, seed=45, device="cpu", stream_mode="continuous",
+        state_retention=0.9,
     )
     original.train_updates(1)
     checkpoint = tmp_path / "latest.pt"
     save_checkpoint(checkpoint, original, context_length=8, amp_mode="off")
 
     restored = SequenceExperiment(
-        task, config, seed=45, device="cpu", stream_mode="continuous"
+        task, config, seed=45, device="cpu", stream_mode="continuous",
+        state_retention=0.9,
     )
     restore_checkpoint(restored, load_checkpoint(checkpoint, torch.device("cpu")))
 
     assert restored.stream_mode == "continuous"
+    assert restored.state_retention == pytest.approx(0.9)
     assert torch.equal(
         restored._training_stream_positions, original._training_stream_positions
     )
@@ -683,6 +686,28 @@ def test_cell_death_preserves_surviving_continuous_state() -> None:
 
     assert victim not in reconciled.sites.tolist()
     assert torch.equal(reconciled.hidden[:, new_index], state.hidden[:, old_index])
+
+
+def test_electrical_relaxation_preserves_structure_and_age_without_hard_reset() -> None:
+    text = "One fox ran. Two birds flew. Three cats slept. " * 30
+    task = build_token_task(text, context_length=8, vocabulary_size=32)
+    model = CellularSequenceModel(
+        corpus_config(), layout=sequence_layout(task.key, len(task.vocabulary)),
+        vocab_size=len(task.vocabulary), max_length=8, seed=48,
+    )
+    batch = task.stream_batch(torch.tensor([5]))[0]
+    state = model(batch.tokens, capture_trace=False).runtime_state.detached()
+
+    retained = model.relax_runtime_state(state, 1.0)
+    relaxed = model.relax_runtime_state(state, 0.9)
+
+    assert torch.equal(retained.hidden, state.hidden)
+    assert torch.equal(relaxed.sites, state.sites)
+    assert relaxed.position == state.position
+    assert not torch.equal(relaxed.hidden, state.hidden)
+    assert bool(torch.isfinite(relaxed.hidden).all())
+    with pytest.raises(ValueError, match="retention"):
+        model.relax_runtime_state(state, 1.1)
 
 
 def test_state_ablation_reuses_identical_validation_stream_and_one_rng_advance() -> None:

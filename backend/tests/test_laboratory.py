@@ -134,15 +134,20 @@ def test_laboratory_records_continuous_experience_or_cold_control(tmp_path: Path
     laboratory = Laboratory(tmp_path, run_root=tmp_path / "runs", control_enabled=True)
     spec = LaunchSpec(
         "trial", "GPU-example", task="tiny_stories", field_size=68,
-        stream_mode="continuous",
+        stream_mode="continuous", state_retention=0.9,
     )
 
     command = laboratory._trainer_command(spec, tmp_path / "runs" / "trial")
 
     assert command[command.index("--stream-mode") + 1] == "continuous"
+    assert command[command.index("--state-retention") + 1] == "0.9"
     with pytest.raises(ValueError, match="stream mode"):
         laboratory._validate_spec(
             LaunchSpec("invalid", "GPU-example", stream_mode="reset-everything")
+        )
+    with pytest.raises(ValueError, match="state retention"):
+        laboratory._validate_spec(
+            LaunchSpec("invalid", "GPU-example", state_retention=1.1)
         )
 
 

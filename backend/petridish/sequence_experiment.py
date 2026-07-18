@@ -40,6 +40,7 @@ class SequenceExperiment:
         recall_pair_count: int | None = None,
         recall_pair_max: int = 3,
         stream_mode: str = "windowed",
+        state_retention: float = 1.0,
     ) -> None:
         self.task = resolve_sequence_task(task)
         self.experiment_name = self.task.key
@@ -49,7 +50,10 @@ class SequenceExperiment:
             raise ValueError(f"unknown sequence stream mode: {stream_mode}")
         if stream_mode == "continuous" and self.task.training_stream is None:
             raise ValueError(f"task {self.task.key} has no contiguous training stream")
+        if not 0 <= state_retention <= 1:
+            raise ValueError("state retention must be between zero and one")
         self.stream_mode = stream_mode
+        self.state_retention = state_retention
         self.device = resolve_device(device)
         if amp_mode not in {"off", "bfloat16"}:
             raise ValueError("amp_mode must be 'off' or 'bfloat16'")
@@ -402,8 +406,8 @@ class SequenceExperiment:
         if self.stream_mode == "continuous":
             assert next_stream_positions is not None
             self._training_stream_positions = next_stream_positions
-            self._training_runtime_state = self.model.reconcile_runtime_state(
-                result.runtime_state
+            self._training_runtime_state = self.model.relax_runtime_state(
+                result.runtime_state, self.state_retention
             )
         if capture_trace:
             current_sites = self.model.substrate.living_sites
@@ -741,7 +745,9 @@ class SequenceExperiment:
                 )
                 logits = evaluation_result.logits
                 runtime_state = (
-                    evaluation_result.runtime_state.detached()
+                    self.model.relax_runtime_state(
+                        evaluation_result.runtime_state, self.state_retention
+                    )
                     if stream_positions is not None and state_carry else None
                 )
             selected_logits = logits[batch.loss_mask].float()
@@ -791,6 +797,7 @@ class SequenceExperiment:
             "loss": loss_sum / max(1, loss_items),
             "accuracy": self.test_accuracy,
             "streamMode": self.stream_mode,
+            "stateRetention": self.state_retention,
             "stateCarry": state_carry,
             "positionIndices": [
                 position

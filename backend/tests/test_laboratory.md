@@ -48,6 +48,8 @@ control-enable contracts without requiring NVIDIA hardware or launching trainers
   unsupported intermediate sizes.
 - **Does**: Preserves continuous versus windowed experience in the trainer command
   and rejects unlabeled reset modes.
+- **Does**: Preserves a bounded electrical-retention coefficient separately from
+  experience mode and rejects values above one.
 
 ## Contracts
 

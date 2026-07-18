@@ -87,6 +87,8 @@ validated launch or stop requests.
   nominal continuous run cannot masquerade as one while repeatedly reinitializing.
 - **Does**: Displays carried versus identical-token cold-state accuracy and their
   signed delta, distinguishing useful memory from merely old state.
+- **Does**: Launches and displays the bounded electrical-retention intervention so
+  indefinite persistence and homeostatic relaxation remain distinguishable.
 - **Does**: Launches and displays fixed/adaptive topology independently from the
   selected lifecycle profile, and accepts a measured `failed` run state.
 - **Does**: Launches a bounded common learning-rate scale so stability controls are

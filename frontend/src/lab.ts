@@ -55,6 +55,7 @@ interface MetricRecord {
   coldStateLoss?: number;
   coldStateAccuracy?: number;
   stateCarryAccuracyDelta?: number;
+  stateRetention?: number;
 }
 
 interface RunSnapshot {
@@ -564,7 +565,7 @@ export class LaboratoryView {
         ? "state age unreported"
         : `state age ${diagnostic.electricalStateTokens.toLocaleString()} tokens`;
       const routing = diagnostic
-        ? `${String(run.configuration.streamMode ?? "windowed")} · ${stateAge} · ${diagnostic.minimumOutputHops ?? "—"}/${diagnostic.medianOutputHops ?? "—"} hops · ${diagnostic.tokenReachableOutputs ?? 0}/${diagnostic.contextReachableOutputs ?? 0}/${diagnostic.reachableOutputs ?? 0} token/context/graph · broadcast ${String(run.configuration.broadcastGain ?? "legacy")}${(diagnostic.tokenReachableOutputs ?? 0) === 0 && Number(run.configuration.messageSteps ?? 0) < Number(diagnostic.minimumOutputHops ?? 0) ? ` · insufficient ${run.configuration.messageSteps ?? "—"} < ${diagnostic.minimumOutputHops ?? "—"}` : ""}`
+        ? `${String(run.configuration.streamMode ?? "windowed")} · retention ${String(run.configuration.stateRetention ?? "1 legacy")} · ${stateAge} · ${diagnostic.minimumOutputHops ?? "—"}/${diagnostic.medianOutputHops ?? "—"} hops · ${diagnostic.tokenReachableOutputs ?? 0}/${diagnostic.contextReachableOutputs ?? 0}/${diagnostic.reachableOutputs ?? 0} token/context/graph · broadcast ${String(run.configuration.broadcastGain ?? "legacy")}${(diagnostic.tokenReachableOutputs ?? 0) === 0 && Number(run.configuration.messageSteps ?? 0) < Number(diagnostic.minimumOutputHops ?? 0) ? ` · insufficient ${run.configuration.messageSteps ?? "—"} < ${diagnostic.minimumOutputHops ?? "—"}` : ""}`
         : "—";
       const lifecycle = diagnostic
         ? `${String(run.configuration.lifecycleProfile ?? (run.configuration.lifecycle ? "baseline" : "off"))} · ${diagnostic.stunnedCells ?? 0} stunned · +${diagnostic.cumulativeBirths ?? 0}/−${diagnostic.cumulativeDeaths ?? 0} cells · ${diagnostic.cumulativeStuns ?? 0}/${diagnostic.cumulativeRecoveries ?? 0} stun/recover`
@@ -672,6 +673,7 @@ export class LaboratoryView {
       batchSize: Number(form.get("batchSize")), contextLength: 64,
       vocabularySize: Number(form.get("vocabularySize")),
       streamMode: String(form.get("streamMode")),
+      stateRetention: Number(form.get("stateRetention")),
       messageSteps: Number(form.get("messageSteps")),
       broadcastGain: Number(form.get("broadcastGain")),
       updates: Number(form.get("updates")), seed: Number(form.get("seed")),

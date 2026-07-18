@@ -40,6 +40,8 @@ runtime device is configurable independently from trainer workers.
   the laboratory applies the exact supported power-of-two set.
 - **Does**: Carries an explicit continuous or cold-window experience mode; the
   laboratory performs exact validation before process launch.
+- **Does**: Bounds state retention from zero through one for recorded electrical
+  relaxation experiments.
 - **Rationale**: The API never accepts a shell command or arbitrary path.
 
 ### `websocket_endpoint`

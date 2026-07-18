@@ -27,6 +27,10 @@ cutting autograd history at a truncated-backpropagation boundary. If lifecycle
 changes the population, `reconcile_runtime_state` maps every survivor by physical
 site, initializes only newborn state, and retains workspace and address memories;
 cell death therefore never resets the surviving organism.
+`relax_runtime_state` optionally mixes electrical state toward each same physical
+neuron's genotype/role/homeostasis-defined resting state and decays private/workspace
+memories by the same coefficient. It preserves sites, structure, learned parameters,
+and absolute electrical age; retention one is an exact no-relaxation control.
 
 Stunned neurons retain their private state and physical dendrites but are gated out
 of external drive, sending, receiving, recurrent updates, and readout until recovery.

@@ -56,6 +56,7 @@ def _experiment_state(experiment: SequenceExperiment) -> dict[str, Any]:
             "substrate_generation": experiment.model.substrate.generation,
             "substrate_lifecycle_rng": experiment.model.substrate._lifecycle_generator.get_state(),
             "stream_mode": experiment.stream_mode,
+            "state_retention": experiment.state_retention,
             "_training_stream_positions": experiment._training_stream_positions,
             "_training_runtime_state": experiment._training_runtime_state,
         }
@@ -102,6 +103,7 @@ def save_checkpoint(
             "amp_mode": amp_mode,
             "seed": experiment.seed,
             "stream_mode": experiment.stream_mode,
+            "state_retention": experiment.state_retention,
         },
         "model": experiment.model.state_dict(),
         "optimizer": experiment.optimizer.state_dict(),
@@ -191,6 +193,7 @@ def _scientific_metrics(experiment: SequenceExperiment) -> dict[str, Any]:
             experiment._training_runtime_state.position
             if experiment._training_runtime_state is not None else 0
         ),
+        "stateRetention": experiment.state_retention,
         "generation": substrate.generation,
         "livingCells": int(living.numel()),
         "stunnedCells": int(substrate.stunned[living].sum()),
@@ -342,6 +345,7 @@ def main() -> None:
     )
     parser.add_argument("--message-steps", type=int)
     parser.add_argument("--stream-mode", choices=STREAM_MODES, default="continuous")
+    parser.add_argument("--state-retention", type=float, default=1.0)
     parser.add_argument("--broadcast-gain", type=float)
     parser.add_argument("--architecture", choices=CELL_ARCHITECTURES, default="gru")
     parser.add_argument("--updates", type=int, default=100_000)
@@ -369,6 +373,8 @@ def main() -> None:
         parser.error("--learning-rate-scale must be between 0.01 and 1.0")
     if args.broadcast_gain is not None and not 0 <= args.broadcast_gain <= 2.0:
         parser.error("--broadcast-gain must be between 0 and 2")
+    if not 0 <= args.state_retention <= 1:
+        parser.error("--state-retention must be between 0 and 1")
 
     latest = args.checkpoint_dir / "latest.pt"
     payload: dict[str, Any] | None = None
@@ -381,6 +387,7 @@ def main() -> None:
         args.amp = str(saved_task["amp_mode"])
         args.task = str(saved_task.get("key", "tiny_shakespeare"))
         args.stream_mode = str(saved_task.get("stream_mode", "windowed"))
+        args.state_retention = float(saved_task.get("state_retention", 1.0))
         args.vocabulary_size = len(tuple(saved_task.get("vocabulary", ())))
         config = MnistModelConfig(**payload["configuration"])
     else:
@@ -408,7 +415,7 @@ def main() -> None:
 
     experiment = SequenceExperiment(
         task, config, seed=args.seed, device=args.device, amp_mode=args.amp,
-        stream_mode=args.stream_mode,
+        stream_mode=args.stream_mode, state_retention=args.state_retention,
     )
     if payload is not None:
         restore_checkpoint(experiment, payload)
@@ -431,7 +438,8 @@ def main() -> None:
     print(
         f"starting at update {experiment.training_step} on {experiment.device}; "
         f"architecture={config.cell_architecture} batch={config.batch_size} "
-        f"stream={args.stream_mode} amp={args.amp} compile={args.compile_mode}",
+        f"stream={args.stream_mode} retention={args.state_retention:.3f} "
+        f"amp={args.amp} compile={args.compile_mode}",
         flush=True,
     )
     if args.evaluate_only:
@@ -462,6 +470,7 @@ def main() -> None:
             "rollingLoss": experiment.rolling_loss,
             "rollingAccuracy": experiment.rolling_accuracy,
             "streamMode": experiment.stream_mode,
+            "stateRetention": experiment.state_retention,
             "electricalStateTokens": (
                 experiment._training_runtime_state.position
                 if experiment._training_runtime_state is not None else 0

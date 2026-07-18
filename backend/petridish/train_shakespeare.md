@@ -60,6 +60,10 @@ contiguous-token cold-state ablation, and their accuracy delta.
 `--evaluate-only` loads an existing checkpoint, appends that complete held-out record
 without an optimizer update, and exits. This lets older or interrupted trainers gain
 new diagnostics without altering the organism being measured.
+`--state-retention 0..1` records the fraction of electrical/private/workspace state
+retained at each context boundary. One reproduces indefinite persistence; the lab
+defaults new controlled launches to 0.9 after the no-relaxation trajectory ablation
+showed harmful accumulated state.
 
 By default a fresh invocation resumes `latest.pt` when present. Resume restores the
 saved configuration, context, seed, vocabulary contract, AMP mode, organism, and

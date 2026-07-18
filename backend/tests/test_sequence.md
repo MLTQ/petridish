@@ -63,7 +63,9 @@ site. Scientific diagnostics report zero electrical age before the first carried
 window. The paired held-out ablation must reuse the same contiguous tokens for carried
 and cold state, label both conditions, and advance the evaluation RNG only once. The
 headless diagnostic helper must publish the signed accuracy difference used by both
-scheduled and evaluate-only records. The
+scheduled and evaluate-only records. Electrical relaxation must preserve physical
+sites and absolute age, leave retention-one state bit-identical, change state at 0.9,
+remain finite, and survive checkpoints. The
 excitotoxicity regression verifies stun, seeded recovery without
 edge deletion, and lethal classification only after accumulated damage crosses the
 configured threshold.

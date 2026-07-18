@@ -39,6 +39,7 @@ class LaunchSpec:
     context_length: int = 64
     vocabulary_size: int = 2_048
     stream_mode: str = "continuous"
+    state_retention: float = 0.9
     message_steps: int = 2
     broadcast_gain: float = 0.3
     updates: int = 100_000
@@ -138,6 +139,7 @@ class Laboratory:
                 "contextLength": spec.context_length,
                 "vocabularySize": spec.vocabulary_size,
                 "streamMode": spec.stream_mode,
+                "stateRetention": spec.state_retention,
                 "messageSteps": spec.message_steps,
                 "broadcastGain": spec.broadcast_gain,
                 "updates": spec.updates,
@@ -209,6 +211,8 @@ class Laboratory:
             raise ValueError("vocabulary size must be a supported power of two from 64 to 2048")
         if spec.stream_mode not in STREAM_MODES:
             raise ValueError("unknown corpus stream mode")
+        if not 0 <= spec.state_retention <= 1:
+            raise ValueError("state retention must be between zero and one")
         if spec.batch_size < 1 or spec.batch_size > 256:
             raise ValueError("batch size must be between 1 and 256")
         if spec.message_steps < 1 or spec.message_steps > 16:
@@ -233,6 +237,7 @@ class Laboratory:
             "--context-length", str(spec.context_length),
             "--vocabulary-size", str(spec.vocabulary_size),
             "--stream-mode", spec.stream_mode,
+            "--state-retention", str(spec.state_retention),
             "--message-steps", str(spec.message_steps),
             "--broadcast-gain", str(spec.broadcast_gain),
             "--architecture", spec.architecture,

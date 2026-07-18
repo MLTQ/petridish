@@ -18,6 +18,11 @@ held-out windows, and metrics record the selected mode. `evaluate_state_ablation
 replays identical contiguous held-out tokens with state carry disabled, restores the
 evaluation RNG to a single-evaluation advance, and reports the causal accuracy
 difference without changing training state.
+Continuous training may set a bounded `state_retention` at truncation boundaries.
+This models homeostatic electrical relaxation, not organism reset: current state is
+mixed with the same physical cells' resting field while topology, synapses, genotype,
+parameters, stream position, and survivor identity remain intact. Evaluation applies
+the identical retention schedule.
 
 Recall begins with one binding and advances to two and three only when the most
 recent 24 training batches exceed 90% accuracy. Tiny-language accuracy is reported
