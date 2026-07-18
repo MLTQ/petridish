@@ -122,6 +122,9 @@ validated launch or stop requests.
   coverage and balanced duplicate coverage remain distinguishable.
 - **Does**: Summarizes the newest four visits to every lane as mean and min–max
   accuracy, distinguishing broad consolidation from one inherited trajectory.
+- **Does**: Separately summarizes lanes appended by the current phase as soon as each
+  has one measured visit, exposing cold-bank transfer before enough updates exist for
+  a four-visit summary of every inherited lane.
 - **Does**: When lanes occupy multiple stream domains, groups those same per-lane
   accuracies by domain so old-prefix replay and new-corpus learning are measured
   separately inside the one organism.

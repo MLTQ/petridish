@@ -982,10 +982,23 @@ export class LaboratoryView {
         }
       }
     }
-    if (lanes.some((values) => values.length === 0)) return "";
-    const accuracies = lanes.map((values) => (
+    const laneMean = (values: number[]): number => (
       values.reduce((sum, value) => sum + value, 0) / values.length
-    ));
+    );
+    const previousPhase = run.phaseHistory.at(-2);
+    const previousLaneCount = Math.min(
+      laneCount, Number(previousPhase?.stateLanes ?? laneCount),
+    );
+    const appendedLanes = lanes.slice(previousLaneCount);
+    const appendedAccuracies = appendedLanes
+      .filter((values) => values.length > 0)
+      .map(laneMean);
+    const appended = appendedLanes.length > 0
+      && appendedAccuracies.length === appendedLanes.length
+      ? ` · appended lane acc ${this.percent(laneMean(appendedAccuracies))} mean / ${this.percent(Math.min(...appendedAccuracies))}–${this.percent(Math.max(...appendedAccuracies))} (${appendedLanes.length} lanes)`
+      : "";
+    if (lanes.some((values) => values.length === 0)) return appended;
+    const accuracies = lanes.map(laneMean);
     const mean = accuracies.reduce((sum, value) => sum + value, 0) / accuracies.length;
     const domainAccuracies = new Map<number, number[]>();
     domainByLane.forEach((domain, lane) => {
@@ -999,7 +1012,7 @@ export class LaboratoryView {
       : ` · domain acc ${[...domainAccuracies.entries()].sort((a, b) => a[0] - b[0]).map(([domain, values]) => (
         `${domain.toLocaleString()} ${this.percent(values.reduce((sum, value) => sum + value, 0) / values.length)}`
       )).join(" / ")}`;
-    return ` · lane acc ${this.percent(mean)} mean / ${this.percent(Math.min(...accuracies))}–${this.percent(Math.max(...accuracies))}${domains}`;
+    return `${appended} · lane acc ${this.percent(mean)} mean / ${this.percent(Math.min(...accuracies))}–${this.percent(Math.max(...accuracies))}${domains}`;
   }
 
   private drawChart(): void {
