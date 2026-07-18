@@ -17,6 +17,8 @@ experiment laboratory above the live organism.
   and an explicitly enabled launch form without displacing live dish controls.
 - **Does**: Places selected-run topology, routing, lifecycle, pruning, and fixed-prompt
   generation evidence directly below the corresponding loss histories.
+- **Does**: Includes startup, settling, and steady-state held-out position bands so
+  delayed cellular competence is not hidden inside aggregate corpus accuracy.
 - **Does**: Keeps historical topology-recovery data available to the laboratory
   parser but removes that lesion-oriented plot from the active investigation surface.
 - **Interacts with**: `LaboratoryView` in `lab.ts` and `/api/lab`.

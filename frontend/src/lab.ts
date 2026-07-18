@@ -47,6 +47,8 @@ interface MetricRecord {
   generationPrompt?: string;
   generationSample?: string;
   generationUniqueTokenRatio?: number;
+  positionIndices?: number[];
+  positionAccuracy?: number[];
 }
 
 interface RunSnapshot {
@@ -564,7 +566,10 @@ export class LaboratoryView {
       const sample = heldOut?.generationSample === undefined
         ? "—"
         : `${heldOut.generationPrompt ?? ""} → ${this.compactSample(heldOut.generationSample)} · ${this.percent(heldOut.generationUniqueTokenRatio)} unique`;
-      for (const value of [run.id, graph, routing, lifecycle, structure, sample]) {
+      const positionAccuracy = heldOut ? this.positionBands(heldOut) : "—";
+      for (const value of [
+        run.id, graph, routing, lifecycle, structure, positionAccuracy, sample,
+      ]) {
         const cell = document.createElement("td");
         cell.textContent = value;
         row.append(cell);
@@ -724,5 +729,28 @@ export class LaboratoryView {
   private compactSample(value: string): string {
     const visible = value.replaceAll("\n", " ↵ ").replaceAll("\t", " ⇥ ").trim();
     return visible.length <= 72 ? visible : `${visible.slice(0, 69)}…`;
+  }
+
+  private positionBands(record: MetricRecord): string {
+    const indices = record.positionIndices ?? [];
+    const accuracy = record.positionAccuracy ?? [];
+    const bands = [
+      { label: "p0–3", values: [] as number[] },
+      { label: "p4–15", values: [] as number[] },
+      { label: "p16+", values: [] as number[] },
+    ];
+    indices.forEach((position, offset) => {
+      const value = accuracy[offset];
+      if (value === undefined || !Number.isFinite(value)) return;
+      const band = position < 4 ? bands[0] : position < 16 ? bands[1] : bands[2];
+      band?.values.push(value);
+    });
+    const populated = bands.filter((band) => band.values.length > 0);
+    if (!populated.length) return "—";
+    return populated.map((band) => (
+      `${band.label} ${this.percent(
+        band.values.reduce((sum, value) => sum + value, 0) / band.values.length,
+      )}`
+    )).join(" · ");
   }
 }

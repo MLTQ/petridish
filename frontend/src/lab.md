@@ -28,6 +28,8 @@ validated launch or stop requests.
 - **Does**: Shows measured physical/conducting topology, token/context/graph reach,
   cell and edge turnover, pruning pressure, and the latest fixed-prompt generation
   for each selected corpus run.
+- **Does**: Aggregates held-out position accuracy into `p0–3`, `p4–15`, and `p16+`
+  bands, separating organism startup/settling from steady-state token prediction.
 - **Rationale**: Loss alone cannot establish that a cellular routing or lifecycle
   mechanism is functioning.
 
