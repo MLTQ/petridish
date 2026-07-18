@@ -20,6 +20,7 @@ from .token_memory_task import token_memory_task
 from .token_pipeline_task import token_pipeline_task
 from .token_routing_task import token_routing_task
 from .token_settling_task import token_settling_task
+from .token_settled_pipeline_task import token_settled_pipeline_task
 from .token_stream_task import token_stream_task
 
 
@@ -67,6 +68,7 @@ PROFILES: dict[str, dict[str, Any]] = {
     },
     "token_route68": {},
     "token_settling68": {},
+    "token_settled_pipeline68": {},
     "token_context68": {},
     "token_memory68": {},
     "token_pipeline68": {},
@@ -77,6 +79,7 @@ PROFILES: dict[str, dict[str, Any]] = {
 TOKEN_CONTROL_PROFILES = {
     "token_routing": "token_route68",
     "token_settling": "token_settling68",
+    "token_settled_pipeline": "token_settled_pipeline68",
     "token_context": "token_context68",
     "token_memory": "token_memory68",
     "token_pipeline": "token_pipeline68",
@@ -141,6 +144,7 @@ def run_benchmark(
         else token_memory_task() if task == "token_memory"
         else token_pipeline_task() if task == "token_pipeline"
         else token_settling_task() if task == "token_settling"
+        else token_settled_pipeline_task() if task == "token_settled_pipeline"
         else token_stream_task() if task == "token_stream"
         else task
     )
@@ -178,7 +182,10 @@ def run_benchmark(
             "sequenceLength": experiment.task.sequence_length,
             "dependencyTokens": (
                 experiment.task.sequence_length - 1
-                if task in {"token_stream", "token_pipeline", "token_settling"}
+                if task in {
+                    "token_stream", "token_pipeline", "token_settling",
+                    "token_settled_pipeline",
+                }
                 else 1 if task in {"token_context", "token_memory"} else 0
             ),
             "chanceAccuracy": (
@@ -187,6 +194,7 @@ def run_benchmark(
                 if task in {
                     "token_context", "token_memory", "token_stream", "token_pipeline",
                     "token_settling",
+                    "token_settled_pipeline",
                 }
                 else None
             ),
@@ -197,6 +205,7 @@ def run_benchmark(
                 "context_stream" if task == "token_stream" else
                 "context_pipeline" if task == "token_pipeline" else
                 "context_settling" if task == "token_settling" else
+                "settled_pipeline" if task == "token_settled_pipeline" else
                 f"fixed_{fixed_recall_pairs}"
                 if fixed_recall_pairs is not None else "adaptive"
             ),
@@ -318,6 +327,7 @@ def main() -> None:
         "--task", choices=(
             "associative_recall", "tiny_language", "token_routing", "token_memory",
             "token_context", "token_stream", "token_pipeline", "token_settling",
+            "token_settled_pipeline",
         ),
         required=True,
     )

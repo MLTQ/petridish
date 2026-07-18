@@ -173,20 +173,20 @@ class SpatialSubstrate(nn.Module):
         return base[order]
 
     def _boundary_sites(self, count: int, side: str) -> list[int]:
-        """Pack unique semantic ports into a boundary stripe on small fields."""
+        """Place semantic ports in exactly one ordered boundary column."""
 
         cfg = self.config
         usable_rows = cfg.height - 2
-        stripe_width = math.ceil(count / usable_rows)
-        if stripe_width * 2 > cfg.width - 2:
+        if count > usable_rows:
             raise ValueError(
-                f"{cfg.width}×{cfg.height} field cannot fit {count} input/output ports"
+                f"{cfg.width}×{cfg.height} field has only {usable_rows} usable boundary "
+                f"rows for {count} ports; increase field height to at least {count + 2} "
+                "because boundary ports may not wrap into another column"
             )
         sites: list[int] = []
         for index in range(count):
-            lane, row_offset = divmod(index, usable_rows)
-            row = row_offset + 1
-            column = 1 + lane if side == "left" else cfg.width - 2 - lane
+            row = index + 1
+            column = 1 if side == "left" else cfg.width - 2
             sites.append(row * cfg.width + column)
         return sites
 

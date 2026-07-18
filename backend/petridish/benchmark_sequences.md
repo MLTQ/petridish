@@ -141,3 +141,15 @@ python -m petridish.benchmark_sequences --task token_settling \
   --broadcast-gain 0 --steps 1200 \
   --output benchmarks/lab/token-settling-esn-local.json
 ```
+
+`token_settled_pipeline` with `token_settled_pipeline68` is the combined physical
+protocol: two rule-settling clocks, four decorrelated input bits, two flush clocks,
+and targets delayed by two token positions. It removes the period-two shortcut in
+the settling-only control while preserving a purely local causal path.
+
+```bash
+python -m petridish.benchmark_sequences --task token_settled_pipeline \
+  --profile token_settled_pipeline68 --architecture esn --message-steps 16 \
+  --broadcast-gain 0 --steps 800 \
+  --output benchmarks/lab/token-settled-pipeline-esn-local.json
+```

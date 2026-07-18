@@ -17,6 +17,13 @@ before same-clock token prediction begins.
 - **Rationale**: Every supervised position balances rule, input, and target, so the
   clocks introduce computation time but no label information.
 
+## Notes
+
+The four bit patterns repeat with period two. This control can therefore expose a
+two-token physical lag (perfect late positions) but cannot by itself prove that late
+predictions use the contemporaneous bit. `token_settled_pipeline_task.py` removes
+that ambiguity with decorrelated patterns and explicit delayed targets.
+
 ## Contracts
 
 | Dependent | Expects | Breaking changes |

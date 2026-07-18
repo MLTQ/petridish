@@ -36,6 +36,7 @@ from petridish.token_memory_task import token_memory_task
 from petridish.token_pipeline_task import token_pipeline_task
 from petridish.token_routing_task import token_routing_task
 from petridish.token_settling_task import token_settling_task
+from petridish.token_settled_pipeline_task import token_settled_pipeline_task
 from petridish.token_stream_task import token_stream_task
 from petridish.train_shakespeare import (
     _fresh_config,
@@ -48,6 +49,17 @@ def small_config():
     return sequence_config(
         width=20, height=20, hidden_channels=8, genotype_channels=6,
         initial_density=0.30, batch_size=3, message_steps=1,
+        candidate_probes=12, local_radius=4, max_visible_edges=100,
+    )
+
+
+def corpus_config():
+    """Keep distributed corpus fixtures sparse while preserving linear ports."""
+
+    return sequence_config(
+        width=68, height=68, hidden_channels=8, genotype_channels=6,
+        initial_density=0.03, max_initial_neurons=160,
+        batch_size=2, message_steps=1,
         candidate_probes=12, local_radius=4, max_visible_edges=100,
     )
 
@@ -152,6 +164,16 @@ def test_tiny_shakespeare_uses_one_ordered_66_port_column_per_boundary() -> None
     assert torch.equal(
         substrate.output_sites, output_base[torch.tensor(layout.output_position_order)]
     )
+
+
+def test_boundary_ports_reject_wrap_instead_of_creating_another_column() -> None:
+    layout = sequence_layout("tiny_shakespeare", 66)
+    undersized = replace(
+        sequence_config("tiny_shakespeare"), width=66, height=66
+    )
+
+    with pytest.raises(ValueError, match="may not wrap into another column"):
+        SpatialSubstrate(undersized, layout=layout, seed=4)
 
 
 def test_68_field_size_is_available_for_single_column_corpus_tasks() -> None:
@@ -532,11 +554,7 @@ def test_token_corpus_uses_distributed_ports_and_incremental_state() -> None:
         for index in range(80)
     )
     task = build_token_task(text, context_length=8, vocabulary_size=48)
-    config = sequence_config(
-        width=20, height=20, hidden_channels=8, genotype_channels=6,
-        initial_density=0.30, batch_size=2, message_steps=1,
-        candidate_probes=12, local_radius=4, max_visible_edges=100,
-    )
+    config = corpus_config()
     layout = sequence_layout(task.key, len(task.vocabulary))
     model = CellularSequenceModel(
         config, layout=layout, vocab_size=len(task.vocabulary), max_length=8, seed=41
@@ -665,6 +683,28 @@ def test_token_settling_gives_context_two_clocks_before_aligned_targets() -> Non
         assert batch.targets[:, position].tolist().count(6) == 4
 
 
+def test_settled_pipeline_combines_context_setup_with_two_clock_output() -> None:
+    task = token_settled_pipeline_task()
+    batch = task.batch(8, torch.Generator().manual_seed(19))
+
+    assert task.key == "tiny_stories"
+    assert batch.tokens.shape == batch.targets.shape == (8, 9)
+    assert bool((batch.tokens[:, 1:3] == 2).all())
+    assert bool((batch.tokens[:, 7:9] == 2).all())
+    assert not bool(batch.loss_mask[:, :5].any())
+    assert bool(batch.loss_mask[:, 5:].all())
+    for offset, position in enumerate(range(5, 9)):
+        delayed_input = batch.tokens[:, offset + 3] - 3
+        expected = 5 + (delayed_input ^ batch.tokens[:, 0])
+        assert torch.equal(batch.targets[:, position], expected)
+        assert batch.targets[:, position].tolist().count(5) == 4
+        assert batch.targets[:, position].tolist().count(6) == 4
+    for position in (5, 6):
+        for current_bit in (3, 4):
+            selected = batch.targets[batch.tokens[:, position] == current_bit, position]
+            assert sorted(selected.unique().tolist()) == [5, 6]
+
+
 def test_zero_broadcast_gain_is_a_hard_workspace_ablation() -> None:
     config = small_config()
     config = replace(
@@ -684,7 +724,7 @@ def test_zero_broadcast_gain_is_a_hard_workspace_ablation() -> None:
 def test_greedy_generation_diagnostic_preserves_training_state() -> None:
     text = "Once upon a time there was a little fox. " * 80
     task = build_token_task(text, context_length=8, vocabulary_size=32)
-    experiment = SequenceExperiment(task, small_config(), seed=42, device="cpu")
+    experiment = SequenceExperiment(task, corpus_config(), seed=42, device="cpu")
     experiment.model.train()
     generator_state = experiment.generator.get_state().clone()
     interactive_state = (
@@ -711,7 +751,7 @@ def test_greedy_generation_diagnostic_preserves_training_state() -> None:
 def test_headless_scientific_metrics_separate_routing_and_lifecycle() -> None:
     text = "Once upon a time there was a little fox. " * 80
     task = build_token_task(text, context_length=8, vocabulary_size=32)
-    experiment = SequenceExperiment(task, small_config(), seed=43, device="cpu")
+    experiment = SequenceExperiment(task, corpus_config(), seed=43, device="cpu")
     metrics = _scientific_metrics(experiment)
 
     assert metrics["edgeCount"] >= metrics["conductingEdgeCount"]

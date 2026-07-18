@@ -24,8 +24,10 @@ birth, inherited lineage, cause-classified death, content-aware growth, and prun
   query/key/gate EMAs let growth use content-addressing evidence.
 - **Rationale**: Initial density is capped by `max_initial_neurons`, separating
   sparse population cost from physical address-space dimensions.
-- **Does**: Packs vocabulary-sized semantic ports into unique boundary stripes
-  when a single column is shorter than the vocabulary.
+- **Does**: Places every semantic port in one ordered boundary column and rejects
+  undersized fields instead of silently wrapping excess ports into another lane.
+- **Rationale**: A second port column changes physical distance and connectivity,
+  confounding experiments that are meant to share one linear sensory/output boundary.
 
 ### `GraphDiagnostics` / `graph_diagnostics`
 - **Does**: Caches directed sensory-to-output hop distance and temporal

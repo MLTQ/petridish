@@ -5,15 +5,18 @@ permuted or direction-reversed, generated recall targets match the queried bindi
 all curriculum sizes, recurrent token frames retain a differentiable path to synaptic
 weights, and live snapshots align sparse cells/edges with readable sequence metadata.
 
-The compact 20×20 fixture checks contracts rather than learning quality. Reproducible
-learning curves belong to the benchmark command because convergence tests would make
-the normal unit suite slow and hardware-sensitive.
+The compact 20×20 fixture checks contracts rather than learning quality. Corpus
+fixtures use a deliberately sparse 68×68 field because their distributed 64-port
+bank must retain the same one-column geometry as production. Reproducible learning
+curves belong to the benchmark command because convergence tests would make the
+normal unit suite slow and hardware-sensitive.
 
 The corpus fixture avoids network access while protecting dynamic vocabulary-sized
 ports, prompt installation, single-token generation, and interactive task
 serialization. Explicit geometry tests prove Tiny Shakespeare's 66 ports and the
 distributed token organism's 64 ports each occupy one unique boundary column on
-68×68, preserve graph-layout semantic order, and keep 68 unavailable to non-corpus tasks.
+68×68, preserve graph-layout semantic order, reject a 66×66 field rather than
+wrapping its last two ports, and keep 68 unavailable to non-corpus tasks.
 The headless-launch regression also prevents CLI overrides from silently replacing
 the token task's lifecycle and pruning warm-up schedule with Shakespeare defaults.
 It also requires the stability intervention to scale rule, readout, and synapse
@@ -66,6 +69,9 @@ cannot come from reading the current bit instead.
 The context-settling fixture instead masks two constant clocks after the rule and
 keeps all targets aligned with current inputs, separating context propagation from
 output latency.
+The settled-pipeline fixture combines context clocks with delayed outputs and
+decorrelated bits, eliminating the period-two shortcut identified in the settling
+control.
 The zero-broadcast regression requires a hard workspace bypass with no gradients into
 its gain or projections, preventing a nominal ablation from learning to reactivate.
 Headless diagnostics separately verify physical/conducting edges, one-token/context/

@@ -87,6 +87,8 @@ validated launch or stop requests.
   their physical route budget and delayed per-position accuracy.
 - **Does**: Treats masked context-settling clocks as a distinct token control so
   context-propagation time is not conflated with output latency.
+- **Does**: Treats the decorrelated settled pipeline as the combined causal control,
+  preserving its longer dependency horizon and delayed position metrics.
 - **Does**: Keeps broadcast-on/off identity in the persisted intervention label so
   global-workspace shortcuts are not conflated with physical dendritic routing.
 
