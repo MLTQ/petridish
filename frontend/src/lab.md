@@ -85,6 +85,8 @@ validated launch or stop requests.
   preserves their dependency horizon plus per-position accuracy.
 - **Does**: Treats fixed-latency contextual pipelines as token controls, preserving
   their physical route budget and delayed per-position accuracy.
+- **Does**: Treats masked context-settling clocks as a distinct token control so
+  context-propagation time is not conflated with output latency.
 - **Does**: Keeps broadcast-on/off identity in the persisted intervention label so
   global-workspace shortcuts are not conflated with physical dendritic routing.
 

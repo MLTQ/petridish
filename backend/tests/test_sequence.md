@@ -63,6 +63,9 @@ position, and frequency shortcuts.
 The latency-pipeline fixture shifts all four targets by exactly two token clocks and
 balances delayed bits against contemporaneous inputs, proving that pipeline success
 cannot come from reading the current bit instead.
+The context-settling fixture instead masks two constant clocks after the rule and
+keeps all targets aligned with current inputs, separating context propagation from
+output latency.
 The zero-broadcast regression requires a hard workspace bypass with no gradients into
 its gain or projections, preventing a nominal ablation from learning to reactivate.
 Headless diagnostics separately verify physical/conducting edges, one-token/context/

@@ -35,6 +35,7 @@ from petridish.token_context_task import token_context_task
 from petridish.token_memory_task import token_memory_task
 from petridish.token_pipeline_task import token_pipeline_task
 from petridish.token_routing_task import token_routing_task
+from petridish.token_settling_task import token_settling_task
 from petridish.token_stream_task import token_stream_task
 from petridish.train_shakespeare import (
     _fresh_config,
@@ -645,6 +646,23 @@ def test_token_pipeline_aligns_targets_two_token_clocks_after_input() -> None:
         for current_bit in (2, 3):
             selected = batch.targets[batch.tokens[:, position] == current_bit, position]
             assert sorted(selected.unique().tolist()) == [5, 6]
+
+
+def test_token_settling_gives_context_two_clocks_before_aligned_targets() -> None:
+    task = token_settling_task()
+    batch = task.batch(8, torch.Generator().manual_seed(17))
+
+    assert task.key == "tiny_stories"
+    assert batch.tokens.shape == batch.targets.shape == (8, 7)
+    assert bool((batch.tokens[:, 1:3] == 2).all())
+    assert not bool(batch.loss_mask[:, :3].any())
+    assert bool(batch.loss_mask[:, 3:].all())
+    for offset, position in enumerate(range(3, 7)):
+        current_input = batch.tokens[:, position] - 3
+        expected = 5 + (current_input ^ batch.tokens[:, 0])
+        assert torch.equal(batch.targets[:, position], expected)
+        assert batch.targets[:, position].tolist().count(5) == 4
+        assert batch.targets[:, position].tolist().count(6) == 4
 
 
 def test_zero_broadcast_gain_is_a_hard_workspace_ablation() -> None:

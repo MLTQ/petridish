@@ -129,3 +129,15 @@ python -m petridish.benchmark_sequences --task token_pipeline \
   --broadcast-gain 0 --steps 1200 \
   --output benchmarks/lab/token-pipeline-esn-local.json
 ```
+
+`token_settling` with `token_settling68` keeps targets aligned with their current
+bit input but inserts two masked, constant clock tokens after the rule. It tests
+whether local failure reflects time needed to establish a distributed context rather
+than delayed output or memory decay. The clocks carry no target information.
+
+```bash
+python -m petridish.benchmark_sequences --task token_settling \
+  --profile token_settling68 --architecture esn --message-steps 16 \
+  --broadcast-gain 0 --steps 1200 \
+  --output benchmarks/lab/token-settling-esn-local.json
+```
