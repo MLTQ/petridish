@@ -23,6 +23,9 @@ This models homeostatic electrical relaxation, not organism reset: current state
 mixed with the same physical cells' resting field while topology, synapses, genotype,
 parameters, stream position, and survivor identity remain intact. Evaluation applies
 the identical retention schedule.
+`evaluate_state_horizons` replays one held-out stream while bounding electrical carry
+to 1, 2, 4, 8, or 16 context windows. Every horizon receives identical tokens and
+the sampler advances only once, producing a measured memory-lifetime response curve.
 
 Recall begins with one binding and advances to two and three only when the most
 recent 24 training batches exceed 90% accuracy. Tiny-language accuracy is reported

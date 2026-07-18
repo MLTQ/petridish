@@ -66,6 +66,8 @@ headless diagnostic helper must publish the signed accuracy difference used by b
 scheduled and evaluate-only records. Electrical relaxation must preserve physical
 sites and absolute age, leave retention-one state bit-identical, change state at 0.9,
 remain finite, and survive checkpoints. The
+state-horizon curve must report ordered window/token spans from identical validation
+tokens while advancing the sampler exactly once. The
 excitotoxicity regression verifies stun, seeded recovery without
 edge deletion, and lethal classification only after accumulated damage crosses the
 configured threshold.

@@ -56,6 +56,12 @@ interface MetricRecord {
   coldStateAccuracy?: number;
   stateCarryAccuracyDelta?: number;
   stateRetention?: number;
+  stateHorizon?: Array<{
+    windows: number;
+    tokens: number;
+    loss: number;
+    accuracy: number;
+  }>;
 }
 
 interface RunSnapshot {
@@ -770,8 +776,11 @@ export class LaboratoryView {
     const stateSummary = record.coldStateAccuracy === undefined
       ? ""
       : `carry ${this.percent(record.accuracy)} · cold ${this.percent(record.coldStateAccuracy)} · Δ ${this.signedPercent(record.stateCarryAccuracyDelta)}`;
-    if (!positionSummary && !baselineSummary && !stateSummary) return "—";
-    return [baselineSummary, stateSummary, positionSummary].filter(Boolean).join(" | ");
+    const horizonSummary = (record.stateHorizon ?? []).map(
+      (point) => `h${point.windows} ${this.percent(point.accuracy)}`,
+    ).join(" · ");
+    if (!positionSummary && !baselineSummary && !stateSummary && !horizonSummary) return "—";
+    return [baselineSummary, stateSummary, horizonSummary, positionSummary].filter(Boolean).join(" | ");
   }
 
   private signedPercent(value: number | undefined): string {

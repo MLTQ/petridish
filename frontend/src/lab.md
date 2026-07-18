@@ -89,6 +89,8 @@ validated launch or stop requests.
   signed delta, distinguishing useful memory from merely old state.
 - **Does**: Launches and displays the bounded electrical-retention intervention so
   indefinite persistence and homeostatic relaxation remain distinguishable.
+- **Does**: Shows optional h1/h2/h4/h8/h16 held-out accuracy from the identical-token
+  electrical-memory horizon evaluation.
 - **Does**: Launches and displays fixed/adaptive topology independently from the
   selected lifecycle profile, and accepts a measured `failed` run state.
 - **Does**: Launches a bounded common learning-rate scale so stability controls are

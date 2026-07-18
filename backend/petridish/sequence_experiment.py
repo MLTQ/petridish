@@ -696,11 +696,17 @@ class SequenceExperiment:
         *,
         progress_callback: Callable[[str, int, int], None] | None = None,
         carry_state: bool | None = None,
+        state_horizon_windows: int | None = None,
     ) -> dict[str, Any]:
         """Return held-out loss and accuracy without mutating training state."""
 
         if carry_state is not None and self.stream_mode != "continuous":
             raise ValueError("state-carry evaluation requires a continuous corpus stream")
+        if state_horizon_windows is not None:
+            if self.stream_mode != "continuous":
+                raise ValueError("state horizon requires a continuous corpus stream")
+            if state_horizon_windows < 1:
+                raise ValueError("state horizon must be at least one window")
         state_carry = self.stream_mode == "continuous" and carry_state is not False
 
         self.model.eval()
@@ -748,7 +754,15 @@ class SequenceExperiment:
                     self.model.relax_runtime_state(
                         evaluation_result.runtime_state, self.state_retention
                     )
-                    if stream_positions is not None and state_carry else None
+                    if (
+                        stream_positions is not None
+                        and state_carry
+                        and (
+                            state_horizon_windows is None
+                            or (index + 1) % state_horizon_windows != 0
+                        )
+                    )
+                    else None
                 )
             selected_logits = logits[batch.loss_mask].float()
             selected_targets = batch.targets[batch.loss_mask]
@@ -799,6 +813,7 @@ class SequenceExperiment:
             "streamMode": self.stream_mode,
             "stateRetention": self.state_retention,
             "stateCarry": state_carry,
+            "stateHorizonWindows": state_horizon_windows,
             "positionIndices": [
                 position
                 for position, count in enumerate(position_total)
@@ -838,6 +853,45 @@ class SequenceExperiment:
             self.eval_generator.set_state(after)
             self.test_accuracy = float(carried["accuracy"])
         return carried, cold
+
+    @torch.no_grad()
+    def evaluate_state_horizons(
+        self,
+        batches: int = 16,
+        horizons: tuple[int, ...] = (1, 2, 4, 8, 16),
+    ) -> list[dict[str, float | int]]:
+        """Measure useful electrical-memory lifetime on one identical token stream."""
+
+        if self.stream_mode != "continuous":
+            raise ValueError("state horizon requires continuous training mode")
+        bounded_batches = max(1, min(50, batches))
+        selected = tuple(sorted({min(bounded_batches, max(1, h)) for h in horizons}))
+        before = self.eval_generator.get_state().clone()
+        after: torch.Tensor | None = None
+        results: list[dict[str, float | int]] = []
+        try:
+            for horizon in selected:
+                self.eval_generator.set_state(before)
+                metrics = self.evaluate_metrics(
+                    bounded_batches,
+                    carry_state=True,
+                    state_horizon_windows=horizon,
+                )
+                if after is None:
+                    after = self.eval_generator.get_state().clone()
+                results.append(
+                    {
+                        "windows": horizon,
+                        "tokens": horizon * self.task.sequence_length,
+                        "loss": float(metrics["loss"]),
+                        "accuracy": float(metrics["accuracy"]),
+                    }
+                )
+        finally:
+            self.eval_generator.set_state(after if after is not None else before)
+            if results:
+                self.test_accuracy = float(results[-1]["accuracy"])
+        return results
 
     @torch.no_grad()
     def _replay_current(self, *, events: list[dict[str, Any]] | None = None) -> None:

@@ -259,7 +259,10 @@ def _baseline_diagnostics(experiment: SequenceExperiment) -> dict[str, float]:
 
 @torch.no_grad()
 def _held_out_diagnostics(
-    experiment: SequenceExperiment, batches: int
+    experiment: SequenceExperiment,
+    batches: int,
+    *,
+    include_state_horizons: bool = False,
 ) -> dict[str, Any]:
     """Evaluate one checkpoint, including the matched electrical-state ablation."""
 
@@ -276,12 +279,17 @@ def _held_out_diagnostics(
         )
     else:
         held_out = experiment.evaluate_metrics(max(1, batches))
-    return {
+    diagnostics = {
         **held_out,
         **_scientific_metrics(experiment),
         **_baseline_diagnostics(experiment),
         **_generation_diagnostics(experiment),
     }
+    if include_state_horizons and experiment.stream_mode == "continuous":
+        diagnostics["stateHorizon"] = experiment.evaluate_state_horizons(
+            max(16, batches)
+        )
+    return diagnostics
 
 
 def _fresh_config(
@@ -362,6 +370,7 @@ def main() -> None:
     parser.add_argument("--eval-batches", type=int, default=4)
     parser.add_argument("--progress-interval", type=int, default=10)
     parser.add_argument("--evaluate-only", action="store_true")
+    parser.add_argument("--state-horizon-eval", action="store_true")
     parser.add_argument("--resume", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--lifecycle", action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument("--structure", action=argparse.BooleanOptionalAction, default=True)
@@ -447,7 +456,10 @@ def main() -> None:
             parser.error("--evaluate-only requires a resumable checkpoint")
         record = {
             "type": "held_out", "update": experiment.training_step,
-            **_held_out_diagnostics(experiment, args.eval_batches),
+            **_held_out_diagnostics(
+                experiment, args.eval_batches,
+                include_state_horizons=args.state_horizon_eval,
+            ),
         }
         _append_metric(metrics_path, record)
         print(json.dumps(record, separators=(",", ":")), flush=True)

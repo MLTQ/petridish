@@ -64,6 +64,9 @@ new diagnostics without altering the organism being measured.
 retained at each context boundary. One reproduces indefinite persistence; the lab
 defaults new controlled launches to 0.9 after the no-relaxation trajectory ablation
 showed harmful accumulated state.
+`--evaluate-only --state-horizon-eval` appends the five-point identical-token state
+horizon curve without training. Scheduled validation remains bounded to the cheaper
+carried-versus-cold pair.
 
 By default a fresh invocation resumes `latest.pt` when present. Resume restores the
 saved configuration, context, seed, vocabulary contract, AMP mode, organism, and

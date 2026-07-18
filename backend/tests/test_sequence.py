@@ -736,6 +736,17 @@ def test_state_ablation_reuses_identical_validation_stream_and_one_rng_advance()
         diagnostic["accuracy"] - diagnostic["coldStateAccuracy"]
     )
 
+    horizon_before = experiment.eval_generator.get_state().clone()
+    curve = experiment.evaluate_state_horizons(4, horizons=(1, 2, 4))
+    horizon_after = experiment.eval_generator.get_state().clone()
+    experiment.eval_generator.set_state(horizon_before)
+    experiment.evaluate_metrics(
+        4, carry_state=True, state_horizon_windows=1
+    )
+    assert [point["windows"] for point in curve] == [1, 2, 4]
+    assert [point["tokens"] for point in curve] == [8, 16, 32]
+    assert torch.equal(horizon_after, experiment.eval_generator.get_state())
+
 
 def test_token_corpus_uses_one_64_port_column_per_boundary() -> None:
     config = sequence_config("tiny_stories")
