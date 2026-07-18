@@ -466,3 +466,28 @@ their 29–36% top-one accuracy cannot be presented as meaningful token predicti
 The next corpus lineage must use a complete byte vocabulary or byte-fallback tokenizer
 with no aggregate unknown class. Generation diagnostics must also report special-token
 rates so future modal collapse is explicit rather than hidden behind decoded text.
+
+## Byte-complete TinyStories lineages — 2026-07-18
+
+A new UTF-8 byte task replaces the aggregate unknown class with exactly 256 complete
+byte targets while retaining the same distributed 64-cell input/output population
+code. Its validation unknown rate is exactly zero. On 2,250,261 validation bytes, the
+space-only unigram baseline is 19.09% accuracy / 3.08455 loss and the train-fitted byte
+bigram is 31.86% / 2.28177. These, rather than uniform 1/256 chance, are the required
+language controls.
+
+Two new organisms were launched from scratch because their token semantics differ
+from the preserved wordpiece lineages:
+
+| Lineage | GPU | Microticks | Broadcast | State lanes | AMP | Initial topology | Target |
+|---------|-----|-----------:|----------:|------------:|-----|------------------|-------:|
+| `byte-nca-2070-esn4-broadcast-r090-lanes2-lr025` | 2070 | 4 | 0.35 | 2 | off | adaptive after warm-up | 1,000 |
+| `byte-nca-4090-esn16-local-r090-lr025` | 4090 | 16 | 0.00 | 1 | bfloat16 | adaptive after warm-up | 1,000 |
+
+Both use ESN cells, batch one, 64-byte contexts, retention 0.9, learning-rate scale
+0.25, no lifecycle, and seed one. The first atomic checkpoints independently record
+`tokenizer_profile=byte` and all 256 vocabulary entries. At update 287 the 2070
+control's rolling accuracy was 18.90%; at update 104 the 4090 local organism was
+17.07%. Both remain below the unigram baseline, so this early modal learning is not
+credited as contextual prediction. Fixed-seed held-out, state, and graph audits begin
+at update 500 without resetting or pausing either organism.
