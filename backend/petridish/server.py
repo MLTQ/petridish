@@ -48,6 +48,7 @@ class LabLaunchRequest(BaseModel):
     amp: str = "bfloat16"
     lifecycle: bool = False
     lifecycleProfile: str = "off"
+    structure: bool = True
 
 
 @asynccontextmanager
@@ -117,6 +118,7 @@ async def launch_lab_run(request: LabLaunchRequest) -> dict[str, object]:
         amp=request.amp,
         lifecycle=request.lifecycle,
         lifecycle_profile=request.lifecycleProfile,
+        structure=request.structure,
     )
     try:
         return await asyncio.to_thread(laboratory.launch, spec)

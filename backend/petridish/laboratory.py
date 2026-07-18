@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -41,6 +42,7 @@ class LaunchSpec:
     amp: str = "bfloat16"
     lifecycle: bool = False
     lifecycle_profile: str = "off"
+    structure: bool = True
 
 
 class Laboratory:
@@ -135,6 +137,7 @@ class Laboratory:
                 "amp": spec.amp,
                 "lifecycle": lifecycle_enabled,
                 "lifecycleProfile": lifecycle_profile,
+                "structure": spec.structure,
             },
             "createdAt": time.time(),
             "commit": self._git_commit(),
@@ -222,6 +225,7 @@ class Laboratory:
         profile = resolve_lifecycle_profile(spec.lifecycle_profile, enabled=spec.lifecycle)
         command.extend(("--lifecycle-profile", profile))
         command.append("--lifecycle" if profile != "off" else "--no-lifecycle")
+        command.append("--structure" if spec.structure else "--no-structure")
         return command
 
     def _discover_runs(self, active: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
@@ -251,6 +255,11 @@ class Laboratory:
             manifest_pid = int(manifest.get("pid", 0) or 0)
             if running is None and manifest_pid > 0 and self._pid_alive(manifest_pid):
                 running = {"pid": manifest_pid, "gpuUuid": manifest.get("gpuUuid")}
+            finite = not latest_train or all(
+                not isinstance(latest_train.get(key), (int, float))
+                or math.isfinite(float(latest_train[key]))
+                for key in ("loss", "rollingLoss")
+            )
             summaries.append(
                 {
                     "id": directory.name,
@@ -258,7 +267,10 @@ class Laboratory:
                     "architecture": manifest.get("architecture", "gru"),
                     "gpuUuid": (running or {}).get("gpuUuid", manifest.get("gpuUuid")),
                     "pid": (running or {}).get("pid", manifest_pid or None),
-                    "status": "running" if running else ("checkpointed" if has_checkpoint else "stopped"),
+                    "status": (
+                        "running" if running else "failed" if not finite
+                        else "checkpointed" if has_checkpoint else "stopped"
+                    ),
                     "configuration": manifest.get("configuration", {}),
                     "commit": manifest.get("commit"),
                     "latestTrain": latest_train,

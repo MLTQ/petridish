@@ -15,8 +15,9 @@ explicitly enabled trainer processes.
 - **Does**: Requires the 68×68 geometry that gives both corpus tasks one linear
   input column and one linear output column.
 - **Rationale**: Process commands are assembled from typed fields rather than shell text.
-- **Does**: Records `off`, original `baseline`, or empirically `balanced` lifecycle
-  policy in the immutable run manifest.
+- **Does**: Records `off`, original `baseline`, empirically `balanced`, or
+  population-stable `replacement` lifecycle policy in the immutable run manifest.
+- **Does**: Records adaptive versus fixed topology independently from lifecycle.
 - **Does**: Derives the compatibility lifecycle boolean from the resolved profile so
   the manifest and trainer command cannot disagree.
 
@@ -56,6 +57,10 @@ explicitly enabled trainer processes.
 
 ### `Laboratory.stop_run`
 - **Does**: Sends SIGTERM so the trainer completes its current update and checkpoints.
+
+### Run status
+- **Does**: Marks an ended run `failed` when its latest loss or rolling loss is
+  non-finite instead of presenting the last checkpoint as ordinary completion.
 
 ### `Laboratory._pid_alive`
 - **Does**: Treats Linux zombie processes as stopped before falling back to a

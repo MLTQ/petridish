@@ -136,7 +136,10 @@ class SequenceExperiment:
             if self.config.lifecycle_enabled else "disabled by configuration"
         )
         self.structure_unlocked = False
-        self.structure_unlock_reason = "minimum learning warm-up"
+        self.structure_unlock_reason = (
+            "disabled by configuration"
+            if not self.config.structural_enabled else "minimum learning warm-up"
+        )
         self.best_rolling_accuracy = 0.0
         self.last_accuracy_improvement_step = 0
         self._prime_preview()
@@ -573,6 +576,10 @@ class SequenceExperiment:
         return True
 
     def _should_unlock_structure(self, completed: int, accuracy: float) -> bool:
+        if not self.config.structural_enabled:
+            self.structure_unlocked = False
+            self.structure_unlock_reason = "disabled by configuration"
+            return False
         if self.structure_unlocked:
             return True
         if completed < self.config.structural_warmup_trials:
@@ -777,6 +784,8 @@ class SequenceExperiment:
 
     @property
     def learning_phase(self) -> str:
+        if not self.config.structural_enabled:
+            return "fixed graph learning"
         return "structure" if self.structure_unlocked else "joint gradient learning"
 
 

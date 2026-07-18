@@ -26,6 +26,7 @@ experiment laboratory above the live organism.
   hiding their scientific identity behind a boolean checkbox.
 - **Does**: Exposes cellular microticks per token beside corpus launch controls so
   one-token routing budget is an explicit intervention.
+- **Does**: Selects fixed or adaptive topology independently from lifecycle.
 - **Does**: Uses a task-neutral stepping-stone table and chart for recall and direct
   physical-routing overfit controls.
 

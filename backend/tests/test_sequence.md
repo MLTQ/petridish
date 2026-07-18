@@ -21,6 +21,8 @@ balanced intervention keeps stun, recovery, starvation, and eventual death but
 equalizes maximum births/deaths and lowers the empirically saturated pressures.
 The replacement profile additionally couples each cycle's birth cap to its measured
 deaths, preventing unused spatial capacity from causing unconditional population growth.
+The headless configuration regression independently disables adaptive topology while
+leaving lifecycle selection unchanged.
 
 The trace-free regression requires optimizer updates to advance metrics and examples
 without replacing the visible frame buffer, then verifies an explicit refresh rebuilds

@@ -33,6 +33,10 @@ control-enable contracts without requiring NVIDIA hardware or launching trainers
 - **Rationale**: Commands and manifests must describe the homeostasis intervention
   that actually ran.
 
+### Topology and failure status tests
+- **Does**: Preserves an explicit fixed-connectome trainer flag independently from
+  lifecycle and reports ended non-finite runs as failed.
+
 ## Contracts
 
 | Dependent | Expects | Breaking changes |

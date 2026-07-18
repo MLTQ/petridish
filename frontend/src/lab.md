@@ -66,6 +66,8 @@ validated launch or stop requests.
   balanced/replacement ablations remain distinguishable in manifests and diagnostics.
 - **Does**: Launches an explicit microtick budget and flags runs whose budget is
   shorter than the measured minimum sensory-to-output route.
+- **Does**: Launches and displays fixed/adaptive topology independently from the
+  selected lifecycle profile, and accepts a measured `failed` run state.
 - **Does**: Renders direct-routing controls with microticks, minimum hops, and
   one-token output reach instead of recall-only columns, with the measured task's
   chance baseline drawn directly on the accuracy plot.

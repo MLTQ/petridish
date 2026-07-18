@@ -66,6 +66,19 @@ def test_laboratory_preserves_named_lifecycle_profile(tmp_path: Path) -> None:
     assert "--lifecycle" in command
 
 
+def test_laboratory_can_launch_a_true_fixed_connectome(tmp_path: Path) -> None:
+    laboratory = Laboratory(tmp_path, run_root=tmp_path / "runs", control_enabled=True)
+    spec = LaunchSpec(
+        "trial", "GPU-example", task="tiny_stories", field_size=68,
+        lifecycle=False, structure=False,
+    )
+
+    command = laboratory._trainer_command(spec, tmp_path / "runs" / "trial")
+
+    assert "--no-lifecycle" in command
+    assert "--no-structure" in command
+
+
 def test_legacy_lifecycle_flag_resolves_to_recorded_baseline(tmp_path: Path) -> None:
     laboratory = Laboratory(tmp_path, run_root=tmp_path / "runs", control_enabled=True)
     spec = LaunchSpec(
@@ -136,6 +149,20 @@ def test_zombie_trainer_is_not_reported_as_alive(
 
     assert not Laboratory._pid_alive(123, proc_root=tmp_path)
     assert not kill_called
+
+
+def test_nonfinite_ended_run_is_reported_as_failed(tmp_path: Path) -> None:
+    run = tmp_path / "runs" / "diverged"
+    run.mkdir(parents=True)
+    (run / "latest.pt").touch()
+    (run / "metrics.jsonl").write_text(
+        json.dumps({"type": "train", "update": 40, "loss": float("nan")}) + "\n",
+        encoding="utf-8",
+    )
+
+    summary = Laboratory(tmp_path, run_root=tmp_path / "runs")._discover_runs({})[0]
+
+    assert summary["status"] == "failed"
 
 
 def test_snapshot_discovers_bounded_benchmark_artifacts(

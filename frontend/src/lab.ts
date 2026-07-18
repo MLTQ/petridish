@@ -55,7 +55,7 @@ interface RunSnapshot {
   architecture: string;
   gpuUuid: string | null;
   pid: number | null;
-  status: "running" | "checkpointed" | "stopped";
+  status: "running" | "checkpointed" | "stopped" | "failed";
   configuration: Record<string, unknown>;
   commit: string | null;
   latestTrain: MetricRecord | null;
@@ -533,7 +533,7 @@ export class LaboratoryView {
         ? `${String(run.configuration.lifecycleProfile ?? (run.configuration.lifecycle ? "baseline" : "off"))} · ${diagnostic.stunnedCells ?? 0} stunned · +${diagnostic.cumulativeBirths ?? 0}/−${diagnostic.cumulativeDeaths ?? 0} cells · ${diagnostic.cumulativeStuns ?? 0}/${diagnostic.cumulativeRecoveries ?? 0} stun/recover`
         : "—";
       const structure = diagnostic
-        ? `+${diagnostic.cumulativeGrownEdges ?? 0}/−${diagnostic.cumulativePrunedEdges ?? 0} edges · ${diagnostic.pruneEligibleEdges ?? 0} eligible · gen ${diagnostic.generation ?? 0}`
+        ? `${run.configuration.structure === false ? "fixed" : "adaptive"} · +${diagnostic.cumulativeGrownEdges ?? 0}/−${diagnostic.cumulativePrunedEdges ?? 0} edges · ${diagnostic.pruneEligibleEdges ?? 0} eligible · gen ${diagnostic.generation ?? 0}`
         : "—";
       const sample = heldOut?.generationSample === undefined
         ? "—"
@@ -633,7 +633,7 @@ export class LaboratoryView {
       messageSteps: Number(form.get("messageSteps")),
       updates: Number(form.get("updates")), seed: Number(form.get("seed")),
       amp: String(form.get("amp")), lifecycle: lifecycleProfile !== "off",
-      lifecycleProfile,
+      lifecycleProfile, structure: String(form.get("structure")) === "adaptive",
     };
     try {
       const response = await fetch("/api/lab/runs", {

@@ -47,6 +47,7 @@ class MnistModelConfig:
     gradient_clip: float = 1.0
     weight_decay: float = 0.0002
     max_weight: float = 2.0
+    structural_enabled: int = 1
     structural_interval: int = 16
     structural_warmup_trials: int = 512
     structure_accuracy_threshold: float = 0.70

@@ -73,6 +73,7 @@ SPECS: dict[str, HyperparameterSpec] = {
     "gradient_clip": HyperparameterSpec("gradient clip", "learning", 0.1, 10, 0.1),
     "weight_decay": HyperparameterSpec("synapse weight decay", "learning", 0, 0.01, 0.0001),
     "max_weight": HyperparameterSpec("maximum |weight|", "learning", 0.1, 5, 0.1),
+    "structural_enabled": HyperparameterSpec("adaptive topology enabled (0/1)", "growth & pruning", 0, 1, 1),
     "evaluation_interval": HyperparameterSpec("evaluation interval", "learning", 10, 1_000, 10),
     "evaluation_batches": HyperparameterSpec("evaluation batches", "learning", 1, 64, 1),
     "structural_interval": HyperparameterSpec("structural interval", "growth & pruning", 1, 128, 1),

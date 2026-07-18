@@ -23,6 +23,10 @@ gradient×weight credit are also recorded as slow local utility. After warm-up, 
 same energy homeostasis, birth/death, dendrite growth/pruning, forced lifecycle, and
 lesion pathways used by MNIST become active.
 
+Adaptive topology and lifecycle are independently gated. A fixed-connectome control
+continues optimizing synaptic weights and neuron rules but can never unlock edge
+growth or pruning, even after a learning plateau.
+
 Reward measures improvement over the uniform-loss baseline for the active vocabulary,
 so a 66-character corpus and a ten-token synthetic task use comparable signed credit.
 

@@ -24,6 +24,8 @@ in configuration but selected through the laboratory, not represented as a slide
   the viewer cannot offer a radius that wraps across half the tensor.
 - **Rationale**: Learning stability controls include signed weight scale,
   message gain, separate readout/rule rates, gradient clipping, and structure warm-up.
+- **Rationale**: Adaptive topology has its own enable switch; lifecycle-off no longer
+  ambiguously implies a fixed connectome.
 - **Rationale**: Early-output loss remains explicit and defaults to zero so
   unreachable pre-arrival steps cannot train the classifier toward uniform guesses.
 - **Rationale**: Genotype capacity, local-attention temperature, staged optimizer

@@ -240,6 +240,7 @@ def _fresh_config(
     architecture: str,
     lifecycle: bool,
     lifecycle_profile: str = "off",
+    structure: bool = True,
 ) -> MnistModelConfig:
     """Apply launch overrides without erasing task-specific warm-up policy."""
 
@@ -253,6 +254,7 @@ def _fresh_config(
         message_steps=message_steps or defaults.message_steps,
         cell_architecture=architecture,
         lifecycle_enabled=int(lifecycle),
+        structural_enabled=int(structure),
     )
     profile = resolve_lifecycle_profile(lifecycle_profile, enabled=lifecycle)
     return apply_lifecycle_profile(config, profile)
@@ -292,6 +294,7 @@ def main() -> None:
     parser.add_argument("--progress-interval", type=int, default=10)
     parser.add_argument("--resume", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--lifecycle", action=argparse.BooleanOptionalAction, default=False)
+    parser.add_argument("--structure", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument(
         "--lifecycle-profile", choices=LIFECYCLE_PROFILES, default="off"
     )
@@ -317,6 +320,7 @@ def main() -> None:
             architecture=args.architecture,
             lifecycle=args.lifecycle,
             lifecycle_profile=args.lifecycle_profile,
+            structure=args.structure,
         )
     task = (
         load_tiny_stories_task(args.context_length)

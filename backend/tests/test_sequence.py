@@ -216,6 +216,12 @@ def test_balanced_lifecycle_retains_biomimicry_without_death_budget_collapse() -
     assert replacement_profile.births_per_generation == 16
     assert replacement_profile.max_deaths_per_generation == 16
 
+    fixed = _fresh_config(
+        "tiny_stories", field_size=68, batch_size=1, message_steps=4,
+        architecture="gru", lifecycle=False, structure=False,
+    )
+    assert fixed.structural_enabled == 0
+
 
 def test_associative_recall_curriculum_preserves_queried_value() -> None:
     generator = torch.Generator().manual_seed(7)
