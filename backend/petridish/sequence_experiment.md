@@ -64,7 +64,8 @@ lesion pathways used by MNIST become active.
 Pre-clipping L2 gradient norms are measured separately for vocabulary bias, output
 decoder, token encoder, recurrent cell rule, and synapses. This distinguishes a
 frequency-only shortcut from missing or vanishing conditional credit without changing
-the organism's optimizer step.
+the organism's optimizer step. Total norm and the applied global clip scale separate
+useful credit from an update dominated by clipping.
 Non-finite loss is rejected before backward, and a non-finite total gradient norm
 is rejected before the optimizer or homeostatic state can mutate. Failed long runs
 therefore preserve their last finite checkpoint instead of applying NaN gradients

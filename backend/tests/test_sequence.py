@@ -685,11 +685,13 @@ def test_continuous_training_carries_detached_neuron_state_between_updates() -> 
     assert set(experiment.last_gradient_norms) == {
         "classBiasGradientNorm", "outputReadoutGradientNorm",
         "tokenEncoderGradientNorm", "cellRuleGradientNorm", "synapseGradientNorm",
+        "totalGradientNorm", "gradientClipScale",
     }
     assert all(
         math.isfinite(value) and value >= 0
         for value in experiment.last_gradient_norms.values()
     )
+    assert 0 < experiment.last_gradient_norms["gradientClipScale"] <= 1
     assert experiment._training_runtime_state.position == task.sequence_length * 2
     assert torch.equal(
         experiment._training_stream_positions,

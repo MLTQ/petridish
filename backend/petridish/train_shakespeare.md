@@ -76,7 +76,8 @@ Training records expose both lineage rolling metrics and process-phase-local rol
 metrics. The latter begin a new reporting window at continuation without clearing or
 modifying any organism, optimizer, graph, sampler, or electrical state.
 They also publish pre-clipping gradient norms for bias, readout, token encoder, cell
-rule, and synapses so the laboratory can localize conditional-credit failures.
+rule, and synapses, plus total norm and clip scale, so the laboratory can localize
+conditional-credit failures and clipping pressure.
 Continuous held-out records begin from a tensor-cloned copy of the checkpoint's
 actual electrical/private/workspace state and report its seed age. An identical
 contiguous-token cold-state ablation begins without that state; their accuracy delta

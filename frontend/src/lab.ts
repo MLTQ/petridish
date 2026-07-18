@@ -116,6 +116,8 @@ interface MetricRecord {
   tokenEncoderGradientNorm?: number;
   cellRuleGradientNorm?: number;
   synapseGradientNorm?: number;
+  totalGradientNorm?: number;
+  gradientClipScale?: number;
 }
 
 interface OrganismPhase {
@@ -736,7 +738,7 @@ export class LaboratoryView {
           : `state age ${diagnostic.electricalStateTokens.toLocaleString()} tokens`;
       const gradientSummary = run.latestTrain?.classBiasGradientNorm === undefined
         ? ""
-        : ` · grad bias/readout/token/rule/edge ${this.scientific(run.latestTrain.classBiasGradientNorm)}/${this.scientific(run.latestTrain.outputReadoutGradientNorm)}/${this.scientific(run.latestTrain.tokenEncoderGradientNorm)}/${this.scientific(run.latestTrain.cellRuleGradientNorm)}/${this.scientific(run.latestTrain.synapseGradientNorm)}`;
+        : ` · grad bias/readout/token/rule/edge ${this.scientific(run.latestTrain.classBiasGradientNorm)}/${this.scientific(run.latestTrain.outputReadoutGradientNorm)}/${this.scientific(run.latestTrain.tokenEncoderGradientNorm)}/${this.scientific(run.latestTrain.cellRuleGradientNorm)}/${this.scientific(run.latestTrain.synapseGradientNorm)} · total ${this.scientific(run.latestTrain.totalGradientNorm)} × clip ${this.number(run.latestTrain.gradientClipScale, 3)}`;
       const routing = diagnostic
         ? `${String(run.configuration.tokenizerProfile ?? "legacy tokenizer")} · ${String(run.configuration.streamMode ?? "windowed")} · retention ${String(run.configuration.stateRetention ?? "1 legacy")} · ${String(run.configuration.stateLanes ?? 1)} state lane${Number(run.configuration.stateLanes ?? 1) === 1 ? "" : "s"} · ${stateAge} · ${diagnostic.minimumOutputHops ?? "—"}/${diagnostic.medianOutputHops ?? "—"} hops · ${diagnostic.tokenReachableOutputs ?? 0}/${diagnostic.contextReachableOutputs ?? 0}/${diagnostic.reachableOutputs ?? 0} token/context/graph · broadcast ${String(run.configuration.broadcastGain ?? "legacy")}${(diagnostic.tokenReachableOutputs ?? 0) === 0 && Number(run.configuration.messageSteps ?? 0) < Number(diagnostic.minimumOutputHops ?? 0) ? ` · insufficient ${run.configuration.messageSteps ?? "—"} < ${diagnostic.minimumOutputHops ?? "—"}` : ""}${gradientSummary}${heldOut?.graphReferenceAccuracy === undefined ? "" : ` · causal ref ${this.percent(heldOut.graphReferenceAccuracy)} · silence Δacc ${this.signedPercent(heldOut.graphSilencedAccuracyDelta)} / Δloss ${this.signedNumber(heldOut.graphSilencedLossDelta)} · rotate topology Δacc ${this.signedPercent(heldOut.sourceRotatedAccuracyDelta)} / Δloss ${this.signedNumber(heldOut.sourceRotatedLossDelta)}${heldOut.weightReassignedLossDelta === undefined ? "" : ` · reassign weights Δacc ${this.signedPercent(heldOut.weightReassignedAccuracyDelta)} / Δloss ${this.signedNumber(heldOut.weightReassignedLossDelta)}`}${heldOut.broadcastAblationApplicable ? ` · silence broadcast Δacc ${this.signedPercent(heldOut.broadcastSilencedAccuracyDelta)} / Δloss ${this.signedNumber(heldOut.broadcastSilencedLossDelta)}` : ""}`}`
         : "—";

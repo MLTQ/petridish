@@ -174,6 +174,8 @@ class SequenceExperiment:
             "tokenEncoderGradientNorm": 0.0,
             "cellRuleGradientNorm": 0.0,
             "synapseGradientNorm": 0.0,
+            "totalGradientNorm": 0.0,
+            "gradientClipScale": 1.0,
         }
         self.lifecycle_active = False
         self.lifecycle_reason = (
@@ -384,9 +386,19 @@ class SequenceExperiment:
         }
         if progress_callback is not None:
             progress_callback("optimizer", 0, 1)
-        clip_grad_norm_(
+        total_gradient_norm = clip_grad_norm_(
             self.model.parameters(), self.config.gradient_clip,
             error_if_nonfinite=True,
+        )
+        total_gradient_value = float(total_gradient_norm)
+        self.last_gradient_norms.update(
+            {
+                "totalGradientNorm": total_gradient_value,
+                "gradientClipScale": min(
+                    1.0,
+                    self.config.gradient_clip / max(1e-12, total_gradient_value),
+                ),
+            }
         )
         self.optimizer.step()
         with torch.no_grad():

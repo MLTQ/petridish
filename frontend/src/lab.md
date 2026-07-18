@@ -136,7 +136,8 @@ validated launch or stop requests.
 - **Does**: Prefers phase-local rolling loss/accuracy when the trainer publishes it;
   this segments curriculum statistics without resetting organism-owned history.
 - **Does**: Shows pre-clipping bias/readout/token/rule/synapse gradient norms beside
-  routing diagnostics to localize frequency-only learning failures.
+  routing diagnostics, together with total norm and clip scale, to localize
+  frequency-only learning failures and clipped instability.
 - **Does**: Separates phase-local grown/pruned edge counts from lifetime totals when
   the matching phase boundary recorded its starting counters.
 - **Does**: Offers read-only evaluation on stopped checkpoints so new causal metrics

@@ -68,7 +68,8 @@ continuous-experience regressions prove adjacent windows share the boundary toke
 optimizer updates carry detached neuron state, checkpoints resume the exact lane and
 runtime state, and cell death preserves each surviving neuron's state by physical
 site. They also require finite non-negative pre-clipping gradient norms for bias,
-readout, token encoding, recurrent rules, and synapses. The same checkpoint regression
+readout, token encoding, recurrent rules, and synapses, plus a bounded positive global
+clip scale. The same checkpoint regression
 enables structural plasticity as a new phase
 without losing the population mask, dendrite sources, synaptic weights, edge ages,
 edge utilities, genotypes, generation, competence history, turnover counters, lineage
