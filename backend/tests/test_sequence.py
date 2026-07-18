@@ -46,6 +46,7 @@ from petridish.train_shakespeare import (
     _fresh_config,
     _held_out_diagnostics,
     _migrate_model_state,
+    _phase_metric_history,
     _scientific_metrics,
     _record_process_failure,
     load_checkpoint,
@@ -1429,6 +1430,47 @@ def test_fixed_seed_checkpoint_audit_is_repeatable_and_sampler_read_only() -> No
         experiment.evaluate_metrics(
             1, evaluation_split="trajectory", trajectory_lane=1
         )
+
+
+def test_phase_metric_history_survives_same_phase_worker_resume(
+    tmp_path: Path,
+) -> None:
+    metrics = tmp_path / "metrics.jsonl"
+    records = [
+        {
+            "type": "train", "phaseIndex": 17, "phaseName": "breadth",
+            "accuracy": 0.1, "loss": 4.0,
+        },
+        {
+            "type": "train", "phaseIndex": 18, "phaseName": "auxiliary",
+            "accuracy": 0.2, "loss": 3.0,
+        },
+        {
+            "type": "diagnostic", "phaseIndex": 18, "phaseName": "auxiliary",
+            "accuracy": 1.0, "loss": 0.0,
+        },
+        {
+            "type": "train", "phaseIndex": 18, "phaseName": "auxiliary",
+            "accuracy": 0.4, "loss": 2.0,
+        },
+        {
+            "type": "train", "phaseIndex": 18, "phaseName": "auxiliary",
+            "accuracy": 0.6, "loss": 1.0,
+        },
+    ]
+    metrics.write_text(
+        "\n".join(json.dumps(record) for record in records) + "\n{partial",
+        encoding="utf-8",
+    )
+
+    accuracy, loss = _phase_metric_history(
+        metrics, phase_index=18, phase_name="auxiliary", maximum=2
+    )
+
+    assert list(accuracy) == [0.4, 0.6]
+    assert list(loss) == [2.0, 1.0]
+    assert accuracy.maxlen == 2
+    assert loss.maxlen == 2
 
 
 def test_graph_ablation_is_causal_matched_and_restores_the_organism() -> None:

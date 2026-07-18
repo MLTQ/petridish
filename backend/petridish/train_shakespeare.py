@@ -791,6 +791,42 @@ def _append_metric(path: Path, record: dict[str, Any]) -> None:
         os.fsync(stream.fileno())
 
 
+def _phase_metric_history(
+    path: Path,
+    *,
+    phase_index: int,
+    phase_name: str,
+    maximum: int = 160,
+) -> tuple[deque[float], deque[float]]:
+    """Restore one phase's display window across a same-phase worker resume."""
+
+    accuracies: deque[float] = deque(maxlen=maximum)
+    losses: deque[float] = deque(maxlen=maximum)
+    if not path.exists():
+        return accuracies, losses
+    with path.open(encoding="utf-8") as stream:
+        for line in stream:
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if (
+                record.get("type") != "train"
+                or record.get("phaseIndex") != phase_index
+                or record.get("phaseName") != phase_name
+            ):
+                continue
+            accuracy = record.get("accuracy")
+            loss = record.get("loss")
+            if not isinstance(accuracy, (int, float)) or not math.isfinite(accuracy):
+                continue
+            if not isinstance(loss, (int, float)) or not math.isfinite(loss):
+                continue
+            accuracies.append(float(accuracy))
+            losses.append(float(loss))
+    return accuracies, losses
+
+
 def _record_process_failure(arguments: list[str], error: BaseException) -> None:
     """Persist a bounded terminal failure even when training never reaches update one."""
 
@@ -1092,8 +1128,9 @@ def main() -> None:
     started = time.perf_counter()
     interval_started = started
     interval_updates = 0
-    phase_accuracy_history: deque[float] = deque(maxlen=160)
-    phase_loss_history: deque[float] = deque(maxlen=160)
+    phase_accuracy_history, phase_loss_history = _phase_metric_history(
+        metrics_path, phase_index=phase_index, phase_name=phase_name
+    )
     print(
         f"starting at update {experiment.training_step} on {experiment.device}; "
         f"architecture={config.cell_architecture} batch={config.batch_size} "

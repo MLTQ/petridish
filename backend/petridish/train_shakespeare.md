@@ -128,6 +128,11 @@ Every trainer evaluation starts from the recorded `--evaluation-seed` and restor
 the checkpoint sampler afterward, making validation slices comparable across phases.
 Read-only laboratory audits use sixteen batches; scheduled training diagnostics stay
 at four to bound training interruptions.
+The phase-local 160-update display window is reconstructed from append-only `train`
+records matching both phase index and phase name. A graceful same-phase worker/GPU
+handoff therefore continues the same phase curve instead of presenting process-local
+statistics as if the organism had entered a new phase; malformed trailing JSON is
+ignored without rewriting the metric history.
 `--state-retention 0..1` records the fraction of electrical/private/workspace state
 retained at each context boundary. One reproduces indefinite persistence; the lab
 defaults new controlled launches to 0.9 after the no-relaxation trajectory ablation
