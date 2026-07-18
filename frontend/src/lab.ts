@@ -944,7 +944,9 @@ export class LaboratoryView {
       );
       const auxiliarySummary = randomOffsetAuxiliary > 0
         ? ` · random-offset aux ${String(run.latestTrain?.randomOffsetAuxiliaryScope ?? run.configuration.randomOffsetAuxiliaryScope ?? "active_shard").replace("_", " ")} ×${this.number(randomOffsetAuxiliary, 2)} loss ${this.number(run.latestTrain?.randomOffsetAuxiliaryLoss ?? undefined, 3)} acc ${this.percent(run.latestTrain?.randomOffsetAuxiliaryAccuracy ?? undefined)}`
-        : " · random-offset aux off";
+        : this.snapshot?.capabilities.persistentStateTraining
+          ? " · persistent-state gradients only"
+          : " · random-offset aux off";
       const shardCausality = shardAudit?.graphReferenceAccuracy === undefined
         ? ""
         : ` · warm shard trajectory ref ${this.percent(shardAudit.graphReferenceAccuracy)} · silence Δacc ${this.signedPercent(shardAudit.graphSilencedAccuracyDelta)} / Δloss ${this.signedNumber(shardAudit.graphSilencedLossDelta)} · rotate Δacc ${this.signedPercent(shardAudit.sourceRotatedAccuracyDelta)} / Δloss ${this.signedNumber(shardAudit.sourceRotatedLossDelta)} · reassign Δacc ${this.signedPercent(shardAudit.weightReassignedAccuracyDelta)} / Δloss ${this.signedNumber(shardAudit.weightReassignedLossDelta)}`;

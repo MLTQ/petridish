@@ -191,7 +191,8 @@ validated launch or stop requests.
   same-organism optimizer intervention rather than a reconstructed run default.
 - **Does**: Disables the historical disposable auxiliary controls when the backend
   advertises persistent-state training. Existing phase weight/scope/loss remains
-  visible as provenance, but no new cold-context optimizer intervention can be sent.
+  visible as provenance, but no new cold-context optimizer intervention can be sent;
+  zero-weight runs are labeled `persistent-state gradients only` in diagnostics.
 - **Does**: Separates phase-local grown/pruned edge counts from lifetime totals when
   the matching phase boundary recorded its starting counters.
 - **Does**: Offers read-only evaluation on stopped checkpoints so new causal metrics

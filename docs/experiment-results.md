@@ -1336,3 +1336,64 @@ reusable graph rule can become corpus-wide before pruning or lifecycle confounds
 introduced. Topology and lifecycle should remain frozen for that comparison; prune-
 only and stun/recovery branches become meaningful after corpus-wide cold-context
 accuracy rises above its language baselines.
+
+## Phase 19 — Full-corpus cold gradients improve loss but weaken warm trajectories
+
+The stronger phase-18 auxiliary endpoint at update 14,750 and SHA
+`93b65448dbef7b25e838af48bd410532d1724c6ba165b1f319218003f805564c`
+was copied byte-for-byte into two stopped descendants. Both retained organism ID
+`organism-b2505376398a491e8cf4150a5daf3fab`, all 2,224 cells, 13,737 fixed directed
+edges, 169 saved electrical/private/workspace trajectories, optimizer moments,
+cursors, domains, parameters, and RNG streams. Both used auxiliary weight 0.25 for
+500 updates. Control sampled its active 8K shard; treatment sampled the unsharded
+TinyStories training corpus.
+
+The scope change did not improve the persistent trajectories. Control reached
+64.98% / 1.40015 overall and treatment 63.39% / 1.46308. By checkpoint-owned stream
+domain, control versus treatment measured 83.85% / 0.71085 versus 82.39% / 0.86357
+on 2K, 75.88% / 0.88631 versus 74.78% / 0.95178 on 4K, and 45.50% / 2.26829 versus
+43.20% / 2.30535 on 8K. The final 160 windows were 65.46% / 1.38006 control and
+63.87% / 1.45057 treatment. Median clip scales remained similarly constrained at
+0.0627 and 0.0701, with 96.6% of both phases at or below 0.1.
+
+The auxiliary distributions correctly separated. Active-shard control auxiliary
+accuracy was 37.58% / 2.59120; full-corpus treatment was 12.18% / 3.96611. On the
+read-only full-corpus cold-context audit, treatment improved 8.40% / 4.62515 to
+9.77% / 4.24527. Validation top-one stayed flat at 10.74% control and 10.55%
+treatment, but loss improved from 4.80557 to 4.33441. This is useful probability
+redistribution, not corpus language competence: both remain below the 19.09% unigram
+accuracy baseline. The active-8K cold audit moved from 41.11% / 2.47968 to
+39.94% / 2.46907, showing a small breadth-versus-specialization trade.
+
+Warm graph-routed competence remained high. Lane 16 measured 84.47% control and
+82.91% treatment; lane 105 measured 85.94% and 86.52%. Treatment lane 105 retained
+66.80% from a read-only zero-state copy, while graph silence left only 2.83%.
+Terminal checkpoints remained immutable through all audits:
+`065d68e5269d9142080dbcb0cf34e5c782de6fdc50ebcbee23ba86e2a223888c`
+for control and
+`ac2441097d8e245e85fc55b0487a6790f3b5801c5eac4884ecca50543c09fab9`
+for treatment.
+
+### Method correction: every training context must belong to the organism
+
+Although the auxiliary passes used the emerged cells, graph, synapses, and shared
+rule, each began with newly initialized transient electricity and was discarded after
+backward. That is a valid state-ablation experiment but not the intended persistent-
+organism training regime. Phases 18 and 19 therefore remain recorded as exploratory
+cold-gradient ablations; they are not evidence that a single continuously living
+organism learned corpus breadth.
+
+Commit `ff8a318` makes the distinction executable. A nonzero historical auxiliary
+setting can still be loaded for exact provenance and read-only evaluation, but every
+optimizer entry point rejects it before advancing the tick, sampler, cursor, gradient,
+optimizer, or organism state. The laboratory disables the controls, advertises
+persistent-state training, and records an explicit zero override when continuing a
+legacy checkpoint. Fresh-state contexts are now read-only audits only.
+
+Phase 20 starts from an exact fork of the untouched phase-19 treatment checkpoint.
+Source and descendant both had SHA
+`ac2441097d8e245e85fc55b0487a6790f3b5801c5eac4884ecca50543c09fab9`
+before launch. The descendant keeps the same organism ID, cells, graph, optimizer,
+RNG, cursors, domains, and all 169 carried states, changes only auxiliary weight
+0.25→0, and continues fixed-topology/lifecycle-off persistent-lane training from
+update 15,250 to 15,750. The source remains frozen.
