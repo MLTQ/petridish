@@ -83,6 +83,8 @@ validated launch or stop requests.
   without changing the chart or topology semantics.
 - **Does**: Places repeated copy/invert token streams after XOR composition and
   preserves their dependency horizon plus per-position accuracy.
+- **Does**: Treats fixed-latency contextual pipelines as token controls, preserving
+  their physical route budget and delayed per-position accuracy.
 - **Does**: Keeps broadcast-on/off identity in the persisted intervention label so
   global-workspace shortcuts are not conflated with physical dendritic routing.
 

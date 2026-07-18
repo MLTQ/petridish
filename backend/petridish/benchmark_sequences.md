@@ -116,3 +116,16 @@ python -m petridish.benchmark_sequences --task token_stream \
   --profile token_stream68 --message-steps 16 --broadcast-gain 0 \
   --steps 1200 --output benchmarks/lab/token-stream-local.json
 ```
+
+`token_pipeline` with `token_pipeline68` shifts each stream target by two token
+clocks. This recognizes that a signal traversing a spatial organism has latency and
+tests a causal local pipeline rather than demanding same-clock global communication.
+The input patterns balance every delayed/current-bit pair at the first two output
+positions, while the final two positions receive only a constant clock token.
+
+```bash
+python -m petridish.benchmark_sequences --task token_pipeline \
+  --profile token_pipeline68 --architecture esn --message-steps 16 \
+  --broadcast-gain 0 --steps 1200 \
+  --output benchmarks/lab/token-pipeline-esn-local.json
+```

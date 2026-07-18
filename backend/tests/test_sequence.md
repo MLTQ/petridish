@@ -58,6 +58,9 @@ balanced targets, isolating persistence before contextual composition.
 The persistent-stream fixture reuses one copy/invert rule across four supervised
 queries and requires every position to remain balanced against rule-only, input-only,
 position, and frequency shortcuts.
+The latency-pipeline fixture shifts all four targets by exactly two token clocks and
+balances delayed bits against contemporaneous inputs, proving that pipeline success
+cannot come from reading the current bit instead.
 The zero-broadcast regression requires a hard workspace bypass with no gradients into
 its gain or projections, preventing a nominal ablation from learning to reactivate.
 Headless diagnostics separately verify physical/conducting edges, one-token/context/

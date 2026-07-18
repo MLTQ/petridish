@@ -17,6 +17,7 @@ from .sequence_cells import CELL_ARCHITECTURES
 from .sequence_experiment import SequenceExperiment
 from .token_context_task import token_context_task
 from .token_memory_task import token_memory_task
+from .token_pipeline_task import token_pipeline_task
 from .token_routing_task import token_routing_task
 from .token_stream_task import token_stream_task
 
@@ -66,6 +67,7 @@ PROFILES: dict[str, dict[str, Any]] = {
     "token_route68": {},
     "token_context68": {},
     "token_memory68": {},
+    "token_pipeline68": {},
     "token_stream68": {},
 }
 
@@ -74,6 +76,7 @@ TOKEN_CONTROL_PROFILES = {
     "token_routing": "token_route68",
     "token_context": "token_context68",
     "token_memory": "token_memory68",
+    "token_pipeline": "token_pipeline68",
     "token_stream": "token_stream68",
 }
 
@@ -133,6 +136,7 @@ def run_benchmark(
         token_routing_task() if task == "token_routing"
         else token_context_task() if task == "token_context"
         else token_memory_task() if task == "token_memory"
+        else token_pipeline_task() if task == "token_pipeline"
         else token_stream_task() if task == "token_stream"
         else task
     )
@@ -169,13 +173,16 @@ def run_benchmark(
             "outputCount": experiment.model.substrate.output_count,
             "sequenceLength": experiment.task.sequence_length,
             "dependencyTokens": (
-                experiment.task.sequence_length - 1 if task == "token_stream"
+                experiment.task.sequence_length - 1
+                if task in {"token_stream", "token_pipeline"}
                 else 1 if task in {"token_context", "token_memory"} else 0
             ),
             "chanceAccuracy": (
                 1 / 8 if task == "token_routing"
                 else 0.5
-                if task in {"token_context", "token_memory", "token_stream"}
+                if task in {
+                    "token_context", "token_memory", "token_stream", "token_pipeline",
+                }
                 else None
             ),
             "recallMode": (
@@ -183,6 +190,7 @@ def run_benchmark(
                 "delayed_copy" if task == "token_memory" else
                 "context_xor" if task == "token_context" else
                 "context_stream" if task == "token_stream" else
+                "context_pipeline" if task == "token_pipeline" else
                 f"fixed_{fixed_recall_pairs}"
                 if fixed_recall_pairs is not None else "adaptive"
             ),
@@ -303,7 +311,7 @@ def main() -> None:
     parser.add_argument(
         "--task", choices=(
             "associative_recall", "tiny_language", "token_routing", "token_memory",
-            "token_context", "token_stream",
+            "token_context", "token_stream", "token_pipeline",
         ),
         required=True,
     )
