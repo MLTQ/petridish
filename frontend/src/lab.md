@@ -91,9 +91,10 @@ validated launch or stop requests.
   to be continuous.
 - **Does**: Displays measured electrical-state age in tokens beside routing so a
   nominal continuous run cannot masquerade as one while repeatedly reinitializing.
-- **Does**: Displays checkpoint-state versus identical-token cold-state accuracy and
-  their signed delta. “Checkpoint” starts from a tensor-cloned copy of the organism's
-  actual saved electricity, and the seed age is shown explicitly.
+- **Does**: Displays a saved-state clone versus an identical-token, read-only cold
+  clone and their signed state-value delta. Both branches are evaluation-only;
+  neither overwrites or resets the checkpointed organism. The checkpoint electrical
+  age is shown explicitly.
 - **Does**: Launches and displays the bounded electrical-retention intervention so
   indefinite persistence and homeostatic relaxation remain distinguishable.
 - **Does**: Shows optional h1/h2/h4/h8/h16 held-out accuracy from the identical-token
@@ -110,6 +111,9 @@ validated launch or stop requests.
   recorded in the immutable manifest rather than applied out of band.
 - **Does**: Continues a checkpointed organism into a named topology/lifecycle phase
   without accepting architecture, geometry, connectome, weight, or state replacements.
+- **Does**: States the continuation invariant directly in the controls: cells,
+  connectome, weights, optimizer, stream position, and electrical memory persist,
+  while checkpoint evaluations operate only on read-only clones.
 - **Does**: Displays the immutable lineage ID and current phase, and marks measured
   phase boundaries directly on the existing rolling-loss trace.
 - **Does**: Offers read-only evaluation on stopped checkpoints so new causal metrics

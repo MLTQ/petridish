@@ -345,7 +345,7 @@ export class LaboratoryView {
       ? "new runs receive immutable manifests"
       : "launch control disabled on server";
     this.continueStatus.value = canContinue
-      ? "continuation retains the checkpointed organism and changes only plasticity policy"
+      ? "same organism: continuation retains cells, connectome, weights, optimizer, stream position, and electrical memory; evaluation uses read-only clones"
       : snapshot.controlEnabled
         ? "no stopped checkpoint is available"
         : "continuation control disabled on server";
@@ -981,7 +981,7 @@ export class LaboratoryView {
       : `uni ${this.percent(record.unigramBaselineAccuracy)} / ppl ${this.perplexity(record.unigramBaselineLoss)} · bi ${this.percent(record.bigramBaselineAccuracy)} / ppl ${this.perplexity(record.bigramBaselineLoss)}`;
     const stateSummary = record.coldStateAccuracy === undefined
       ? ""
-      : `checkpoint ${this.percent(record.accuracy)} · cold ${this.percent(record.coldStateAccuracy)} · Δ ${this.signedPercent(record.stateCarryAccuracyDelta)} · seed age ${(record.initialStateTokens ?? 0).toLocaleString()}`;
+      : `saved-state clone ${this.percent(record.accuracy)} · read-only cold clone ${this.percent(record.coldStateAccuracy)} · state value ${this.signedPercent(record.stateCarryAccuracyDelta)} · checkpoint state age ${(record.initialStateTokens ?? 0).toLocaleString()}`;
     const horizonSummary = (record.stateHorizon ?? []).map(
       (point) => `h${point.windows} ${this.percent(point.accuracy)}`,
     ).join(" · ");
