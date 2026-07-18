@@ -482,8 +482,9 @@ class SpatialSubstrate(nn.Module):
         dead_edges = (self.dendrite_source >= 0) & ~self.active_edge_mask
         self._clear_edges(dead_edges)
         changed |= dead_edges
+        birth_limit = int(dead_sites.numel()) if cfg.births_replace_deaths else None
         born_sites, birth_edges = (
-            self._apply_birth(events)
+            self._apply_birth(events, limit=birth_limit)
             if apply_lifecycle
             else (
                 torch.empty(0, dtype=torch.long, device=self.occupied.device),
@@ -636,7 +637,7 @@ class SpatialSubstrate(nn.Module):
         return best_source, best_evidence
 
     def _apply_birth(
-        self, events: list[dict[str, Any]]
+        self, events: list[dict[str, Any]], *, limit: int | None = None
     ) -> tuple[torch.Tensor, torch.Tensor]:
         cfg = self.config
         changed = torch.zeros_like(self.dendrite_source, dtype=torch.bool)
@@ -650,7 +651,10 @@ class SpatialSubstrate(nn.Module):
         eligible = ~self.occupied & ~self.anchor_mask & (evidence >= cfg.birth_signal)
         eligible &= local_density <= cfg.birth_local_density_max
         candidates = eligible.nonzero(as_tuple=False).squeeze(1)
-        if not candidates.numel() or cfg.births_per_generation <= 0:
+        budget = cfg.births_per_generation
+        if limit is not None:
+            budget = min(budget, max(0, limit))
+        if not candidates.numel() or budget <= 0:
             return candidates[:0], changed
         candidates = candidates[torch.argsort(evidence[candidates], descending=True)]
         _, _, existing_sources = self.edge_list()
@@ -666,7 +670,7 @@ class SpatialSubstrate(nn.Module):
             accepted_sites.append(site)
             accepted_parents.append(parent)
             outgoing[parent] += 1
-            if len(accepted_sites) >= cfg.births_per_generation:
+            if len(accepted_sites) >= budget:
                 break
         if not accepted_sites:
             return candidates[:0], changed

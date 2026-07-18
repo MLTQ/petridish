@@ -211,6 +211,11 @@ def test_balanced_lifecycle_retains_biomimicry_without_death_budget_collapse() -
     assert launched.starvation_cost == balanced.starvation_cost
     assert launched.lifecycle_enabled == 1
 
+    replacement_profile = apply_lifecycle_profile(baseline, "replacement")
+    assert replacement_profile.births_replace_deaths == 1
+    assert replacement_profile.births_per_generation == 16
+    assert replacement_profile.max_deaths_per_generation == 16
+
 
 def test_associative_recall_curriculum_preserves_queried_value() -> None:
     generator = torch.Generator().manual_seed(7)

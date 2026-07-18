@@ -9,7 +9,7 @@ Profiles are explicit experiment metadata rather than silent changes to global d
 
 ### `LIFECYCLE_PROFILES`
 - **Does**: Declares `off`, the original `baseline`, and the empirically motivated
-  `balanced` intervention.
+  `balanced` intervention, and the population-stable `replacement` intervention.
 
 ### `apply_lifecycle_profile`
 - **Does**: Applies one profile to an immutable `MnistModelConfig`.
@@ -19,6 +19,12 @@ Profiles are explicit experiment metadata rather than silent changes to global d
   keeps under/overstimulation death and stun/recovery while equalizing maximum
   births/deaths, lowering metabolic drain, and requiring repeated stronger overload
   for excitotoxic death.
+
+### `replacement`
+- **Does**: Retains every balanced threshold but permits births only up to the
+  number of deaths in the same lifecycle cycle.
+- **Rationale**: The balanced run preserved all routes but added 224 cells and lost
+  none by update 721; matching maximum budgets did not produce population balance.
 
 ### `resolve_lifecycle_profile`
 - **Does**: Maps a legacy enabled boolean plus unspecified `off` profile to the

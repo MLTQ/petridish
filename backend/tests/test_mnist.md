@@ -32,6 +32,10 @@ substrate and synthetic images.
 - **Does**: Requires a newborn to record a local parent, inherit its genotype,
   increment lineage depth, and enter the graph through one real parent dendrite.
 
+### Replacement birth test
+- **Does**: Proves a healthy replacement-only population cannot grow and any later
+  births are capped by deaths in that exact lifecycle cycle.
+
 ### Lifecycle staging test
 - **Does**: Activates metabolic pressure and a turnover generation while
   competence-gated topology plasticity remains locked.

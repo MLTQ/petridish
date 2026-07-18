@@ -7,7 +7,7 @@ from dataclasses import replace
 from .mnist_config import MnistModelConfig
 
 
-LIFECYCLE_PROFILES = ("off", "baseline", "balanced")
+LIFECYCLE_PROFILES = ("off", "baseline", "balanced", "replacement")
 
 
 def resolve_lifecycle_profile(profile: str, *, enabled: bool) -> str:
@@ -29,7 +29,7 @@ def apply_lifecycle_profile(
         return replace(config, lifecycle_enabled=0)
     if profile == "baseline":
         return replace(config, lifecycle_enabled=1)
-    return replace(
+    balanced = replace(
         config,
         lifecycle_enabled=1,
         target_stimulation_min=0.006,
@@ -48,6 +48,9 @@ def apply_lifecycle_profile(
         excitotoxic_damage_recovery=0.03,
         excitotoxic_death_threshold=2.0,
     )
+    if profile == "balanced":
+        return balanced
+    return replace(balanced, births_replace_deaths=1)
 
 
 __all__ = [

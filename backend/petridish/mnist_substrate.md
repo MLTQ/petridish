@@ -67,6 +67,8 @@ birth, inherited lineage, cause-classified death, content-aware growth, and prun
 ### `_apply_birth`
 - **Does**: Selects an active local parent with axon capacity, copies its genotype
   with configurable mutation noise, and creates one parent-to-child dendrite.
+- **Does**: Accepts an optional cycle-local cap; replacement profiles set it to
+  the number of deaths that just occurred.
 - **Does**: Refuses birth where sampled local occupancy already exceeds the
   configured density ceiling.
 - **Rationale**: A newborn enters an actual signal lineage instead of appearing

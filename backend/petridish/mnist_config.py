@@ -83,6 +83,7 @@ class MnistModelConfig:
     death_energy: float = 0.035
     max_deaths_per_generation: int = 192
     births_per_generation: int = 32
+    births_replace_deaths: int = 0
     birth_signal: float = 0.08
     birth_local_density_max: float = 0.38
     birth_energy: float = 0.65

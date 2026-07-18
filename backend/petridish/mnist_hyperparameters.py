@@ -109,6 +109,7 @@ SPECS: dict[str, HyperparameterSpec] = {
     "death_energy": HyperparameterSpec("death energy", "homeostasis", 0, 0.5, 0.005),
     "max_deaths_per_generation": HyperparameterSpec("death budget", "homeostasis", 0, 2_048, 16),
     "births_per_generation": HyperparameterSpec("birth budget", "homeostasis", 0, 1_024, 16),
+    "births_replace_deaths": HyperparameterSpec("births replace deaths only (0/1)", "homeostasis", 0, 1, 1),
     "birth_signal": HyperparameterSpec("birth signal", "homeostasis", 0, 0.5, 0.005),
     "birth_local_density_max": HyperparameterSpec("birth local density ceiling", "homeostasis", 0, 1, 0.01),
     "birth_energy": HyperparameterSpec("newborn energy", "homeostasis", 0.05, 1, 0.05),

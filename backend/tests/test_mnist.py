@@ -288,6 +288,35 @@ def test_newborn_inherits_parent_genotype_and_one_real_dendrite() -> None:
     assert update.changed_sites[child]
 
 
+def test_replacement_birth_policy_cannot_inflate_a_healthy_population() -> None:
+    config = replace(
+        tiny_config(), births_per_generation=4, births_replace_deaths=1,
+        birth_signal=0.001, birth_local_density_max=1,
+        max_deaths_per_generation=1, juvenile_trials=1,
+    )
+    substrate = CellularGraphClassifier(config, seed=29).substrate
+    substrate.stimulation_ema[substrate.occupied] = 1
+    initial_population = int(substrate.occupied.sum())
+
+    healthy = substrate.structural_step(apply_lifecycle=True, apply_topology=False)
+
+    assert healthy.births == healthy.deaths == 0
+    assert int(substrate.occupied.sum()) == initial_population
+
+    victim = int(
+        (substrate.occupied & ~substrate.anchor_mask).nonzero(as_tuple=False)[0]
+    )
+    substrate.neuron_age[victim] = config.juvenile_trials
+    substrate.energy[victim] = 0
+    replacement = substrate.structural_step(
+        apply_lifecycle=True, apply_topology=False
+    )
+
+    assert replacement.deaths == 1
+    assert replacement.births <= replacement.deaths
+    assert int(substrate.occupied.sum()) <= initial_population
+
+
 def test_lifecycle_pressure_activates_before_topology_plasticity() -> None:
     dataset = synthetic_digits()
     config = replace(

@@ -19,6 +19,8 @@ the token task's lifecycle and pruning warm-up schedule with Shakespeare default
 Named lifecycle-profile tests preserve the original baseline while proving the
 balanced intervention keeps stun, recovery, starvation, and eventual death but
 equalizes maximum births/deaths and lowers the empirically saturated pressures.
+The replacement profile additionally couples each cycle's birth cap to its measured
+deaths, preventing unused spatial capacity from causing unconditional population growth.
 
 The trace-free regression requires optimizer updates to advance metrics and examples
 without replacing the visible frame buffer, then verifies an explicit refresh rebuilds

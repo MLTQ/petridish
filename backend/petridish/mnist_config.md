@@ -47,6 +47,9 @@ optimizer rates, and independently gated lifecycle/topology thresholds.
   so metabolism begins when the shared cellular rule starts adapting.
 - **Rationale**: Newborn energy and genotype mutation noise make replacement
   and inherited specialization explicit, reproducible variables.
+- **Rationale**: Replacement-only births optionally cap neurogenesis to deaths in
+  the same lifecycle cycle, preventing a healthy population from inflating merely
+  because unused tensor sites remain.
 - **Rationale**: Overload first produces a reversible stunned state. Recovery
   probability, refractory generations, damage accumulation/repair, and the
   repeated-episode death threshold are independent biological controls.

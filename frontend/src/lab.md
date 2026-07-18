@@ -63,7 +63,7 @@ validated launch or stop requests.
 - **Does**: Launch both corpus organisms at 68×68 so their 64- or 66-port banks
   remain one physical column per boundary.
 - **Does**: Selects and displays named lifecycle interventions so baseline and
-  balanced ablations remain distinguishable in manifests and diagnostics.
+  balanced/replacement ablations remain distinguishable in manifests and diagnostics.
 - **Does**: Launches an explicit microtick budget and flags runs whose budget is
   shorter than the measured minimum sensory-to-output route.
 - **Does**: Renders direct-routing controls with microticks, minimum hops, and
