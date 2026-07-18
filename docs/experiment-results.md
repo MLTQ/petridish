@@ -1115,3 +1115,65 @@ ceiling. A matched same-lineage continuation should vary only the clipping ceili
 without appending lanes or changing topology, lifecycle, corpus domains, or any
 organism state. This tests whether breadth gradients are being compressed enough to
 cause the observed consolidation tradeoff before exposing the organism to 8K text.
+
+### Larger unclipped updates damaged the accumulated organism
+
+The phase-16 counterfactual began from two byte-identical copies of the stopped
+phase-15 mixed checkpoint. Source, clip-one control, and clip-five treatment all had
+SHA-256
+`fd96e449c936ca6b590833404e334c183c19e4119a4916f1798611d8a2d58a1d`
+before either worker started. The source remained frozen. Both branches retained the
+same organism ID, 2,224 cells, 13,737 fixed directed edges, 105 electrical lanes and
+their 2K/4K domains, optimizer moments, sampler/RNG state, and all private/workspace
+tensors. Their only difference was the global gradient-norm ceiling: 1.0 control
+versus 5.0 treatment. Both ran exactly 500 updates to 13,250.
+
+The intervention changed the applied update magnitude as intended. Control's median
+pre-clip norm was 16.46 and median clip scale 0.0608; 93.6% of its steps had scale at
+or below 0.1. Treatment's median norm was 18.68 and median scale 0.2677, with no step
+at or below 0.1. The larger ceiling stayed finite but initially disrupted the learned
+solution. Over the final 160 windows, control reached 78.20% / 0.80322 overall,
+separating into 87.84% / 0.49967 on retained 2K lanes and 75.79% / 0.87910 on 4K.
+Treatment recovered only to 68.29% / 1.08433 overall, 79.15% / 0.72684 on 2K, and
+65.58% / 1.17370 on 4K.
+
+The fixed random-offset 4K audit rejects gradient starvation as the earlier breadth
+bottleneck. Control improved modestly from its phase-15 source's 58.50% to 61.62%;
+treatment reached only 54.98%. Their separately matched intact-graph slices measured
+62.89% and 57.81%. Graph silence removed 60.45 and 52.93 percentage points, endpoint
+rotation 56.05 and 51.66, and within-target source/weight reassignment 57.23 and
+52.25. Saved electrical state added 16.02 and 14.55 points. Passing roughly four
+times more gradient therefore weakened the same physically routed conditional rule;
+it did not uncover a stronger one.
+
+Lane 96 showed the same damage on an exact persistent trajectory. Control reached
+89.55% / 0.43124 versus treatment's 83.98% / 0.57421. Graph silence removed 87.40
+and 80.37 points, rotation 82.91 and 77.64, reassignment 85.25 and 79.79, while saved
+state contributed 29.39 and 24.80. The emerged connectome and its electrical history
+remained causal in both descendants, but larger steps reduced their contribution.
+
+Held-out language remained noisy and unsolved. Treatment measured 11.62% / 5.18860
+versus control 10.55% / 5.39949, a small reversal relative to the decisive training
+and trajectory effects but still far below the 19.09% unigram baseline. Samples
+remained fragmentary: `o chey padm and ` control and `a Thee andm anlt` treatment.
+This may reflect mild distributional smoothing from destructive updates, not useful
+conditional generalization.
+
+The treatment worker was checkpointed at update 13,023 to release a compute-contended
+4090. The stop checkpoint SHA-256 was
+`bed5cdff887c49685c6f53a73b2bd4707e8fe827b364492493e643d2685a1ecd`,
+and the same-phase resume endpoint returned that exact fingerprint before continuing
+on the free 2070. No phase or organism state was reconstructed. Terminal checkpoints
+remained byte-identical through every read-only audit:
+`cff9b5b133a4cc5888686343fec49ecdb94214df4e6d0c9f99c0577112d187f1`
+control and
+`935e1f0605d5bd6105763bff0833e9d14645b553e5f3541c9ab3316f0cb6e39c`
+treatment.
+
+The norm-one ceiling should therefore remain unchanged. The next breadth experiment
+should fork the stronger clip-one endpoint into matched descendants, append 64 cold
+lanes to each, and compare a 4K replay bank against a new 8K bank. Existing 105 lanes,
+cells, graph, optimizer, RNG, and electrical state remain exact; only the new lanes
+receive their assigned domain. This tests genuine corpus expansion against an
+age- and capacity-matched replay control without reintroducing the rejected clipping
+intervention.
