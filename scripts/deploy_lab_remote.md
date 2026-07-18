@@ -15,8 +15,8 @@ organism that shares the supervisor's systemd cgroup.
 
 ### `full`
 
-- Refuses to proceed when any deploy-owned `petridish.train_shakespeare` process is
-  alive.
+- Refuses to proceed when any `petridish.train_shakespeare` process is alive on the
+  remote host, including trainers launched from an isolated staging worktree.
 - Fetches the configured branch, checks out its exact commit, copies the verified
   frontend, and restarts the monitor service only after the guard passes.
 
@@ -31,4 +31,3 @@ The remote, deploy root, service, and branch may be overridden with
 A full deployment must never rely on trainer SIGTERM recovery as an ordinary update
 mechanism. Same-organism continuation remains checkpoint-safe, but service deployment
 is required to avoid creating that interruption in the first place.
-

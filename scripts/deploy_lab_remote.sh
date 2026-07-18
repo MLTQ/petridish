@@ -24,8 +24,7 @@ if [[ "$mode" == "frontend-only" ]]; then
   exit 0
 fi
 
-trainer_pattern="^$deploy_root/.venv/bin/python -m petridish.train_shakespeare"
-if ssh "$remote" "pgrep -f '$trainer_pattern' >/dev/null"; then
+if ssh "$remote" "ps -eo args= | grep -q '[p]etridish.train_shakespeare'"; then
   echo "refusing full deploy: a persistent organism trainer is active" >&2
   echo "use '$0 frontend-only' or wait for checkpointed trainers to stop" >&2
   exit 2
@@ -34,4 +33,3 @@ fi
 ssh "$remote" "set -e; cd '$deploy_root'; git fetch origin '$branch'; git checkout --detach FETCH_HEAD"
 scp -r frontend/dist/. "$remote:$deploy_root/frontend/dist/"
 ssh "$remote" "systemctl --user restart '$service'; systemctl --user is-active '$service'"
-
