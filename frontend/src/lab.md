@@ -212,6 +212,9 @@ validated launch or stop requests.
 - **Does**: Offers a capability-gated zero-to-4,096 adaptive growth budget and shows
   the measured cap beside edge turnover, preventing an uncapped proposal wave from
   masquerading as ordinary gradual plasticity.
+- **Does**: Offers capability-gated axon construction cost, endpoint reserve, and
+  probation utility controls, and reports mature proposals blocked by energy,
+  capacity, or the safety cap plus actual construction energy spent.
 - **Does**: Disables the historical disposable auxiliary controls when the backend
   advertises persistent-state training. Existing phase weight/scope/loss remains
   visible as provenance, but no new cold-context optimizer intervention can be sent;

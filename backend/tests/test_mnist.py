@@ -337,6 +337,64 @@ def test_zero_growth_budget_defers_ready_proposals(
     assert float(substrate.candidate_counter.max()) >= config.candidate_threshold
 
 
+def test_axon_economy_requires_reserves_and_charges_both_neurons(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = replace(
+        tiny_config(), max_grown_per_generation=8,
+        max_pruned_per_generation=0, candidate_decay=1,
+        candidate_threshold=0.5, emission_threshold=0, axon_slots=512,
+        axon_growth_cost=0.2, axon_growth_energy_reserve=0.35,
+        new_axon_initial_utility=0,
+    )
+    substrate = CellularGraphClassifier(config, seed=34).substrate
+    eligible = (
+        substrate.occupied
+        & ~substrate.stunned
+        & (substrate.roles[:, 1] == 0)
+        & (substrate.dendrite_source < 0).any(dim=1)
+    ).nonzero(as_tuple=False).squeeze(1)
+    target = int(eligible[0])
+    source = int(substrate.input_sites[0])
+    best_sources = torch.full(
+        (config.site_count,), source, dtype=torch.long,
+        device=substrate.occupied.device,
+    )
+    evidence = torch.full(
+        (config.site_count,), -1.0, device=substrate.occupied.device
+    )
+    evidence[target] = 1
+    monkeypatch.setattr(
+        substrate, "_best_local_source",
+        lambda require_axon_capacity=False: (best_sources, evidence),
+    )
+    substrate.energy[source] = 0.4
+    substrate.energy[target] = 0.4
+
+    blocked = substrate.structural_step(
+        apply_lifecycle=False, apply_topology=True, allow_growth=True
+    )
+
+    assert blocked.grown_edges == 0
+    assert int(substrate.last_growth_proposals) == 1
+    assert int(substrate.last_growth_energy_blocked) == 1
+    assert float(substrate.last_growth_energy_spent) == 0
+
+    substrate.energy[source] = 0.8
+    substrate.energy[target] = 0.8
+    accepted = substrate.structural_step(
+        apply_lifecycle=False, apply_topology=True, allow_growth=True
+    )
+
+    assert accepted.grown_edges == 1
+    assert float(substrate.energy[source]) == pytest.approx(0.6)
+    assert float(substrate.energy[target]) == pytest.approx(0.6)
+    assert float(substrate.last_growth_energy_spent) == pytest.approx(0.4)
+    assert float(substrate.cumulative_growth_energy_spent) == pytest.approx(0.4)
+    slot = (substrate.dendrite_source[target] == source).nonzero(as_tuple=False)[0]
+    assert float(substrate.edge_utility[target, slot]) == 0
+
+
 def test_newborn_inherits_parent_genotype_and_one_real_dendrite() -> None:
     config = replace(
         tiny_config(),

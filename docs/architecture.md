@@ -62,7 +62,10 @@ local; twenty recurrent steps provide enough depth to cross the field.
 For new growth, a target samples a bounded set of physically local sources.
 Repeated emission by the same source increments a target-local candidate
 counter. A free dendrite forms only after the source ID's counter crosses the
-configured threshold.
+configured threshold, both endpoints can pay construction cost while retaining
+their energy reserve, and the per-generation safety budget has capacity. A new
+axon may start with zero utility and must earn task credit during its grace period
+or become eligible for pruning.
 
 ## Differentiable trial
 

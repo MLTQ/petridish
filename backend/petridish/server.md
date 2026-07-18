@@ -71,6 +71,8 @@ and exact-phase resume after a deliberate stop.
   the restored checkpoint's current ceiling rather than substituting a default.
 - **Does**: Accepts an optional zero-to-4,096 dendrite growth budget for adaptive
   phases; omission preserves the checkpoint's current cap.
+- **Does**: Bounds optional zero-to-one axon construction cost and endpoint reserve,
+  plus zero-to-0.1 new-axon utility, for checkpoint-preserving economy phases.
 - **Does**: Retains legacy auxiliary fields for compatibility, while the laboratory
   requires zero optimizer weight and keeps fresh contexts evaluation-only.
 - **Rationale**: Architecture, geometry, weights, state, and existing corpus cursors

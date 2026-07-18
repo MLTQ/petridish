@@ -1229,6 +1229,9 @@ def test_continuous_training_state_survives_checkpoint_resume(tmp_path: Path) ->
         topology_profile="prune_only",
         gradient_clip=5.0,
         max_grown_per_generation=64,
+        axon_growth_cost=0.08,
+        axon_growth_energy_reserve=0.25,
+        new_axon_initial_utility=0,
     )
     restored = SequenceExperiment(
         task, phase_config, seed=45, device="cpu", stream_mode="continuous",
@@ -1247,6 +1250,9 @@ def test_continuous_training_state_survives_checkpoint_resume(tmp_path: Path) ->
     assert restored.config.structural_enabled == 1
     assert restored.config.gradient_clip == pytest.approx(5.0)
     assert restored.config.max_grown_per_generation == 64
+    assert restored.config.axon_growth_cost == pytest.approx(0.08)
+    assert restored.config.axon_growth_energy_reserve == pytest.approx(0.25)
+    assert restored.config.new_axon_initial_utility == 0
     assert restored.topology_profile == "prune_only"
     assert restored.stream_mode == "continuous"
     assert restored.state_retention == pytest.approx(0.9)

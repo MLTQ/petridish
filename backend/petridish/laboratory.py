@@ -84,6 +84,9 @@ class ContinueSpec:
     state_lanes: int | None = None
     gradient_clip: float | None = None
     max_grown_per_generation: int | None = None
+    axon_growth_cost: float | None = None
+    axon_growth_energy_reserve: float | None = None
+    new_axon_initial_utility: float | None = None
     random_offset_auxiliary_weight: float | None = None
     random_offset_auxiliary_scope: str | None = None
 
@@ -173,6 +176,7 @@ class Laboratory:
                 "samePhaseResume": True,
                 "phaseGradientClip": True,
                 "phaseGrowthBudget": True,
+                "phaseAxonEconomy": True,
                 "persistentStateTraining": True,
                 "randomOffsetAuxiliary": False,
                 "randomOffsetAuxiliaryScope": False,
@@ -309,6 +313,18 @@ class Laboratory:
             and not 0 <= spec.max_grown_per_generation <= 4_096
         ):
             raise ValueError("growth budget must be between 0 and 4096")
+        if spec.axon_growth_cost is not None and not 0 <= spec.axon_growth_cost <= 1:
+            raise ValueError("axon growth cost must be between 0 and 1")
+        if (
+            spec.axon_growth_energy_reserve is not None
+            and not 0 <= spec.axon_growth_energy_reserve <= 1
+        ):
+            raise ValueError("axon growth energy reserve must be between 0 and 1")
+        if (
+            spec.new_axon_initial_utility is not None
+            and not 0 <= spec.new_axon_initial_utility <= 0.1
+        ):
+            raise ValueError("new axon utility must be between 0 and 0.1")
         if spec.random_offset_auxiliary_weight not in {None, 0, 0.0}:
             raise ValueError(
                 "disposable cold-context gradients are disabled; persistent "
@@ -442,6 +458,47 @@ class Laboratory:
             if spec.max_grown_per_generation is None
             else spec.max_grown_per_generation
         )
+        previous_axon_growth_cost = float(
+            (latest_diagnostic or {}).get(
+                "axonGrowthCost",
+                (latest_train or {}).get(
+                    "axonGrowthCost", configuration.get("axonGrowthCost", 0.0)
+                ),
+            )
+        )
+        axon_growth_cost = (
+            previous_axon_growth_cost
+            if spec.axon_growth_cost is None
+            else spec.axon_growth_cost
+        )
+        previous_axon_growth_energy_reserve = float(
+            (latest_diagnostic or {}).get(
+                "axonGrowthEnergyReserve",
+                (latest_train or {}).get(
+                    "axonGrowthEnergyReserve",
+                    configuration.get("axonGrowthEnergyReserve", 0.0),
+                ),
+            )
+        )
+        axon_growth_energy_reserve = (
+            previous_axon_growth_energy_reserve
+            if spec.axon_growth_energy_reserve is None
+            else spec.axon_growth_energy_reserve
+        )
+        previous_new_axon_initial_utility = float(
+            (latest_diagnostic or {}).get(
+                "newAxonInitialUtility",
+                (latest_train or {}).get(
+                    "newAxonInitialUtility",
+                    configuration.get("newAxonInitialUtility", 0.04),
+                ),
+            )
+        )
+        new_axon_initial_utility = (
+            previous_new_axon_initial_utility
+            if spec.new_axon_initial_utility is None
+            else spec.new_axon_initial_utility
+        )
         previous_random_offset_auxiliary_weight = float(
             (latest_train or {}).get(
                 "randomOffsetAuxiliaryWeight",
@@ -555,6 +612,9 @@ class Laboratory:
             state_lanes=spec.state_lanes,
             gradient_clip=spec.gradient_clip,
             max_grown_per_generation=spec.max_grown_per_generation,
+            axon_growth_cost=spec.axon_growth_cost,
+            axon_growth_energy_reserve=spec.axon_growth_energy_reserve,
+            new_axon_initial_utility=spec.new_axon_initial_utility,
             random_offset_auxiliary_weight=(
                 auxiliary_override
             ),
@@ -576,6 +636,9 @@ class Laboratory:
             "stateLanes": state_lanes,
             "gradientClip": gradient_clip,
             "maxGrownPerGeneration": max_grown_per_generation,
+            "axonGrowthCost": axon_growth_cost,
+            "axonGrowthEnergyReserve": axon_growth_energy_reserve,
+            "newAxonInitialUtility": new_axon_initial_utility,
             "randomOffsetAuxiliaryWeight": random_offset_auxiliary_weight,
             "randomOffsetAuxiliaryScope": random_offset_auxiliary_scope,
             "startGrownEdges": int(
@@ -602,6 +665,9 @@ class Laboratory:
                 "stateLanes": state_lanes,
                 "gradientClip": gradient_clip,
                 "maxGrownPerGeneration": max_grown_per_generation,
+                "axonGrowthCost": axon_growth_cost,
+                "axonGrowthEnergyReserve": axon_growth_energy_reserve,
+                "newAxonInitialUtility": new_axon_initial_utility,
                 "randomOffsetAuxiliaryWeight": random_offset_auxiliary_weight,
                 "randomOffsetAuxiliaryScope": random_offset_auxiliary_scope,
             }
@@ -637,6 +703,9 @@ class Laboratory:
                 "stateLanes": state_lanes,
                 "gradientClip": gradient_clip,
                 "maxGrownPerGeneration": max_grown_per_generation,
+                "axonGrowthCost": axon_growth_cost,
+                "axonGrowthEnergyReserve": axon_growth_energy_reserve,
+                "newAxonInitialUtility": new_axon_initial_utility,
                 "randomOffsetAuxiliaryWeight": random_offset_auxiliary_weight,
                 "randomOffsetAuxiliaryScope": random_offset_auxiliary_scope,
                 "startGrownEdges": phase["startGrownEdges"],
@@ -926,6 +995,9 @@ class Laboratory:
             state_lanes=None,
             gradient_clip=None,
             max_grown_per_generation=None,
+            axon_growth_cost=None,
+            axon_growth_energy_reserve=None,
+            new_axon_initial_utility=None,
             random_offset_auxiliary_weight=None,
             random_offset_auxiliary_scope=None,
         )
@@ -1157,6 +1229,9 @@ class Laboratory:
         state_lanes: int | None,
         gradient_clip: float | None,
         max_grown_per_generation: int | None,
+        axon_growth_cost: float | None,
+        axon_growth_energy_reserve: float | None,
+        new_axon_initial_utility: float | None,
         random_offset_auxiliary_weight: float | None,
         random_offset_auxiliary_scope: str | None,
     ) -> list[str]:
@@ -1187,6 +1262,16 @@ class Laboratory:
                     "--max-grown-per-generation",
                     str(max_grown_per_generation),
                 )
+            )
+        if axon_growth_cost is not None:
+            command.extend(("--axon-growth-cost", str(axon_growth_cost)))
+        if axon_growth_energy_reserve is not None:
+            command.extend(
+                ("--axon-growth-energy-reserve", str(axon_growth_energy_reserve))
+            )
+        if new_axon_initial_utility is not None:
+            command.extend(
+                ("--new-axon-initial-utility", str(new_axon_initial_utility))
             )
         if random_offset_auxiliary_weight is not None:
             command.extend(

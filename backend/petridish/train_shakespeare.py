@@ -389,6 +389,9 @@ def plasticity_phase_config(
     topology_profile: str | None = None,
     gradient_clip: float | None = None,
     max_grown_per_generation: int | None = None,
+    axon_growth_cost: float | None = None,
+    axon_growth_energy_reserve: float | None = None,
+    new_axon_initial_utility: float | None = None,
 ) -> MnistModelConfig:
     """Change phase policy without replacing any organism-owned state."""
 
@@ -403,6 +406,18 @@ def plasticity_phase_config(
         phase_config = replace(
             phase_config,
             max_grown_per_generation=max_grown_per_generation,
+        )
+    if axon_growth_cost is not None:
+        phase_config = replace(phase_config, axon_growth_cost=axon_growth_cost)
+    if axon_growth_energy_reserve is not None:
+        phase_config = replace(
+            phase_config,
+            axon_growth_energy_reserve=axon_growth_energy_reserve,
+        )
+    if new_axon_initial_utility is not None:
+        phase_config = replace(
+            phase_config,
+            new_axon_initial_utility=new_axon_initial_utility,
         )
     return apply_lifecycle_profile(phase_config, profile)
 
@@ -609,6 +624,17 @@ def _scientific_metrics(experiment: SequenceExperiment) -> dict[str, Any]:
         ),
         "structuralInterval": config.structural_interval,
         "maxGrownPerGeneration": config.max_grown_per_generation,
+        "axonGrowthCost": config.axon_growth_cost,
+        "axonGrowthEnergyReserve": config.axon_growth_energy_reserve,
+        "newAxonInitialUtility": config.new_axon_initial_utility,
+        "growthProposals": int(substrate.last_growth_proposals),
+        "growthEnergyBlocked": int(substrate.last_growth_energy_blocked),
+        "growthCapacityBlocked": int(substrate.last_growth_capacity_blocked),
+        "growthBudgetDeferred": int(substrate.last_growth_budget_deferred),
+        "lastGrowthEnergySpent": float(substrate.last_growth_energy_spent),
+        "cumulativeGrowthEnergySpent": float(
+            substrate.cumulative_growth_energy_spent
+        ),
         "lastBirths": experiment.last_births,
         "lastDeaths": experiment.last_deaths,
         "cumulativeBirths": experiment.cumulative_births,
@@ -1009,6 +1035,9 @@ def main() -> None:
     parser.add_argument("--learning-rate-scale", type=float, default=1.0)
     parser.add_argument("--gradient-clip", type=float)
     parser.add_argument("--max-grown-per-generation", type=int)
+    parser.add_argument("--axon-growth-cost", type=float)
+    parser.add_argument("--axon-growth-energy-reserve", type=float)
+    parser.add_argument("--new-axon-initial-utility", type=float)
     parser.add_argument("--amp", choices=("off", "bfloat16"), default="off")
     parser.add_argument(
         "--compile", dest="compile_mode",
@@ -1066,6 +1095,18 @@ def main() -> None:
         and not 0 <= args.max_grown_per_generation <= 4_096
     ):
         parser.error("--max-grown-per-generation must be between 0 and 4096")
+    if args.axon_growth_cost is not None and not 0 <= args.axon_growth_cost <= 1:
+        parser.error("--axon-growth-cost must be between 0 and 1")
+    if (
+        args.axon_growth_energy_reserve is not None
+        and not 0 <= args.axon_growth_energy_reserve <= 1
+    ):
+        parser.error("--axon-growth-energy-reserve must be between 0 and 1")
+    if (
+        args.new_axon_initial_utility is not None
+        and not 0 <= args.new_axon_initial_utility <= 0.1
+    ):
+        parser.error("--new-axon-initial-utility must be between 0 and 0.1")
     if args.broadcast_gain is not None and not 0 <= args.broadcast_gain <= 2.0:
         parser.error("--broadcast-gain must be between 0 and 2")
     if not 0 <= args.state_retention <= 1:
@@ -1115,6 +1156,9 @@ def main() -> None:
     requested_state_lanes = args.state_lanes
     requested_gradient_clip = args.gradient_clip
     requested_max_grown_per_generation = args.max_grown_per_generation
+    requested_axon_growth_cost = args.axon_growth_cost
+    requested_axon_growth_energy_reserve = args.axon_growth_energy_reserve
+    requested_new_axon_initial_utility = args.new_axon_initial_utility
     requested_random_offset_auxiliary_weight = (
         args.random_offset_auxiliary_weight
     )
@@ -1139,6 +1183,20 @@ def main() -> None:
             "--max-grown-per-generation changes a restored organism only with "
             "--resume-plasticity"
         )
+    for requested_value, option in (
+        (requested_axon_growth_cost, "--axon-growth-cost"),
+        (requested_axon_growth_energy_reserve, "--axon-growth-energy-reserve"),
+        (requested_new_axon_initial_utility, "--new-axon-initial-utility"),
+    ):
+        if (
+            requested_value is not None
+            and args.resume
+            and latest.exists()
+            and not args.resume_plasticity
+        ):
+            parser.error(
+                f"{option} changes a restored organism only with --resume-plasticity"
+            )
     if (
         requested_random_offset_auxiliary_weight is not None
         and args.resume
@@ -1255,6 +1313,9 @@ def main() -> None:
                 topology_profile=topology_profile,
                 gradient_clip=requested_gradient_clip,
                 max_grown_per_generation=requested_max_grown_per_generation,
+                axon_growth_cost=requested_axon_growth_cost,
+                axon_growth_energy_reserve=requested_axon_growth_energy_reserve,
+                new_axon_initial_utility=requested_new_axon_initial_utility,
             )
     else:
         args.state_lanes = requested_state_lanes or 1
@@ -1485,6 +1546,9 @@ def main() -> None:
             "trainingShardTokens": experiment.task.training_shard_tokens,
             "gradientClip": config.gradient_clip,
             "maxGrownPerGeneration": config.max_grown_per_generation,
+            "axonGrowthCost": config.axon_growth_cost,
+            "axonGrowthEnergyReserve": config.axon_growth_energy_reserve,
+            "newAxonInitialUtility": config.new_axon_initial_utility,
             **experiment.last_gradient_norms,
             "electricalStateTokens": (
                 experiment._training_runtime_state.position

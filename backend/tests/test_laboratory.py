@@ -578,6 +578,9 @@ def test_checkpoint_continuation_preserves_run_lineage_and_changes_only_phase(
             state_lanes=16,
             gradient_clip=5.0,
             max_grown_per_generation=64,
+            axon_growth_cost=0.08,
+            axon_growth_energy_reserve=0.25,
+            new_axon_initial_utility=0,
         )
     )
 
@@ -602,6 +605,9 @@ def test_checkpoint_continuation_preserves_run_lineage_and_changes_only_phase(
     assert manifest["configuration"]["stateLanes"] == 16
     assert manifest["configuration"]["gradientClip"] == 5.0
     assert manifest["configuration"]["maxGrownPerGeneration"] == 64
+    assert manifest["configuration"]["axonGrowthCost"] == 0.08
+    assert manifest["configuration"]["axonGrowthEnergyReserve"] == 0.25
+    assert manifest["configuration"]["newAxonInitialUtility"] == 0
     assert manifest["configuration"]["randomOffsetAuxiliaryWeight"] == 0
     assert manifest["configuration"]["randomOffsetAuxiliaryScope"] == "full_corpus"
     assert manifest["phaseHistory"][-1]["topologyProfile"] == "prune_only"
@@ -610,6 +616,9 @@ def test_checkpoint_continuation_preserves_run_lineage_and_changes_only_phase(
     assert manifest["phaseHistory"][-1]["stateLanes"] == 16
     assert manifest["phaseHistory"][-1]["gradientClip"] == 5.0
     assert manifest["phaseHistory"][-1]["maxGrownPerGeneration"] == 64
+    assert manifest["phaseHistory"][-1]["axonGrowthCost"] == 0.08
+    assert manifest["phaseHistory"][-1]["axonGrowthEnergyReserve"] == 0.25
+    assert manifest["phaseHistory"][-1]["newAxonInitialUtility"] == 0
     assert manifest["phaseHistory"][-1]["randomOffsetAuxiliaryWeight"] == 0
     assert manifest["phaseHistory"][-1]["randomOffsetAuxiliaryScope"] == "full_corpus"
     assert manifest["phaseHistory"][-1]["startGrownEdges"] == 320
@@ -626,6 +635,9 @@ def test_checkpoint_continuation_preserves_run_lineage_and_changes_only_phase(
     assert command[command.index("--state-lanes") + 1] == "16"
     assert command[command.index("--gradient-clip") + 1] == "5.0"
     assert command[command.index("--max-grown-per-generation") + 1] == "64"
+    assert command[command.index("--axon-growth-cost") + 1] == "0.08"
+    assert command[command.index("--axon-growth-energy-reserve") + 1] == "0.25"
+    assert command[command.index("--new-axon-initial-utility") + 1] == "0"
     assert command[command.index("--random-offset-auxiliary-weight") + 1] == "0.0"
     assert "--random-offset-auxiliary-scope" not in command
     assert "--no-resume" not in command
@@ -636,6 +648,9 @@ def test_checkpoint_continuation_preserves_run_lineage_and_changes_only_phase(
     assert records[-1]["stateLanes"] == 16
     assert records[-1]["gradientClip"] == 5.0
     assert records[-1]["maxGrownPerGeneration"] == 64
+    assert records[-1]["axonGrowthCost"] == 0.08
+    assert records[-1]["axonGrowthEnergyReserve"] == 0.25
+    assert records[-1]["newAxonInitialUtility"] == 0
     assert records[-1]["randomOffsetAuxiliaryWeight"] == 0
     assert records[-1]["randomOffsetAuxiliaryScope"] == "full_corpus"
     assert records[-1]["startGrownEdges"] == 320
@@ -691,6 +706,30 @@ def test_curriculum_breadth_requires_append_only_lanes_and_never_shrinks(
         laboratory.continue_run(
             ContinueSpec(
                 "trial", "GPU-example", max_grown_per_generation=4_097,
+                structure=False, topology_profile="fixed",
+            )
+        )
+
+    with pytest.raises(ValueError, match="axon growth cost"):
+        laboratory.continue_run(
+            ContinueSpec(
+                "trial", "GPU-example", axon_growth_cost=1.01,
+                structure=False, topology_profile="fixed",
+            )
+        )
+
+    with pytest.raises(ValueError, match="energy reserve"):
+        laboratory.continue_run(
+            ContinueSpec(
+                "trial", "GPU-example", axon_growth_energy_reserve=-0.01,
+                structure=False, topology_profile="fixed",
+            )
+        )
+
+    with pytest.raises(ValueError, match="new axon utility"):
+        laboratory.continue_run(
+            ContinueSpec(
+                "trial", "GPU-example", new_axon_initial_utility=0.101,
                 structure=False, topology_profile="fixed",
             )
         )

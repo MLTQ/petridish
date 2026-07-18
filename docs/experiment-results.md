@@ -1614,3 +1614,53 @@ without lesions. Each branch must retain its full organism state and use the sam
 8K replay stream; validation loss, exact-trajectory competence, causal graph deltas,
 cell/edge turnover, and recovery state determine whether pruning or lifecycle
 pressure converts memorized routing into a less brittle reusable circuit.
+
+## Phases 23–25 — Pruning is tolerable; uncapped growth and turnover are not
+
+The 8K replay control endpoint at update 18,750 was continued as the canonical
+organism without reconstruction. Phase 23 enabled prune-only topology for 500
+updates. Its source fingerprint was `d739a462335320beccd91fd639ab38bc3ecb778cc378d7da26080447f1cc5408`;
+its terminal fingerprint was
+`8fec366c310be1f5e6272b84135489f83a4549243031d3dc5de961b28086fbac`.
+The phase removed 1,011 of 13,737 edges (7.36%) while retaining all 2,224 cells,
+all 64 reachable outputs, and an 11-hop median route. It reached 72.25% / 1.16383
+overall versus 72.69% / 1.15706 for an exact fixed-topology control. Thus signed
+utility pruning cost only 0.43 accuracy point and did not destroy the learned
+computation.
+
+Read-only validation remained below language baselines: 11.13% / 4.53025 pruned
+and 11.43% / 4.52787 fixed, versus 19.09% unigram and 31.42% bigram accuracy.
+Nevertheless, the physical graph was strongly causal. On validation, silencing
+the pruned graph cost 7.13 points; on exact warm 8K lane 105 it cost 72.36 points
+from a 75.88% reference. The learned organism is real graph computation, but it is
+still a memorizer rather than a general language model.
+
+Phase 24 then enabled adaptive growth plus replacement lifecycle on the canonical
+checkpoint. The legacy checkpoint had no construction price or growth budget, so
+one matured proposal wave grew 3,488 edges in only 76 updates while pruning 244.
+Edge count jumped from 12,726 to 15,970 and phase accuracy collapsed to 24.14%.
+This damaged state was preserved rather than rolled back. Phase 25 disabled further
+growth but retained replacement homeostasis through update 19,750. It recorded 198
+deaths and exactly 198 births, 54 stuns, 49 recoveries, and a terminal 11,593 edges.
+All 64 outputs remained reachable, but final-160 accuracy was only 28.50% / 2.49427.
+The canonical checkpoint fingerprint is
+`c836f6f209f04f2fb303b05424e5c432a7ac84ebf810969ef629ebcca1eb1cc1`.
+
+An exact lifecycle-off counterfactual reproduced the same 76-update adaptive burst
+within six edges: 15,976 versus 15,970. Initial accuracy was 26.40% / 2.80274, only
+2.26 points above canonical, proving that unpriced topology growth caused the first
+collapse. During the matched 424-update prune-only continuation, however, the
+lifecycle-off branch recovered to 55.02% / 1.66541 over its final 160 updates while
+canonical remained at 28.50%. It retained 2,224 cells and 15,051 edges; canonical
+turnover removed or replaced far more of the inherited circuit. The control terminal
+fingerprint is
+`f1ad04267ddb669cd5d944c5a9df9ac8c2a28ca89b87fe1b45fc4bf4c7b3187d`.
+
+The intervention is therefore split in two. A hard growth cap is required as a
+safety invariant, while a local axon economy must decide which proposals deserve
+that scarce capacity. The implemented next control charges both endpoints, vetoes
+growth below a post-construction energy reserve, permits zero starting utility for
+probationary axons, and reports energy-, capacity-, and cap-blocked proposals. The
+canonical organism must recover linearly from its actual update-19,750 state with
+topology and turnover frozen; exact forks remain read-only counterfactual evidence
+and are never merged into it.

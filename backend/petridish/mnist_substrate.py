@@ -140,6 +140,12 @@ class SpatialSubstrate(nn.Module):
         self.register_buffer("emission_ema", torch.zeros(site_count))
         self.register_buffer("candidate_source", torch.full((site_count, config.candidate_slots), -1, dtype=torch.long))
         self.register_buffer("candidate_counter", torch.zeros(site_count, config.candidate_slots))
+        self.register_buffer("last_growth_proposals", torch.zeros((), dtype=torch.long))
+        self.register_buffer("last_growth_energy_blocked", torch.zeros((), dtype=torch.long))
+        self.register_buffer("last_growth_capacity_blocked", torch.zeros((), dtype=torch.long))
+        self.register_buffer("last_growth_budget_deferred", torch.zeros((), dtype=torch.long))
+        self.register_buffer("last_growth_energy_spent", torch.zeros(()))
+        self.register_buffer("cumulative_growth_energy_spent", torch.zeros(()))
         self.register_buffer("probe_source", probe_source)
         self.register_buffer("probe_kernel", probe_kernel)
         self.synapse_weight = nn.Parameter(initial_weight)
@@ -439,6 +445,11 @@ class SpatialSubstrate(nn.Module):
         events: list[dict[str, Any]] = []
         changed = torch.zeros_like(self.dendrite_source, dtype=torch.bool)
         changed_sites = torch.zeros_like(self.occupied)
+        self.last_growth_proposals.zero_()
+        self.last_growth_energy_blocked.zero_()
+        self.last_growth_capacity_blocked.zero_()
+        self.last_growth_budget_deferred.zero_()
+        self.last_growth_energy_spent.zero_()
 
         invalid = (self.dendrite_source >= 0) & ~self.active_edge_mask
         prune_mask = invalid.clone()
@@ -738,8 +749,10 @@ class SpatialSubstrate(nn.Module):
         ready_slots = candidate_slot[ready]
         if not ready_targets.numel():
             return changed
+        self.last_growth_proposals.fill_(ready_targets.numel())
         budget = max(0, cfg.max_grown_per_generation)
         if budget == 0:
+            self.last_growth_budget_deferred.fill_(ready_targets.numel())
             return changed
         strength = self.candidate_counter[ready_targets, ready_slots]
         order = torch.argsort(strength, descending=True)
@@ -747,14 +760,35 @@ class SpatialSubstrate(nn.Module):
         ready_sources = ready_sources[order]
         _, _, existing_sources = self.edge_list()
         outgoing = torch.bincount(existing_sources, minlength=cfg.site_count).cpu().tolist()
+        remaining_energy = self.energy.detach().cpu().tolist()
+        construction_cost = max(0.0, float(cfg.axon_growth_cost))
+        energy_reserve = max(0.0, float(cfg.axon_growth_energy_reserve))
         accepted: list[int] = []
-        for index, source in enumerate(ready_sources.cpu().tolist()):
+        targets_cpu = ready_targets.cpu().tolist()
+        sources_cpu = ready_sources.cpu().tolist()
+        for index, (target, source) in enumerate(zip(targets_cpu, sources_cpu, strict=True)):
             has_capacity = outgoing[source] < cfg.axon_slots
-            if has_capacity:
-                accepted.append(index)
-                outgoing[source] += 1
-                if len(accepted) >= budget:
-                    break
+            if not has_capacity:
+                self.last_growth_capacity_blocked.add_(1)
+                continue
+            charges: dict[int, float] = {source: construction_cost}
+            charges[target] = charges.get(target, 0.0) + construction_cost
+            can_afford = all(
+                remaining_energy[site] - charge >= energy_reserve
+                for site, charge in charges.items()
+            )
+            if not can_afford:
+                self.last_growth_energy_blocked.add_(1)
+                continue
+            accepted.append(index)
+            outgoing[source] += 1
+            for site, charge in charges.items():
+                remaining_energy[site] -= charge
+            if len(accepted) >= budget:
+                self.last_growth_budget_deferred.fill_(
+                    len(targets_cpu) - index - 1
+                )
+                break
         if not accepted:
             return changed
         accepted_indices = torch.tensor(
@@ -762,6 +796,16 @@ class SpatialSubstrate(nn.Module):
         )
         ready_targets = ready_targets[accepted_indices]
         ready_sources = ready_sources[accepted_indices]
+        charged_sites = torch.unique(torch.cat((ready_targets, ready_sources)))
+        charged_energy = torch.tensor(
+            [remaining_energy[site] for site in charged_sites.cpu().tolist()],
+            device=self.energy.device,
+            dtype=self.energy.dtype,
+        )
+        self.energy[charged_sites] = charged_energy
+        energy_spent = construction_cost * 2 * len(accepted)
+        self.last_growth_energy_spent.fill_(energy_spent)
+        self.cumulative_growth_energy_spent.add_(energy_spent)
         free_slot = free[ready_targets].float().argmax(dim=1)
         self.dendrite_source[ready_targets, free_slot] = ready_sources
         growth_sign = torch.randn(
@@ -773,7 +817,7 @@ class SpatialSubstrate(nn.Module):
             cfg.initial_weight_scale * torch.sign(growth_sign + 1e-4)
         )
         self.edge_age[ready_targets, free_slot] = 0
-        self.edge_utility[ready_targets, free_slot] = 0.04
+        self.edge_utility[ready_targets, free_slot] = cfg.new_axon_initial_utility
         changed[ready_targets, free_slot] = True
         for target, source in zip(ready_targets[:160].tolist(), ready_sources[:160].tolist(), strict=True):
             events.append({"type": "grown", "source": source, "destination": target})

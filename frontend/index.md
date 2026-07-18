@@ -80,6 +80,9 @@ experiment laboratory above the live organism.
   continuation; blank explicitly preserves the checkpoint's current ceiling.
 - **Does**: Exposes a separate per-generation dendrite-growth budget; blank preserves
   the checkpoint cap and zero defers every ready proposal without clearing evidence.
+- **Does**: Exposes construction cost per axon endpoint, post-growth energy reserve,
+  and probationary starting utility; every blank preserves the living checkpoint's
+  current value.
 - **Does**: Shows disposable cold-gradient training as disabled. Legacy auxiliary
   metadata remains diagnostic history, while continuation migrates its weight to zero
   and fresh-state contexts remain read-only audits.

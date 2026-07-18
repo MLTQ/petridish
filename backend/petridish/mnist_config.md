@@ -43,6 +43,9 @@ optimizer rates, and independently gated lifecycle/topology thresholds.
   moving optimization targets; structure requires competence or a measured plateau.
 - **Rationale**: Independent per-generation growth and pruning budgets prevent one
   matured proposal wave from rewriting thousands of conducting routes at once.
+- **Rationale**: Construction cost, post-growth energy reserve, and new-axon
+  starting utility distinguish a merely matured proposal from a metabolically
+  affordable commitment that must prove useful during its ordinary edge grace period.
 - **Rationale**: Structural enablement is independent from lifecycle enablement so
   fixed-connectome, topology-only, and turnover experiments are not conflated.
 - **Rationale**: Lifecycle enable/warm-up/cadence controls activate metabolic

@@ -64,6 +64,9 @@ class MnistModelConfig:
     prune_utility: float = 0.012
     max_pruned_per_generation: int = 384
     max_grown_per_generation: int = 192
+    axon_growth_cost: float = 0.0
+    axon_growth_energy_reserve: float = 0.0
+    new_axon_initial_utility: float = 0.04
     lifecycle_enabled: int = 1
     lifecycle_warmup_trials: int = 128
     lifecycle_interval: int = 16

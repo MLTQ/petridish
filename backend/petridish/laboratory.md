@@ -145,6 +145,9 @@ explicitly enabled trainer processes.
 - **Does**: Optionally bounds accepted dendrite growth per structural generation,
   records the resolved cap in manifest/phase/metrics, and preserves the checkpoint
   value when omitted.
+- **Does**: Optionally changes axon construction cost, post-growth endpoint reserve,
+  and probationary starting utility as recorded phase-local interventions; omitted
+  values preserve the checkpoint configuration.
 - **Does**: Rejects any requested nonzero disposable auxiliary weight. A legacy
   checkpoint with a nonzero value is continued with an explicit zero override,
   recorded in the command, manifest, phase history, and append-only metric before

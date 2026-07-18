@@ -115,7 +115,9 @@ domain, remain sampler-read-only, and reject an out-of-range or non-trajectory l
 phase-continuation regression must allow prune-only topology without altering any
 checkpoint-owned electrical, graph, optimizer, or RNG state, while allowing the
 restored configuration's global gradient ceiling and structural growth budget to
-change independently. The
+change independently. The same phase transition may change axon construction cost,
+endpoint reserve, and probation utility while every organism-owned tensor remains
+checkpoint-identical. The
 state-lane regression must alternate two independent persistent trajectories at
 batch one, retain both states, report their exact age range, and expose authoritative
 structure/lifecycle gate reasons. Append-only expansion from both one and two lanes

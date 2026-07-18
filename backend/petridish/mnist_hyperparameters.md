@@ -28,6 +28,9 @@ in configuration but selected through the laboratory, not represented as a slide
   ambiguously implies a fixed connectome.
 - **Rationale**: Growth and pruning budgets are separate controls because accepting
   every matured proposal can disrupt a competent organism even when pruning is capped.
+- **Rationale**: Axon construction cost, endpoint reserve, and probationary starting
+  utility are separate controls: the cap prevents catastrophe while the local energy
+  economy creates a biological selection pressure for sparse useful wiring.
 - **Rationale**: Early-output loss remains explicit and defaults to zero so
   unreachable pre-arrival steps cannot train the classifier toward uniform guesses.
 - **Rationale**: Genotype capacity, local-attention temperature, staged optimizer

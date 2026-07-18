@@ -50,6 +50,9 @@ giving all 49 vectorized patch features one ordered physical boundary column.
 - **Does**: Verifies prune-only topology never invokes candidate discovery/growth.
 - **Does**: Caps adaptive growth to the strongest configured number of proposals
   per generation and retains ready evidence when the budget is zero.
+- **Does**: Refuses a matured proposal when either endpoint cannot retain its energy
+  reserve, then verifies an affordable retry debits both endpoints, records the
+  construction energy, and starts at the configured probationary utility.
 
 ### Hyperparameter schema tests
 - **Does**: Locks the 64×64/8-cell-radius defaults, requires a control spec for

@@ -96,6 +96,13 @@ rejected; omission preserves the saved ceiling exactly.
 proposals an adaptive structural transaction may accept. The limit is phase-local,
 checkpointed, and published in training/scientific diagnostics; omission preserves
 the restored limit. Zero defers all ready proposals without clearing their evidence.
+`--axon-growth-cost 0..1` charges that amount to both source and target for each
+accepted axon, while `--axon-growth-energy-reserve 0..1` vetoes construction unless
+each endpoint remains above the reserve. `--new-axon-initial-utility 0..0.1` controls
+the accepted edge's probationary credit; zero requires it to earn protection before
+the existing edge-grace interval expires. These controls are checkpointed phase
+interventions. Diagnostics publish mature proposals, energy/capacity blocks,
+cap-deferred proposals, and last/cumulative construction energy.
 Continuous held-out records begin from a tensor-cloned copy of the checkpoint's
 actual electrical/private/workspace state and report its seed age. An identical
 contiguous-token cold-state ablation begins without that state; their accuracy delta
@@ -233,9 +240,9 @@ plasticity phase.
 
 ### `plasticity_phase_config` / `reconcile_plasticity_phase_status`
 
-Change only structural/lifecycle policy, an optional gradient ceiling, and an optional
-growth budget in a restored configuration, then derive its status from the organism's
-preserved training history.
+Change only structural/lifecycle policy, an optional gradient ceiling, growth budget,
+and explicit axon-economy parameters in a restored configuration, then derive its
+status from the organism's preserved training history.
 Neither helper resets or mutates substrate, developmental history, optimizer, sampler,
 or runtime tensors.
 

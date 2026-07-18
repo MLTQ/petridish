@@ -140,6 +140,15 @@ interface MetricRecord {
   gradientClipScale?: number;
   gradientClip?: number;
   maxGrownPerGeneration?: number;
+  axonGrowthCost?: number;
+  axonGrowthEnergyReserve?: number;
+  newAxonInitialUtility?: number;
+  growthProposals?: number;
+  growthEnergyBlocked?: number;
+  growthCapacityBlocked?: number;
+  growthBudgetDeferred?: number;
+  lastGrowthEnergySpent?: number;
+  cumulativeGrowthEnergySpent?: number;
   randomOffsetAuxiliaryWeight?: number;
   randomOffsetAuxiliaryScope?: "active_shard" | "full_corpus";
   randomOffsetAuxiliaryLoss?: number | null;
@@ -169,6 +178,9 @@ interface OrganismPhase {
   stateLanes?: number;
   gradientClip?: number;
   maxGrownPerGeneration?: number;
+  axonGrowthCost?: number;
+  axonGrowthEnergyReserve?: number;
+  newAxonInitialUtility?: number;
   randomOffsetAuxiliaryWeight?: number;
   randomOffsetAuxiliaryScope?: "active_shard" | "full_corpus";
   startGrownEdges?: number;
@@ -230,6 +242,7 @@ interface LaboratorySnapshot {
     samePhaseResume?: boolean;
     phaseGradientClip?: boolean;
     phaseGrowthBudget?: boolean;
+    phaseAxonEconomy?: boolean;
     persistentStateTraining?: boolean;
     randomOffsetAuxiliary?: boolean;
     randomOffsetAuxiliaryScope?: boolean;
@@ -346,6 +359,9 @@ export class LaboratoryView {
   private readonly continueStateLanesInput = required<HTMLInputElement>("#lab-continue-state-lanes");
   private readonly continueGradientClipInput = required<HTMLInputElement>("#lab-continue-gradient-clip");
   private readonly continueGrowthBudgetInput = required<HTMLInputElement>("#lab-continue-growth-budget");
+  private readonly continueAxonCostInput = required<HTMLInputElement>("#lab-continue-axon-cost");
+  private readonly continueAxonReserveInput = required<HTMLInputElement>("#lab-continue-axon-reserve");
+  private readonly continueAxonUtilityInput = required<HTMLInputElement>("#lab-continue-axon-utility");
   private readonly continueRandomOffsetAuxiliaryInput = required<HTMLInputElement>("#lab-continue-random-offset-auxiliary");
   private readonly continueRandomOffsetAuxiliaryScopeSelect = required<HTMLSelectElement>("#lab-continue-random-offset-scope");
   private readonly continueButton = required<HTMLButtonElement>("#lab-continue");
@@ -502,6 +518,14 @@ export class LaboratoryView {
     );
     if (!snapshot.capabilities.phaseGrowthBudget) {
       this.continueGrowthBudgetInput.value = "";
+    }
+    for (const control of [
+      this.continueAxonCostInput,
+      this.continueAxonReserveInput,
+      this.continueAxonUtilityInput,
+    ]) {
+      control.disabled = !(canContinue && snapshot.capabilities.phaseAxonEconomy);
+      if (!snapshot.capabilities.phaseAxonEconomy) control.value = "";
     }
     if (!snapshot.capabilities.phaseGradientClip) {
       this.continueGradientClipInput.value = "";
@@ -1019,7 +1043,7 @@ export class LaboratoryView {
         ? ` · phase +${Math.max(0, (diagnostic.cumulativeGrownEdges ?? 0) - phase.startGrownEdges)}/−${Math.max(0, (diagnostic.cumulativePrunedEdges ?? 0) - (phase.startPrunedEdges ?? 0))}`
         : "";
       const structure = diagnostic
-        ? `${topologyStatus} · ${diagnostic.structureUnlockReason ?? "reason unreported"}${(diagnostic.structuralWarmupRemaining ?? 0) > 0 ? ` · ${diagnostic.structuralWarmupRemaining} warm-up updates` : !diagnostic.structureUnlocked && (diagnostic.structurePlateauRemaining ?? 0) > 0 ? ` · ≤${diagnostic.structurePlateauRemaining} plateau updates` : ""} · growth cap ${diagnostic.maxGrownPerGeneration ?? run.configuration.maxGrownPerGeneration ?? "legacy unbounded"}/gen · lifetime +${diagnostic.cumulativeGrownEdges ?? 0}/−${diagnostic.cumulativePrunedEdges ?? 0}${phaseTurnover} edges · ${diagnostic.pruneEligibleEdges ?? 0} eligible · gen ${diagnostic.generation ?? 0}`
+        ? `${topologyStatus} · ${diagnostic.structureUnlockReason ?? "reason unreported"}${(diagnostic.structuralWarmupRemaining ?? 0) > 0 ? ` · ${diagnostic.structuralWarmupRemaining} warm-up updates` : !diagnostic.structureUnlocked && (diagnostic.structurePlateauRemaining ?? 0) > 0 ? ` · ≤${diagnostic.structurePlateauRemaining} plateau updates` : ""} · growth cap ${diagnostic.maxGrownPerGeneration ?? run.configuration.maxGrownPerGeneration ?? "legacy unbounded"}/gen · axon cost ${diagnostic.axonGrowthCost ?? run.configuration.axonGrowthCost ?? 0}/endpoint, reserve ${diagnostic.axonGrowthEnergyReserve ?? run.configuration.axonGrowthEnergyReserve ?? 0}, initial utility ${diagnostic.newAxonInitialUtility ?? run.configuration.newAxonInitialUtility ?? 0.04} · last proposals ${diagnostic.growthProposals ?? 0}: ${diagnostic.growthEnergyBlocked ?? 0} energy-blocked, ${diagnostic.growthCapacityBlocked ?? 0} capacity-blocked, ${diagnostic.growthBudgetDeferred ?? 0} cap-deferred · energy spent ${this.number(diagnostic.lastGrowthEnergySpent, 3)}/${this.number(diagnostic.cumulativeGrowthEnergySpent, 3)} last/lifetime · lifetime +${diagnostic.cumulativeGrownEdges ?? 0}/−${diagnostic.cumulativePrunedEdges ?? 0}${phaseTurnover} edges · ${diagnostic.pruneEligibleEdges ?? 0} eligible · gen ${diagnostic.generation ?? 0}`
         : "—";
       const sample = heldOut?.generationSample === undefined
         ? "—"
@@ -1355,6 +1379,13 @@ export class LaboratoryView {
     const growthBudgetSelection = String(
       form.get("maxGrownPerGeneration") ?? "",
     ).trim();
+    const axonCostSelection = String(form.get("axonGrowthCost") ?? "").trim();
+    const axonReserveSelection = String(
+      form.get("axonGrowthEnergyReserve") ?? "",
+    ).trim();
+    const axonUtilitySelection = String(
+      form.get("newAxonInitialUtility") ?? "",
+    ).trim();
     const randomOffsetAuxiliarySelection = String(
       form.get("randomOffsetAuxiliaryWeight") ?? "",
     ).trim();
@@ -1377,6 +1408,13 @@ export class LaboratoryView {
       maxGrownPerGeneration: growthBudgetSelection === ""
         ? null
         : Number(growthBudgetSelection),
+      axonGrowthCost: axonCostSelection === "" ? null : Number(axonCostSelection),
+      axonGrowthEnergyReserve: axonReserveSelection === ""
+        ? null
+        : Number(axonReserveSelection),
+      newAxonInitialUtility: axonUtilitySelection === ""
+        ? null
+        : Number(axonUtilitySelection),
       randomOffsetAuxiliaryWeight: randomOffsetAuxiliarySelection === ""
         ? null
         : Number(randomOffsetAuxiliarySelection),
@@ -1439,6 +1477,9 @@ export class LaboratoryView {
       this.continueStateLanesInput.value = "";
       this.continueGradientClipInput.value = "";
       this.continueGrowthBudgetInput.value = "";
+      this.continueAxonCostInput.value = "";
+      this.continueAxonReserveInput.value = "";
+      this.continueAxonUtilityInput.value = "";
       this.continueRandomOffsetAuxiliaryInput.value = "";
       this.continueRandomOffsetAuxiliaryScopeSelect.value = "preserve";
       this.continuePhaseRoleSelect.value = run.currentRole
@@ -1456,6 +1497,9 @@ export class LaboratoryView {
     }
     this.continueGradientClipInput.placeholder = `blank preserves ${Number(run.configuration.gradientClip ?? 1)}`;
     this.continueGrowthBudgetInput.placeholder = `blank preserves ${Number(run.configuration.maxGrownPerGeneration ?? 192)}`;
+    this.continueAxonCostInput.placeholder = `blank preserves ${Number(run.configuration.axonGrowthCost ?? 0)}`;
+    this.continueAxonReserveInput.placeholder = `blank preserves ${Number(run.configuration.axonGrowthEnergyReserve ?? 0)}`;
+    this.continueAxonUtilityInput.placeholder = `blank preserves ${Number(run.configuration.newAxonInitialUtility ?? 0.04)}`;
     const legacyAuxiliary = Number(run.configuration.randomOffsetAuxiliaryWeight ?? 0);
     this.continueRandomOffsetAuxiliaryInput.placeholder = legacyAuxiliary > 0
       ? `legacy ×${legacyAuxiliary} will be disabled on continuation`

@@ -67,6 +67,12 @@ birth, inherited lineage, cause-classified death, content-aware growth, and prun
 - **Does**: Ranks matured connection proposals by accumulated evidence and accepts
   no more than the configured growth budget per structural generation; deferred
   proposals retain their counters for later cycles.
+- **Does**: Requires both source and target to retain the configured energy reserve,
+  charges construction cost to both endpoints atomically, and records proposals
+  blocked by energy, axon capacity, or the global safety cap.
+- **Rationale**: Rejected proposals retain their evidence. Accepted axons begin at
+  the configured utility, so zero creates a probationary edge that must earn task
+  credit before the existing grace period ends.
 - **Does**: Reports exact grown and pruned edge counts independently from the
   bounded event list used for visualization.
 - **Rationale**: Topology mutates only between differentiable trials.
