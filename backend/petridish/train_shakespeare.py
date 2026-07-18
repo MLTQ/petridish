@@ -231,6 +231,20 @@ def _generation_diagnostics(experiment: SequenceExperiment) -> dict[str, Any]:
     }
 
 
+def _baseline_diagnostics(experiment: SequenceExperiment) -> dict[str, float]:
+    """Return corpus baselines only when the task measured them."""
+
+    task = experiment.task
+    return {
+        key: value
+        for key, value in (
+            ("unigramBaselineAccuracy", task.unigram_baseline_accuracy),
+            ("bigramBaselineAccuracy", task.bigram_baseline_accuracy),
+        )
+        if value is not None
+    }
+
+
 def _fresh_config(
     task: str,
     *,
@@ -406,6 +420,7 @@ def main() -> None:
                 {
                     "type": "held_out", "update": experiment.training_step,
                     **held_out, **_scientific_metrics(experiment),
+                    **_baseline_diagnostics(experiment),
                     **_generation_diagnostics(experiment),
                 },
             )

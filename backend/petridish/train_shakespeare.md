@@ -37,6 +37,7 @@ held-out records at an infrequent configurable interval. Diagnostics distinguish
 physical from conducting edges, report pruning pressure and exact cumulative edge
 turnover, and compare output reach within one token, one context, and the complete
 graph. Held-out records include a fixed-prompt greedy continuation and diversity ratio;
+token-corpus records also carry exact unigram and bigram validation baselines;
 generation preserves the training sampler and organism state. `latest.pt` is replaced
 atomically and contains model parameters, optimizer moments, all substrate/topology
 buffers, generation and update counters, configuration, vocabulary, rolling metrics,
@@ -51,6 +52,11 @@ memory, and a finite-loss/gradient check.
 
 Compilation remains opt-in because the measured stable-forward attempt currently has
 dynamic topology graph breaks; production runs should use `--compile off`.
+
+### `_baseline_diagnostics`
+
+Publishes task-owned frequency and one-token-context baselines only when the corpus
+measured them, keeping synthetic controls free of invented comparison values.
 
 Example:
 

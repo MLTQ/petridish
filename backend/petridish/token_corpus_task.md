@@ -16,8 +16,16 @@ runtime or the multi-gigabyte training split.
 
 ### `build_token_task`
 - **Does**: Builds the same task from supplied text for tests and offline experiments.
+- **Does**: Measures exact held-out unigram accuracy and a train-fitted bigram
+  lookup baseline with vectorized counts.
 - **Rationale**: Leading spaces remain part of pieces, so concatenating decoded
   predictions produces readable text without a language-specific detokenizer.
+
+### `_next_token_baselines`
+- **Does**: Fits the most-common global token and one-step transition table on the
+  training split, then evaluates both on the untouched validation stream.
+- **Rationale**: Uniform vocabulary chance is not a meaningful language baseline;
+  learned models must be compared with frequency and one-token context.
 
 ## Contracts
 

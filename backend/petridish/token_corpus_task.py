@@ -52,6 +52,28 @@ def _chunk_generator(encoded: torch.Tensor, context_length: int):
     return generate
 
 
+def _next_token_baselines(
+    train: torch.Tensor, validation: torch.Tensor, vocabulary_size: int
+) -> tuple[float, float]:
+    """Measure exact validation unigram and train-fitted bigram accuracy."""
+
+    unigram_counts = torch.bincount(train, minlength=vocabulary_size)
+    unigram_token = int(unigram_counts.argmax())
+    targets = validation[1:]
+    unigram_accuracy = float((targets == unigram_token).float().mean())
+    pair_ids = train[:-1] * vocabulary_size + train[1:]
+    bigram_counts = torch.bincount(
+        pair_ids, minlength=vocabulary_size * vocabulary_size
+    ).reshape(vocabulary_size, vocabulary_size)
+    bigram_prediction = bigram_counts.argmax(dim=1)
+    unseen = bigram_counts.sum(dim=1) == 0
+    bigram_prediction[unseen] = unigram_token
+    bigram_accuracy = float(
+        (bigram_prediction[validation[:-1]] == targets).float().mean()
+    )
+    return unigram_accuracy, bigram_accuracy
+
+
 def build_token_task(
     text: str,
     *,
@@ -75,6 +97,9 @@ def build_token_task(
     split = max(context_length + 2, int(encoded.numel() * 0.90))
     split = min(split, encoded.numel() - context_length - 2)
     train, validation = encoded[:split], encoded[split:]
+    unigram_accuracy, bigram_accuracy = _next_token_baselines(
+        train, validation, len(vocabulary)
+    )
 
     def encode(value: str) -> list[int]:
         return [token_by_piece.get(piece, unknown) for piece in _pieces(value)]
@@ -104,6 +129,8 @@ def build_token_task(
         dataset_tokens=len(pieces),
         tokenizer_name=f"leading-space wordpieces · {len(vocabulary):,} tokens",
         source_url=source_url,
+        unigram_baseline_accuracy=unigram_accuracy,
+        bigram_baseline_accuracy=bigram_accuracy,
     )
 
 

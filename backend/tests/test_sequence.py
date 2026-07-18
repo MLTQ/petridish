@@ -586,6 +586,10 @@ def test_token_corpus_uses_distributed_ports_and_incremental_state() -> None:
     assert model.distributed_io is True
     assert layout.input_count == 64
     assert layout.output_count == 64
+    assert task.unigram_baseline_accuracy is not None
+    assert task.bigram_baseline_accuracy is not None
+    assert 0 <= task.unigram_baseline_accuracy <= 1
+    assert task.bigram_baseline_accuracy > task.unigram_baseline_accuracy
     assert full.logits.shape == (2, 8, len(task.vocabulary))
     assert torch.allclose(full.logits[:, 3:], suffix.logits, atol=1e-5, rtol=1e-5)
 

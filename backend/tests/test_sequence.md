@@ -54,7 +54,9 @@ state untouched.
 The distributed-token regression builds a small wordpiece corpus, verifies that its
 vocabulary is encoded through fixed 64-cell population banks, and proves that a
 sequence split across incremental calls produces the same logits as one uninterrupted
-forward pass. The excitotoxicity regression verifies stun, seeded recovery without
+forward pass. It also requires exact unigram and train-fitted bigram validation
+baselines, with the contextual baseline outperforming global frequency. The
+excitotoxicity regression verifies stun, seeded recovery without
 edge deletion, and lethal classification only after accumulated damage crosses the
 configured threshold.
 The direct-routing fixture supplies eight different tokens at the same single position

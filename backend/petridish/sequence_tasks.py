@@ -35,6 +35,8 @@ class SequenceTask:
     dataset_tokens: int = 0
     tokenizer_name: str | None = None
     source_url: str | None = None
+    unigram_baseline_accuracy: float | None = None
+    bigram_baseline_accuracy: float | None = None
 
     def batch(
         self, batch_size: int, generator: torch.Generator, *, evaluation: bool = False

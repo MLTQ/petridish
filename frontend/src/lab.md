@@ -30,6 +30,8 @@ validated launch or stop requests.
   for each selected corpus run.
 - **Does**: Aggregates held-out position accuracy into `p0–3`, `p4–15`, and `p16+`
   bands, separating organism startup/settling from steady-state token prediction.
+- **Does**: Places exact corpus unigram and bigram accuracy beside those bands so
+  improvements are judged against real frequency/context baselines, not 1/vocabulary.
 - **Rationale**: Loss alone cannot establish that a cellular routing or lifecycle
   mechanism is functioning.
 

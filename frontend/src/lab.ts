@@ -49,6 +49,8 @@ interface MetricRecord {
   generationUniqueTokenRatio?: number;
   positionIndices?: number[];
   positionAccuracy?: number[];
+  unigramBaselineAccuracy?: number;
+  bigramBaselineAccuracy?: number;
 }
 
 interface RunSnapshot {
@@ -746,11 +748,15 @@ export class LaboratoryView {
       band?.values.push(value);
     });
     const populated = bands.filter((band) => band.values.length > 0);
-    if (!populated.length) return "—";
-    return populated.map((band) => (
+    const positionSummary = populated.map((band) => (
       `${band.label} ${this.percent(
         band.values.reduce((sum, value) => sum + value, 0) / band.values.length,
       )}`
     )).join(" · ");
+    const baselineSummary = record.unigramBaselineAccuracy === undefined
+      ? ""
+      : `uni ${this.percent(record.unigramBaselineAccuracy)} · bi ${this.percent(record.bigramBaselineAccuracy)}`;
+    if (!positionSummary && !baselineSummary) return "—";
+    return [baselineSummary, positionSummary].filter(Boolean).join(" | ");
   }
 }
