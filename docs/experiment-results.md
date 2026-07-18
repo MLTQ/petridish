@@ -553,3 +553,29 @@ reassignment within fixed incoming source sets by 0.52419. This distinguishes
 meaningful route/weight organization from language competence. The exact organism is
 now continuing on the same 8,192-byte shard with topology fixed; its first continued
 update advanced electrical age from 64,000 to 64,064 instead of reinitializing it.
+
+### Progressive same-organism overfit control
+
+After both 8,192-byte phases failed, the 2070 organism continued again with the same
+cells, 16,565-edge fixed graph, optimizer, and electrical state but only 128 repeating
+training bytes. This is two 64-byte windows; the in-shard unigram and fitted bigram
+baselines are 21.26% and 43.31% respectively. The first hundred updates remained near
+frequency prediction at 21.09%, but the final hundred reached 79.83% accuracy / 1.20474
+loss. The final 160-update average was 68.23% / 1.47332. This exceeds the one-byte
+bigram ceiling and proves the persistent organism can learn longer conditional
+structure when the curriculum is sufficiently bounded.
+
+The result is genuine overfit rather than language generalization. Full-validation
+accuracy fell to 8.98% / 4.25289 loss, while generation changed from sixteen spaces to
+` f ll  frll  oal`. Broadcast silence worsened loss by 1.96877, whereas graph silence
+improved it by 0.82746. The conditional solution therefore lives primarily in the
+broadcast workspace; this particular physical connectome remains an interfering
+pathway.
+
+The exact lineage next expanded to a 512-byte fixed-graph curriculum at electrical
+age 80,000. Its in-shard unigram/bigram baselines are 20.16% / 35.03%. Across the first
+14 updates it retained 30.47% phase-local accuracy, showing partial transfer rather
+than a return to the frequency-only starting point. Pre-clipping gradient norms at
+update 2,514 were bias 0.151, decoder 0.353, token encoder 0.906, cell rule 1.512, and
+synapses 2.606. Conditional machinery is receiving substantial credit; the earlier
+collapse cannot be explained by a missing gradient path alone.
