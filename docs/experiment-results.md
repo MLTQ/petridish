@@ -799,3 +799,63 @@ copies freeze topology and retain the 2,048-byte curriculum and all sixteen lane
 One keeps lifecycle off; the other uses replacement-balanced homeostasis, which
 retains stun, probabilistic recovery, starvation/maintenance/excitotoxic death, and
 birth but caps births to measured deaths so population cannot grow unconditionally.
+
+### Replacement lifecycle preserved lineage but destroyed too much competence
+
+The lifecycle control and intervention began from byte-identical copies of the
+pruned update-6,250 checkpoint, SHA-256
+`d615377f6c5ba0c548d07074048342365d0fc3f7b5e397dd966301028c6601dd`, with organism
+ID `organism-b2505376398a491e8cf4150a5daf3fab`, 2,224 neurons, 13,737 directed edges,
+and all sixteen electrical-state lanes. Both kept the topology policy fixed and the
+same 2,048-byte experience shard; only lifecycle differed.
+
+The first actual population replacement at update 6,532 exposed a persistence bug:
+the currently active lane was reconciled to the changed site set, but the other
+fifteen persistent lanes retained the previous population and failed on their next
+forward pass. The worker stopped before saving this inconsistent in-memory mutation.
+Its last atomic checkpoint remained the same complete organism at update 6,500,
+SHA-256 `93ba22db34f1088828d277e9f168ab22b8438f00a9d1dfb701026e7d31febc95`.
+
+The repair remaps every persistent lane after a population change, preserving each
+survivor's lane-specific hidden/workspace state and age while initializing only true
+newborns. Lifecycle/topology intervals are now storage transactions: the trainer
+atomically saves immediately before entering the mutation and again after successful
+completion. A fail-closed retry route fingerprinted and reloaded the update-6,500
+checkpoint without adding a phase, changing policy, or constructing an organism. It
+replayed the lost RAM-only updates, crossed the former update-6,532 fault with a
+committed `populationChanged` checkpoint, and completed update 6,750 under the same
+organism ID and phase 11.
+
+Replacement pressure was scientifically negative at this intensity. The no-lifecycle
+control finished its final 160 updates at 72.18% / 1.11706; replacement finished at
+40.62% / 2.02411. Random-offset active-shard accuracy was 67.38% control versus
+36.91% lifecycle, and exact-next trajectory accuracy was 66.99% versus 36.82%.
+Electrical-state carry remained useful in-distribution, but its trajectory advantage
+fell from 13.38 points to 5.66 points.
+
+The mechanism was substantial rather than cosmetic. Replacement produced 164 deaths
+and 164 births, 86 stun episodes and 80 recoveries, with five cells still stunned at
+the final checkpoint. Population stayed at 2,224, while directed edges fell from
+13,737 to 11,283 (17.86%) because death removes incident dendrites even under a fixed
+topology policy. Mean energy fell to 0.577. The surviving graph still carried learned
+computation: lifecycle trajectory accuracy fell from 36.82% to 3.22% when graph
+weights were silenced, 6.35% under endpoint rotation, and 9.47% after within-target
+source/weight reassignment. The control corresponding values were 66.99%, 6.74%,
+6.45%, and 4.79%.
+
+Validation did not justify the capacity loss. Aggregate accuracy changed from 8.98%
+control to 10.06% lifecycle with losses 4.48813 and 4.12421; matched graph-reference
+accuracy was 11.13% and 10.35%. This roughly one-point movement is too small and
+internally inconsistent to claim generalization. Both fixed-prompt samples remained
+unreadable (`s  oooe imm onn ` and `a r    eaao lwe `). All six causal audits were
+read-only: terminal checkpoint hashes remained exactly
+`8dc60e3e4521c22295a4c03626761c91d6e385f289c1853745e453476604bedc` for control and
+`fdfd176a7bc2a8fed3f3db8ee59d3c37bcbf36c12ca8c05ee970fcfa6b3408ee` for lifecycle.
+
+The result rejects aggressive replacement as the next route toward language. The
+next paired intervention returns to the competent no-lifecycle checkpoint and tests
+experience breadth directly: one exact descendant remains on the 2,048-byte shard,
+while the other expands to 4,096 bytes. Both retain the emerged cells, pruned graph,
+sixteen lanes, optimizer, RNG, and electrical histories with fixed topology and no
+lifecycle. This asks whether incremental corpus breadth transfers conditional
+computation before reintroducing gentler homeostasis.

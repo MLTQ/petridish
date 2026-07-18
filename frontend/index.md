@@ -49,6 +49,9 @@ experiment laboratory above the live organism.
 - **Does**: Lets that same-organism continuation optionally repeat a deterministic
   TinyStories shard; the default preserves the current stream and zero explicitly
   returns to the full corpus.
+- **Does**: Includes 4,096- and 16,384-token intermediate shard choices so corpus
+  breadth can double without forcing a fourfold curriculum jump. Selecting one still
+  changes only the experience stream of the checkpointed organism.
 - **Does**: Lets continuation append persistent experience lanes through powers of
   two up to sixteen while disabling every option below the organism's current lane
   count. Preserve remains the default.
