@@ -42,6 +42,8 @@ explicitly enabled trainer processes.
 - **Does**: Reports GPU telemetry, compute processes, capabilities, and run summaries.
 - **Does**: Advertises checkpoint evaluation explicitly so a frontend loaded before
   the matching server restart cannot expose a nonfunctional mutation control.
+- **Does**: Advertises repeated-shard continuation explicitly so a frontend/backend
+  version mismatch cannot silently discard a curriculum request.
 - **Interacts with**: `/api/lab` in `server.py` and `lab.ts`.
 
 ### `Laboratory.metrics`

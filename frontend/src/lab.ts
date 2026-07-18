@@ -148,6 +148,7 @@ interface LaboratorySnapshot {
     topologyProfiles?: string[];
     tokenizerProfiles?: string[];
     checkpointEvaluation?: boolean;
+    trainingShardCurriculum?: boolean;
   };
   gpus: GpuSnapshot[];
   runs: RunSnapshot[];
@@ -371,6 +372,12 @@ export class LaboratoryView {
       if (control instanceof HTMLInputElement || control instanceof HTMLSelectElement || control instanceof HTMLButtonElement) {
         control.disabled = !canContinue;
       }
+    }
+    this.continueTrainingShardSelect.disabled = !(
+      canContinue && snapshot.capabilities.trainingShardCurriculum
+    );
+    if (!snapshot.capabilities.trainingShardCurriculum) {
+      this.continueTrainingShardSelect.value = "preserve";
     }
     this.launchStatus.value = snapshot.controlEnabled
       ? "new runs receive immutable manifests"

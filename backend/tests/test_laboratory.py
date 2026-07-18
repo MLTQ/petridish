@@ -48,6 +48,7 @@ def test_snapshot_advertises_checkpoint_evaluation_route(
 
     capabilities = laboratory.snapshot()["capabilities"]
     assert capabilities["checkpointEvaluation"] is True
+    assert capabilities["trainingShardCurriculum"] is True
     assert capabilities["tokenizerProfiles"] == ["wordpiece", "byte"]
 
 

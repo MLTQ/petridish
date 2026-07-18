@@ -120,6 +120,7 @@ class Laboratory:
                 "topologyProfiles": list(TOPOLOGY_PROFILES),
                 "tokenizerProfiles": list(TOKENIZER_PROFILES),
                 "checkpointEvaluation": True,
+                "trainingShardCurriculum": True,
             },
             "gpus": gpus,
             "runs": self._discover_runs(active_runs),
