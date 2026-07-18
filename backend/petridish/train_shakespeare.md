@@ -169,18 +169,13 @@ domain. This distinguishes nominal allocation, complete per-domain coverage, and
 balanced duplicate coverage.
 Every optimizer record also names the round-robin lane that produced it so per-lane
 competence and interference can be measured without reconstructing hidden state.
-`--random-offset-auxiliary-weight 0..10` optionally adds one cold, disposable random
-training context to each persistent-lane optimizer update. It runs through the same
-organism and accumulates shared-rule/synapse gradient, but never overwrites a saved
-lane, cursor, or runtime tensor. The checkpoint and every train/scientific record
-store its weight; train records also store the auxiliary's unweighted loss and
-accuracy. Ordinary resume rejects an override, while explicit plasticity continuation
-may change it without reconstructing any organism-owned state.
-`--random-offset-auxiliary-scope active_shard|full_corpus` selects the disposable
-context distribution independently of persistent lanes. Omission restores the exact
-checkpoint setting; an explicit change requires a resume-plasticity phase and is
-applied after state restoration so saved metadata cannot overwrite the intervention.
-Both weight and scope are stored in task and experiment checkpoint metadata.
+Historical random-offset auxiliary weight and scope remain checkpointed so old phases
+can be loaded and audited exactly. Optimizer-bearing execution now fails closed when
+the restored weight is nonzero. Continuing such a checkpoint requires the explicit
+same-organism intervention `--resume-plasticity
+--random-offset-auxiliary-weight 0`; this changes no cell, edge, synapse, optimizer
+moment, RNG stream, cursor, or electrical/private/workspace state. Independent cold
+contexts are evaluation-only and can never contribute gradients.
 `--topology-profile fixed|adaptive|prune_only` names the phase policy independently
 from lifecycle. Fixed continues to route through the saved graph without endpoint
 mutation; adaptive prunes and grows; prune-only removes signed-low-utility dendrites

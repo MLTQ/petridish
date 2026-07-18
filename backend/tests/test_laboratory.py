@@ -265,8 +265,9 @@ def test_snapshot_advertises_checkpoint_evaluation_route(
     assert capabilities["checkpointFork"] is True
     assert capabilities["sameLineageRetry"] is True
     assert capabilities["samePhaseResume"] is True
-    assert capabilities["randomOffsetAuxiliary"] is True
-    assert capabilities["randomOffsetAuxiliaryScope"] is True
+    assert capabilities["persistentStateTraining"] is True
+    assert capabilities["randomOffsetAuxiliary"] is False
+    assert capabilities["randomOffsetAuxiliaryScope"] is False
     assert capabilities["tokenizerProfiles"] == ["wordpiece", "byte"]
 
 
@@ -521,6 +522,8 @@ def test_checkpoint_continuation_preserves_run_lineage_and_changes_only_phase(
                 "configuration": {
                     "structure": False, "lifecycleProfile": "off", "updates": 500,
                     "stateLanes": 1, "trainingShardTokens": 2_048,
+                    "randomOffsetAuxiliaryWeight": 0.25,
+                    "randomOffsetAuxiliaryScope": "full_corpus",
                 },
             }
         ),
@@ -569,8 +572,6 @@ def test_checkpoint_continuation_preserves_run_lineage_and_changes_only_phase(
             training_shard_tokens=8_192,
             state_lanes=16,
             gradient_clip=5.0,
-            random_offset_auxiliary_weight=0.25,
-            random_offset_auxiliary_scope="full_corpus",
         )
     )
 
@@ -589,13 +590,13 @@ def test_checkpoint_continuation_preserves_run_lineage_and_changes_only_phase(
     assert manifest["configuration"]["trainingShardTokens"] == 8_192
     assert manifest["configuration"]["stateLanes"] == 16
     assert manifest["configuration"]["gradientClip"] == 5.0
-    assert manifest["configuration"]["randomOffsetAuxiliaryWeight"] == 0.25
+    assert manifest["configuration"]["randomOffsetAuxiliaryWeight"] == 0
     assert manifest["configuration"]["randomOffsetAuxiliaryScope"] == "full_corpus"
     assert manifest["phaseHistory"][-1]["topologyProfile"] == "prune_only"
     assert manifest["phaseHistory"][-1]["trainingShardTokens"] == 8_192
     assert manifest["phaseHistory"][-1]["stateLanes"] == 16
     assert manifest["phaseHistory"][-1]["gradientClip"] == 5.0
-    assert manifest["phaseHistory"][-1]["randomOffsetAuxiliaryWeight"] == 0.25
+    assert manifest["phaseHistory"][-1]["randomOffsetAuxiliaryWeight"] == 0
     assert manifest["phaseHistory"][-1]["randomOffsetAuxiliaryScope"] == "full_corpus"
     assert manifest["phaseHistory"][-1]["startGrownEdges"] == 320
     assert manifest["phaseHistory"][-1]["startPrunedEdges"] == 448
@@ -609,15 +610,15 @@ def test_checkpoint_continuation_preserves_run_lineage_and_changes_only_phase(
     assert command[command.index("--training-shard-tokens") + 1] == "8192"
     assert command[command.index("--state-lanes") + 1] == "16"
     assert command[command.index("--gradient-clip") + 1] == "5.0"
-    assert command[command.index("--random-offset-auxiliary-weight") + 1] == "0.25"
-    assert command[command.index("--random-offset-auxiliary-scope") + 1] == "full_corpus"
+    assert command[command.index("--random-offset-auxiliary-weight") + 1] == "0.0"
+    assert "--random-offset-auxiliary-scope" not in command
     assert "--no-resume" not in command
     assert records[-1]["type"] == "phase"
     assert records[-1]["organismId"] == manifest["organismId"]
     assert records[-1]["trainingShardTokens"] == 8_192
     assert records[-1]["stateLanes"] == 16
     assert records[-1]["gradientClip"] == 5.0
-    assert records[-1]["randomOffsetAuxiliaryWeight"] == 0.25
+    assert records[-1]["randomOffsetAuxiliaryWeight"] == 0
     assert records[-1]["randomOffsetAuxiliaryScope"] == "full_corpus"
     assert records[-1]["startGrownEdges"] == 320
     assert records[-1]["startPrunedEdges"] == 448
@@ -667,7 +668,7 @@ def test_curriculum_breadth_requires_append_only_lanes_and_never_shrinks(
             )
         )
 
-    with pytest.raises(ValueError, match="random-offset auxiliary"):
+    with pytest.raises(ValueError, match="disposable cold-context"):
         laboratory.continue_run(
             ContinueSpec(
                 "trial", "GPU-example", random_offset_auxiliary_weight=10.1,

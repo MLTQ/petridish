@@ -318,12 +318,24 @@ class SequenceExperiment:
 
     def step(self, count: int = 1) -> None:
         for _ in range(count):
+            if self.visual_cursor + 1 >= len(self.last_trace):
+                self._require_persistent_gradient_contexts()
             self.tick += 1
             if self.visual_cursor + 1 < len(self.last_trace):
                 self.visual_cursor += 1
                 self.events = [dict(event, tick=self.tick) for event in self.last_frame.events]
             else:
                 self._train_trial()
+
+    def _require_persistent_gradient_contexts(self) -> None:
+        """Reject optimizer work sourced from an uncheckpointed electrical state."""
+
+        if self.random_offset_auxiliary_weight > 0:
+            raise RuntimeError(
+                "disposable cold-context gradients are disabled; set "
+                "random_offset_auxiliary_weight to zero and train through "
+                "checkpointed persistent state lanes"
+            )
 
     def _train_trial(
         self,
@@ -332,6 +344,7 @@ class SequenceExperiment:
         auto_evaluate: bool = True,
         progress_callback: Callable[[str, int, int], None] | None = None,
     ) -> None:
+        self._require_persistent_gradient_contexts()
         self.model.train()
         if self.stream_mode == "continuous":
             batch, next_stream_positions, state_lane, runtime_state = (
@@ -422,28 +435,6 @@ class SequenceExperiment:
         neuron_credit /= max(1, credited)
         self.last_random_offset_auxiliary_loss = None
         self.last_random_offset_auxiliary_accuracy = None
-        if self.random_offset_auxiliary_weight > 0:
-            auxiliary_batch = self._random_offset_auxiliary_batch()
-            with torch.autocast(
-                device_type=self.device.type,
-                dtype=self.amp_dtype,
-                enabled=self.amp_dtype is not None,
-            ):
-                auxiliary_result = self.compute_model(
-                    auxiliary_batch.tokens,
-                    capture_trace=False,
-                    runtime_state=None,
-                )
-            auxiliary_loss, auxiliary_accuracy = self._masked_loss_accuracy(
-                auxiliary_result.logits, auxiliary_batch
-            )
-            if not bool(torch.isfinite(auxiliary_loss)):
-                raise FloatingPointError(
-                    "non-finite random-offset auxiliary loss before backward"
-                )
-            (self.random_offset_auxiliary_weight * auxiliary_loss).backward()
-            self.last_random_offset_auxiliary_loss = float(auxiliary_loss.detach())
-            self.last_random_offset_auxiliary_accuracy = auxiliary_accuracy
         edge_gradient = self.model.substrate.synapse_weight.grad
         edge_credit = (
             torch.zeros_like(self.model.substrate.synapse_weight)
@@ -625,12 +616,14 @@ class SequenceExperiment:
     ) -> None:
         """Run one optimizer update while exposing measured intermediate states."""
 
+        self._require_persistent_gradient_contexts()
         self.tick += 1
         self._train_trial(progress_callback=progress_callback)
 
     def train_updates(self, count: int = 1) -> None:
         """Run optimizer updates directly without constructing viewer traces."""
 
+        self._require_persistent_gradient_contexts()
         for _ in range(max(1, count)):
             self.tick += 1
             self._train_trial(capture_trace=False, auto_evaluate=False)

@@ -1180,6 +1180,12 @@ def main() -> None:
                 args.random_offset_auxiliary_scope
             )
             reconcile_plasticity_phase_status(experiment)
+    if not args.evaluate_only and experiment.random_offset_auxiliary_weight > 0:
+        parser.error(
+            "disposable cold-context gradients are disabled; continue the exact "
+            "checkpoint with --resume-plasticity "
+            "--random-offset-auxiliary-weight 0 and train through persistent lanes"
+        )
     if args.compile_mode != "off":
         experiment.enable_compile(args.compile_mode)
 

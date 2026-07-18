@@ -88,12 +88,9 @@ control-enable contracts without requiring NVIDIA hardware or launching trainers
 - **Does**: Proves a bounded phase-local gradient ceiling reaches the trainer,
   manifest, phase history, and append-only metric while out-of-range values fail
   before any process launch.
-- **Does**: Proves a bounded phase-local random-offset auxiliary weight reaches the
-  trainer, manifest, phase history, and append-only metric while values above ten
-  fail before process launch.
-- **Does**: Proves active-shard/full-corpus auxiliary scope reaches the trainer,
-  manifest, phase history, and append-only metric while invalid scopes fail before
-  process launch.
+- **Does**: Proves a legacy nonzero disposable auxiliary setting is explicitly
+  migrated to zero on continuation and recorded in command, manifest, phase history,
+  and append-only metrics; any requested nonzero value fails before process launch.
 - **Does**: Proves checkpoint evaluation invokes the read-only trainer path, retains
   lineage/phase metadata, and can request state horizons without a plasticity override.
 - **Does**: Requires read-only audits to use sixteen fixed-seed batches rather than
@@ -118,8 +115,8 @@ control-enable contracts without requiring NVIDIA hardware or launching trainers
   frontend enables that phase control.
 - **Does**: Requires the server to advertise state-lane expansion before the frontend
   enables the append-only lane control.
-- **Does**: Requires the server to advertise random-offset auxiliary training before
-  the frontend enables that same-organism intervention.
+- **Does**: Requires the server to advertise persistent-state training while the two
+  historical random-offset auxiliary capabilities remain disabled.
 - **Does**: Requires the advertised 512-lane bound and phase-balanced expansion
   capability so newer phase-coverage controls remain safe against older servers.
 

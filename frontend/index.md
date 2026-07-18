@@ -72,12 +72,9 @@ experiment laboratory above the live organism.
   stability experiments.
 - **Does**: Exposes an optional bounded gradient-clip ceiling only on persistent
   continuation; blank explicitly preserves the checkpoint's current ceiling.
-- **Does**: Exposes an optional zero-to-ten random-offset auxiliary weight only on
-  persistent continuation. Blank preserves the checkpoint value; the UI labels it as
-  an auxiliary objective rather than another state lane or organism.
-- **Does**: Offers a separately capability-gated auxiliary-domain selector. Preserve
-  is the default; active-shard and full-corpus choices never alter persistent lane
-  domains, cursors, or electrical state.
+- **Does**: Shows disposable cold-gradient training as disabled. Legacy auxiliary
+  metadata remains diagnostic history, while continuation migrates its weight to zero
+  and fresh-state contexts remain read-only audits.
 - **Does**: Uses a task-neutral stepping-stone table and chart for recall and direct
   physical-routing, memory, composition, and persistent-stream overfit controls.
 - **Does**: Labels detailed held-out accuracy as binding slot or supervised stream

@@ -168,8 +168,9 @@ class Laboratory:
                 "sameLineageRetry": True,
                 "samePhaseResume": True,
                 "phaseGradientClip": True,
-                "randomOffsetAuxiliary": True,
-                "randomOffsetAuxiliaryScope": True,
+                "persistentStateTraining": True,
+                "randomOffsetAuxiliary": False,
+                "randomOffsetAuxiliaryScope": False,
             },
             "gpus": gpus,
             "runs": self._discover_runs(active_runs),
@@ -296,12 +297,10 @@ class Laboratory:
             raise ValueError("additional updates must be positive")
         if spec.gradient_clip is not None and not 0.01 <= spec.gradient_clip <= 100:
             raise ValueError("gradient clip must be between 0.01 and 100")
-        if (
-            spec.random_offset_auxiliary_weight is not None
-            and not 0 <= spec.random_offset_auxiliary_weight <= 10
-        ):
+        if spec.random_offset_auxiliary_weight not in {None, 0, 0.0}:
             raise ValueError(
-                "random-offset auxiliary weight must be between zero and ten"
+                "disposable cold-context gradients are disabled; persistent "
+                "state-lane training requires auxiliary weight zero"
             )
         if (
             spec.random_offset_auxiliary_scope is not None
@@ -415,9 +414,10 @@ class Laboratory:
                 configuration.get("randomOffsetAuxiliaryWeight", 0.0),
             )
         )
-        random_offset_auxiliary_weight = (
-            previous_random_offset_auxiliary_weight
-            if spec.random_offset_auxiliary_weight is None
+        random_offset_auxiliary_weight = 0.0
+        auxiliary_override = (
+            0.0
+            if previous_random_offset_auxiliary_weight > 0
             else spec.random_offset_auxiliary_weight
         )
         previous_random_offset_auxiliary_scope = str(
@@ -505,7 +505,7 @@ class Laboratory:
             state_lanes=spec.state_lanes,
             gradient_clip=spec.gradient_clip,
             random_offset_auxiliary_weight=(
-                spec.random_offset_auxiliary_weight
+                auxiliary_override
             ),
             random_offset_auxiliary_scope=(
                 spec.random_offset_auxiliary_scope
@@ -987,9 +987,10 @@ class Laboratory:
             raise ValueError(
                 f"state lanes must be between one and {MAX_STATE_LANES}"
             )
-        if not 0 <= spec.random_offset_auxiliary_weight <= 10:
+        if spec.random_offset_auxiliary_weight != 0:
             raise ValueError(
-                "random-offset auxiliary weight must be between zero and ten"
+                "disposable cold-context gradients are disabled; persistent "
+                "state-lane training requires auxiliary weight zero"
             )
         if spec.random_offset_auxiliary_scope not in RANDOM_OFFSET_AUXILIARY_SCOPES:
             raise ValueError("unknown random-offset auxiliary scope")

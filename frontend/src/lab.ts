@@ -215,6 +215,7 @@ interface LaboratorySnapshot {
     sameLineageRetry?: boolean;
     samePhaseResume?: boolean;
     phaseGradientClip?: boolean;
+    persistentStateTraining?: boolean;
     randomOffsetAuxiliary?: boolean;
     randomOffsetAuxiliaryScope?: boolean;
   };
@@ -1397,8 +1398,11 @@ export class LaboratoryView {
       this.continueStateLanesInput.value = "";
     }
     this.continueGradientClipInput.placeholder = `blank preserves ${Number(run.configuration.gradientClip ?? 1)}`;
-    this.continueRandomOffsetAuxiliaryInput.placeholder = `blank preserves ${Number(run.configuration.randomOffsetAuxiliaryWeight ?? 0)}`;
-    this.continueRandomOffsetAuxiliaryScopeSelect.title = `current: ${String(run.configuration.randomOffsetAuxiliaryScope ?? "active_shard").replace("_", " ")}`;
+    const legacyAuxiliary = Number(run.configuration.randomOffsetAuxiliaryWeight ?? 0);
+    this.continueRandomOffsetAuxiliaryInput.placeholder = legacyAuxiliary > 0
+      ? `legacy ×${legacyAuxiliary} will be disabled on continuation`
+      : "persistent-state training only";
+    this.continueRandomOffsetAuxiliaryScopeSelect.title = "fresh-state contexts are read-only audits";
   }
 
   private lineagePhase(run: RunSnapshot): string {

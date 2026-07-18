@@ -49,18 +49,12 @@ parameters, synapses, genotype, optimizer, and lifecycle. This tests trajectory
 diversity on memory-limited GPUs without creating an ensemble or resetting a lane.
 The checkpointed bank is bounded at 512 lanes, enough to preserve successive
 64-phase corpus-domain banks through an incremental breadth curriculum.
-An optional random-offset auxiliary objective adds one cold, disposable training
-context to an ordinary persistent-lane optimizer update. It traverses the same living
-cells, connectome, shared rule, and synapses, and contributes parameter/synapse
-gradient, but its transient runtime state is never installed in the persistent bank
-or substituted for a saved cursor. The primary lane alone advances and supplies
-homeostatic neuron credit. This is a controlled pressure for a context rule that
-transfers beyond exact saved trajectories, not an organism or lane reset.
-Its explicit `active_shard` or `full_corpus` scope changes only where that disposable
-context is sampled. Full-corpus scope uses the unsharded training tensor while all
-checkpoint-owned warm lanes keep their existing domains, cursors, and complete
-runtime states. Unsupported tasks reject full-corpus scope rather than silently
-falling back to the shard.
+Historical checkpoints may contain a nonzero random-offset auxiliary setting from
+phases that added disposable cold-context gradients. The setting still round-trips
+for provenance and read-only evaluation, but `_train_trial` now rejects it before
+reading a batch or mutating cursor, gradient, optimizer, or organism state. Every
+optimizer-bearing context must belong to a checkpointed persistent lane. Fresh-state
+contexts remain available only as explicitly read-only causal audits.
 Read-only `full_corpus_context` evaluation applies the same cold independent-context
 contract to the complete training corpus with the dedicated evaluation RNG. It is
 separate from the active-shard cold probe, validation, and exact warm trajectories,
@@ -103,9 +97,6 @@ decoder, token encoder, recurrent cell rule, and synapses. This distinguishes a
 frequency-only shortcut from missing or vanishing conditional credit without changing
 the organism's optimizer step. Total norm and the applied global clip scale separate
 useful credit from an update dominated by clipping.
-When the random-offset auxiliary is active, these norms measure the combined primary
-and auxiliary parameter gradient. Training metrics report its configured weight,
-unweighted loss, and accuracy separately from the primary persistent-lane result.
 Non-finite loss is rejected before backward, and a non-finite total gradient norm
 is rejected before the optimizer or homeostatic state can mutate. Failed long runs
 therefore preserve their last finite checkpoint instead of applying NaN gradients
