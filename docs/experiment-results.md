@@ -318,3 +318,39 @@ developmental phase; continued birth/death/topology mutation erodes the computat
 helps reconstruct. The result is one deterministic seed and one task, so future work
 should replicate seeds and replace the fixed 60-update schedule with a training-only
 competence/stability gate rather than held-out feedback.
+
+## Interactive Shakespeare checkpoint sample — 2026-07-17
+
+The running 4090 organism's update-33,000 checkpoint was loaded into the paused CPU
+viewer without interrupting training. The shared run-root bug was fixed first so the
+viewer and laboratory discover the same atomic `latest.pt`. Three temperature-0.85
+samples of 96 characters each took 132–143 seconds (about 0.7 characters/second):
+
+```text
+ROMEO:
+Whome so ttoors
+Ih for reet tetler, an itnerd-edeson ou Yhu duain.
+
+Second Cerimen:
+I uiv, mysal
+
+KING LEAR:
+Tat, who cuapyild be will comesit ag anlen.
+
+CORIOLAN:
+So htmel that, ord to lees,
+Tteain tine o
+
+What is love?
+
+MENENIUS:
+Now lhabalt, Which Jome to my ace trutked my lord.
+
+KING RICHARD II:
+My dood foow'd c
+```
+
+The organism has learned speaker/line structure, punctuation, and word-like local
+statistics, but not dependable spelling, long-range syntax, meaning, or dialogue.
+Generation currently replays the full 64-character context for every character;
+persistent incremental inference is required for conversational latency.
