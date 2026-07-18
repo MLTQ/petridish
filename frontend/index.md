@@ -52,16 +52,13 @@ experiment laboratory above the live organism.
 - **Does**: Includes 4,096- and 16,384-token intermediate shard choices so corpus
   breadth can double without forcing a fourfold curriculum jump. Selecting one still
   changes only the experience stream of the checkpointed organism.
-- **Does**: Lets continuation append up to 512 persistent experience lanes while
-  disabling every option below the organism's current lane count. Preserve remains
-  the default; 96 lanes can cover every phase of a 64-token context without moving
-  the organism's existing 32 trajectories.
-- **Does**: Labels the 32-lane expansion as an append-only new-shard intervention:
-  existing lane domains/cursors stay fixed while new cold lanes receive the selected
-  broader corpus domain.
-- **Does**: Labels 64/96 and successive 64-lane domain-bank expansions by their
-  cursor-phase purpose; newly appended lanes are balanced within their own stream
-  domain before any duplicate.
+- **Does**: Lets continuation append any exact target up to 512 persistent experience
+  lanes while rejecting values below the organism's current count. Blank preserves
+  the current bank, so measured gaps such as nine missing domain phases do not require
+  arbitrary preset totals.
+- **Does**: Treats every larger numeric target as append-only: existing lane
+  domains/cursors stay fixed while new cold lanes receive the selected broader corpus
+  domain and are balanced within it before any phase duplicate.
 - **Does**: Calls held-out zero-state comparisons disposable ablation copies so the
   interface never implies that the live organism was reset.
 - **Does**: Shows lineage and phase beside run status so a continuation cannot be

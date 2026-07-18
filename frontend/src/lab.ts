@@ -310,7 +310,7 @@ export class LaboratoryView {
   private readonly continueLifecycleSelect = required<HTMLSelectElement>("#lab-continue-lifecycle-profile");
   private readonly continueStructureSelect = required<HTMLSelectElement>("#lab-continue-structure");
   private readonly continueTrainingShardSelect = required<HTMLSelectElement>("#lab-continue-training-shard");
-  private readonly continueStateLanesSelect = required<HTMLSelectElement>("#lab-continue-state-lanes");
+  private readonly continueStateLanesInput = required<HTMLInputElement>("#lab-continue-state-lanes");
   private readonly continueButton = required<HTMLButtonElement>("#lab-continue");
   private readonly continueStatus = required<HTMLOutputElement>("#lab-continue-status");
   private readonly benchmarksHost = required<HTMLTableSectionElement>("#laboratory-benchmarks");
@@ -440,11 +440,11 @@ export class LaboratoryView {
     if (!snapshot.capabilities.trainingShardCurriculum) {
       this.continueTrainingShardSelect.value = "preserve";
     }
-    this.continueStateLanesSelect.disabled = !(
+    this.continueStateLanesInput.disabled = !(
       canContinue && snapshot.capabilities.stateLaneExpansion
     );
     if (!snapshot.capabilities.stateLaneExpansion) {
-      this.continueStateLanesSelect.value = "preserve";
+      this.continueStateLanesInput.value = "";
     }
     this.continueForkRunInput.disabled = !(
       canContinue && snapshot.capabilities.checkpointFork
@@ -1219,7 +1219,7 @@ export class LaboratoryView {
     const topologyProfile = String(form.get("topologyProfile"));
     const phaseName = String(form.get("phaseName") ?? "").trim();
     const shardSelection = String(form.get("trainingShardTokens") ?? "preserve");
-    const laneSelection = String(form.get("stateLanes") ?? "preserve");
+    const laneSelection = String(form.get("stateLanes") ?? "").trim();
     const body = {
       gpuUuid: String(form.get("gpuUuid")),
       additionalUpdates: Number(form.get("additionalUpdates")),
@@ -1229,7 +1229,7 @@ export class LaboratoryView {
       structure: topologyProfile !== "fixed",
       phaseName: phaseName || null,
       trainingShardTokens: shardSelection === "preserve" ? null : Number(shardSelection),
-      stateLanes: laneSelection === "preserve" ? null : Number(laneSelection),
+      stateLanes: laneSelection === "" ? null : Number(laneSelection),
     };
     try {
       if (forkRunId) {
@@ -1281,14 +1281,17 @@ export class LaboratoryView {
         run.configuration.lifecycleProfile ?? (run.configuration.lifecycle ? "baseline" : "off"),
       );
       this.continueTrainingShardSelect.value = "preserve";
-      this.continueStateLanesSelect.value = "preserve";
+      this.continueStateLanesInput.value = "";
     }
     const currentLanes = Number(run.configuration.stateLanes ?? 1);
     const maximumStateLanes = this.snapshot?.capabilities.maximumStateLanes ?? 32;
-    for (const option of this.continueStateLanesSelect.options) {
-      option.disabled = option.value !== "preserve" && (
-        Number(option.value) < currentLanes || Number(option.value) > maximumStateLanes
-      );
+    this.continueStateLanesInput.min = String(currentLanes);
+    this.continueStateLanesInput.max = String(maximumStateLanes);
+    if (
+      this.continueStateLanesInput.value !== ""
+      && Number(this.continueStateLanesInput.value) < currentLanes
+    ) {
+      this.continueStateLanesInput.value = "";
     }
   }
 

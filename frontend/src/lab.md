@@ -151,6 +151,9 @@ validated launch or stop requests.
 - **Does**: Can expand a continued organism's persistent experience lanes without
   exposing a shrink operation; existing lane positions and electrical histories stay
   organism-owned while newly allocated lanes begin cold at independent phases.
+- **Does**: Accepts an exact numeric target rather than a preset dropdown; blank
+  preserves the current count, and the input minimum follows the selected checkpoint
+  so phase-gap interventions such as 96→105 remain expressible but shrinkage does not.
 - **Does**: Supports up to 512 lanes so an organism can retain successive old
   trajectory banks while appending complete 64-phase banks for broader domains. The
   UI explicitly labels that new lanes—not old lanes—take the selected larger shard.
