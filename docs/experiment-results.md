@@ -1553,3 +1553,64 @@ Its recorded phase-22 source fingerprint matches that value, its target is the s
 18,750 update, and it retains the 16×2K, 89×4K, and 64×8K replay domains. This
 sequential same-GPU control will distinguish harm from genuinely novel input from
 ordinary long-run drift before the next mechanism changes.
+
+### Matched control and terminal causal audits
+
+The matched control completed all 2,500 updates on the same 2070 and exited cleanly
+at update 18,750. Its terminal checkpoint SHA is
+`d739a462335320beccd91fd639ab38bc3ecb778cc378d7da26080447f1cc5408`.
+It retained the same organism ID, 2,224 cells, 13,737 learned edges, 169/169 distinct
+active runtime trajectories, all optimizer/RNG/cursor state, and the exact
+16×2K + 89×4K + 64×8K replay domains. Every control record reported zero novel
+sensory tokens.
+
+Control reached 69.92% / 1.23524 overall and 73.18% / 1.10307 over the final 160
+windows. Its 2K, 4K, and 8K domains measured 88.60% / 0.47398, 80.25% / 0.73197,
+and 51.12% / 2.11575. Median clip scale was 0.06477, its tenth percentile was
+0.03976, and 87.52% of updates were at or below 0.1, effectively matching the
+treatment's 0.06227, 0.03771, and 87.76%. The treatment's 68.68% / 1.28279 on
+familiar windows was only 1.24 accuracy points and 0.04755 loss behind control;
+most aggregate harm came from the intended 35.51% / 2.78488 novel windows rather
+than wholesale forgetting of old computation.
+
+All terminal audits were run on the 2070 with sixteen fixed-seed batches and were
+read-only. Each action checked the checkpoint SHA before and after; control remained
+exactly `d739a462...` and treatment exactly `c6a38e5a...` through validation,
+full-corpus cold contexts, and explicit lanes 0, 16, and 105.
+
+On validation, treatment measured 9.77% / 4.24768 versus control 9.67% / 4.76959.
+The 0.522 loss improvement is real probability redistribution, but a 0.10-point
+top-one difference is not language competence. Both remain below the 19.09% /
+3.09976 unigram and 31.44% / 2.68040 bigram baselines. Cold state was nearly neutral:
+9.96% / 4.18344 treatment and 9.57% / 4.66590 control. Fixed generations remained
+collapsed and fragmentary: `  aoe   ay aar t` treatment and `  aom   ad  and `
+control.
+
+The independent full-corpus cold-context probe showed the same trade: treatment
+reached 6.84% / 4.37636 versus control 7.32% / 4.76123. Breadth improved loss by
+0.385 but did not improve top-one accuracy. The learned physical graph remained
+causal in both endpoints. On validation, graph silence cost 6.15 treatment and 5.96
+control accuracy points; endpoint rotation cost 2.93 and 2.25; source/weight
+reassignment cost 4.79 and 4.10. The expanded organism is therefore not obtaining
+its small loss gain by bypassing the connectome.
+
+Exact saved trajectories expose where specialization moved. Lane 0 changed from a
+control 2K domain to treatment 16K and fell from 89.36% / 0.52471 to 73.63% /
+1.08512. Lane 16 changed from 4K to 16K and stayed near parity at 74.51% / 0.96670
+control versus 75.00% / 1.04332 treatment. Lane 105 changed from 8K to 16K and
+measured 80.18% / 0.87184 control versus 78.91% / 0.91830 treatment. Persistent
+state remained highly useful on every aligned trajectory, adding 18.85–26.76
+accuracy points. Silencing the graph left only 3.1–4.6% accuracy; rotation and
+source/weight reassignment were similarly destructive.
+
+The result falsifies the simple hypothesis that more persistent prefix breadth alone
+will yield token-predictive language behavior. Ten percent genuine novelty teaches
+the organism to distribute probability somewhat better on unrelated text, but its
+top-one decisions and samples remain below elementary corpus baselines. The next
+stepping stone should test biological regularization rather than simply extending
+this curriculum: exact branches from the stronger 8K control endpoint can compare
+fixed consolidation, prune-only structural plasticity, and balanced stun/recovery
+without lesions. Each branch must retain its full organism state and use the same
+8K replay stream; validation loss, exact-trajectory competence, causal graph deltas,
+cell/edge turnover, and recovery state determine whether pruning or lifecycle
+pressure converts memorized routing into a less brittle reusable circuit.
