@@ -846,7 +846,15 @@ def test_state_lane_expansion_preserves_every_existing_trajectory(
     assert metrics["coldStateLanes"] == 4 - starting_lanes
     assert metrics["experienceTrajectoryCount"] == 4
     assert metrics["laneStreamDomains"] == [
-        {"tokens": task.training_stream_tokens, "lanes": 4, "firstLane": 0}
+        {
+            "tokens": task.training_stream_tokens,
+            "lanes": 4,
+            "firstLane": 0,
+            "uniqueCursorPhases": 4,
+            "cursorPhaseCoverage": 0.5,
+            "minimumCursorPhaseLanes": 0,
+            "maximumCursorPhaseLanes": 1,
+        }
     ]
     assert metrics["uniqueCursorPhases"] == len(
         set(experiment._training_stream_positions.flatten().remainder(8).tolist())
@@ -954,8 +962,16 @@ def test_lane_expansion_preserves_old_domain_and_assigns_new_domain_only_to_new_
         assert torch.equal(restored._training_runtime_bank[index].hidden, state.hidden)
         assert restored._training_runtime_bank[index].position == state.position
     assert metrics["laneStreamDomains"] == [
-        {"tokens": 128, "lanes": 2, "firstLane": 0},
-        {"tokens": 256, "lanes": 2, "firstLane": 2},
+        {
+            "tokens": 128, "lanes": 2, "firstLane": 0,
+            "uniqueCursorPhases": 2, "cursorPhaseCoverage": 0.25,
+            "minimumCursorPhaseLanes": 0, "maximumCursorPhaseLanes": 1,
+        },
+        {
+            "tokens": 256, "lanes": 2, "firstLane": 2,
+            "uniqueCursorPhases": 2, "cursorPhaseCoverage": 0.25,
+            "minimumCursorPhaseLanes": 0, "maximumCursorPhaseLanes": 1,
+        },
     ]
     restored.train_updates(4)
     assert [state.position for state in restored._training_runtime_bank] == [16, 16, 8, 8]
@@ -982,6 +998,36 @@ def test_lane_expansion_preserves_old_domain_and_assigns_new_domain_only_to_new_
     )
     with pytest.raises(ValueError, match="cannot shrink"):
         restore_checkpoint(shrunken, payload)
+
+
+def test_lane_expansion_balances_phases_within_the_destination_domain() -> None:
+    text = "One fox ran. Two birds flew. Three cats slept. " * 100
+    task = build_token_task(
+        text, context_length=8, vocabulary_size=32, training_shard_tokens=256
+    )
+    experiment = SequenceExperiment(
+        task, replace(corpus_config(), batch_size=1), seed=64, device="cpu",
+        stream_mode="continuous", state_lanes=4,
+    )
+    positions = torch.tensor([[0], [1], [2], [3]])
+    lengths = torch.tensor([[128], [128], [256], [256]])
+    experiment._training_stream_positions = positions.clone()
+    experiment._training_stream_lengths = lengths.clone()
+
+    expand_persistent_state_lanes(experiment, 10)
+    metrics = _scientific_metrics(experiment)
+
+    assert torch.equal(experiment._training_stream_positions[:4], positions)
+    assert torch.equal(experiment._training_stream_lengths[:4], lengths)
+    new_domain = experiment._training_stream_positions[
+        experiment._training_stream_lengths[:, 0] == 256
+    ]
+    assert set(new_domain.flatten().remainder(8).tolist()) == set(range(8))
+    domains = {domain["tokens"]: domain for domain in metrics["laneStreamDomains"]}
+    assert domains[128]["uniqueCursorPhases"] == 2
+    assert domains[256]["uniqueCursorPhases"] == 8
+    assert domains[256]["minimumCursorPhaseLanes"] == 1
+    assert domains[256]["maximumCursorPhaseLanes"] == 1
 
 
 def test_state_lane_expansion_places_new_cursors_on_checkpoint_device() -> None:

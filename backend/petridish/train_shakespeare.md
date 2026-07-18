@@ -119,7 +119,7 @@ showed harmful accumulated state.
 `--evaluate-only --state-horizon-eval` appends the five-point identical-token state
 horizon curve without training. Scheduled validation remains bounded to the cheaper
 carried-versus-cold pair.
-`--state-lanes 1..128` alternates independent persistent corpus trajectories at the
+`--state-lanes 1..512` alternates independent persistent corpus trajectories at the
 same tensor batch size and records their minimum/maximum electrical ages. It is the
 memory-constant alternative to increasing CUDA batch size.
 During `--resume-plasticity`, a larger explicit lane count appends cold independently
@@ -127,9 +127,10 @@ phased trajectories while retaining every saved position and recurrent state in 
 original lane. Lane counts may never decrease because doing so would discard
 organism-owned electrical histories. Added lane positions advance the preserved RNG
 normally; the generator is never reseeded. Only the new sampled positions are shifted
-within their assigned stream domain toward the least-occupied cursor phases. This
-fills every missing phase before adding duplicates while leaving all old cursors
-bit-identical.
+within their assigned stream domain toward the least-occupied cursor phases. Phase
+balancing considers only preserved lanes in that same corpus domain; unrelated replay
+domains cannot make a new domain appear complete. This fills every missing phase
+before adding duplicates while leaving all old cursors bit-identical.
 Every lane also checkpoints its stream-domain length. When continuation both expands
 the corpus shard and appends lanes, existing lanes retain their old modulo/domain and
 token continuation; only new lanes receive the larger domain. Legacy checkpoints
@@ -138,8 +139,9 @@ records name the active lane's domain, and diagnostics publish the number of lan
 each distinct domain plus the first lane that can represent it in an explicit audit.
 Scientific diagnostics report active versus still-cold lanes, the total number of
 tensor trajectories, unique corpus-cursor phases modulo context length, and minimum/
-maximum lane occupancy per phase. This distinguishes nominal allocation, complete
-coverage, and balanced duplicate coverage.
+maximum lane occupancy per phase both globally and for every checkpoint-owned stream
+domain. This distinguishes nominal allocation, complete per-domain coverage, and
+balanced duplicate coverage.
 Every optimizer record also names the round-robin lane that produced it so per-lane
 competence and interference can be measured without reconstructing hidden state.
 `--topology-profile fixed|adaptive|prune_only` names the phase policy independently

@@ -44,8 +44,8 @@ the tensor batch. Every lane advances through its own contiguous corpus position
 retains its own complete runtime state; all lanes share one physical substrate,
 parameters, synapses, genotype, optimizer, and lifecycle. This tests trajectory
 diversity on memory-limited GPUs without creating an ensemble or resetting a lane.
-The checkpointed bank is bounded at 128 lanes, enough to preserve earlier trajectories
-while covering every phase of a 64-token context through append-only expansion.
+The checkpointed bank is bounded at 512 lanes, enough to preserve successive
+64-phase corpus-domain banks through an incremental breadth curriculum.
 Each continuous lane also owns a checkpointed stream-domain length. A lane wraps its
 absolute cursor inside that preserved corpus prefix even if a later curriculum exposes
 more tokens to newly appended lanes. The exact-trajectory audit clones the selected

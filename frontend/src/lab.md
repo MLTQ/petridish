@@ -113,9 +113,9 @@ validated launch or stop requests.
   electrical-memory horizon evaluation.
 - **Does**: Launches and displays persistent state-lane count and their measured age
   range independently from tensor batch size.
-- **Does**: Displays checkpointed lane stream domains as `lanes×tokens`, making
-  replay-preserving mixed curricula visible rather than inferring them from one global
-  shard label.
+- **Does**: Displays checkpointed lane stream domains as `lanes×tokens @ phases`,
+  making replay-preserving mixed curricula and incomplete domain-specific phase
+  coverage visible rather than inferring them from one global shard label.
 - **Does**: Displays measured active/cold lane count and unique corpus-cursor phases,
   so allocating sixteen lanes cannot masquerade as sixteen distinct experiences.
 - **Does**: Displays minimum and maximum lane occupancy per cursor phase so full
@@ -151,8 +151,8 @@ validated launch or stop requests.
 - **Does**: Can expand a continued organism's persistent experience lanes without
   exposing a shrink operation; existing lane positions and electrical histories stay
   organism-owned while newly allocated lanes begin cold at independent phases.
-- **Does**: Supports up to 128 lanes so an organism can retain every old trajectory
-  while appending enough new-domain trajectories to cover all 64 cursor phases. The
+- **Does**: Supports up to 512 lanes so an organism can retain successive old
+  trajectory banks while appending complete 64-phase banks for broader domains. The
   UI explicitly labels that new lanes—not old lanes—take the selected larger shard.
 - **Does**: Enables that control only when the serving backend advertises support,
   preventing an older API from silently ignoring the requested curriculum.

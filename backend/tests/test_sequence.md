@@ -116,9 +116,11 @@ saved training RNG for new positions, co-locate new cursors with a CUDA-restored
 checkpoint, reject shrinking, and survive a checkpoint round trip with added lanes
 still cold. Diagnostics must separately measure active/cold lanes, tensor trajectory
 count, unique cursor phases, and per-domain lane counts. Each domain diagnostic also
-identifies its first representative lane. Large append-only expansion must fill every
-missing cursor phase before duplicating one, report minimum/maximum phase occupancy,
-and leave every old cursor exact. Per-row stream tests require
+identifies its first representative lane and its own unique/minimum/maximum phase
+coverage. Large append-only expansion must fill every missing cursor phase within the
+destination stream domain before duplicating one, ignore unrelated replay domains
+when choosing those new phases, report global and per-domain phase occupancy, and
+leave every old cursor exact. Per-row stream tests require
 independent wrap lengths, and legacy checkpoint expansion must infer the old shard,
 retain every old cursor/state/domain exactly, assign the broader domain only to cold
 new lanes, train across the mixed domains, and reject a curriculum smaller than any

@@ -31,7 +31,7 @@ from .sequence_tasks import (
 )
 
 
-MAX_STATE_LANES = 128
+MAX_STATE_LANES = 512
 
 
 class SequenceExperiment:

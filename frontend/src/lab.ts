@@ -105,7 +105,15 @@ interface MetricRecord {
   activeStateLanes?: number;
   coldStateLanes?: number;
   experienceTrajectoryCount?: number;
-  laneStreamDomains?: Array<{ tokens: number; lanes: number; firstLane?: number }>;
+  laneStreamDomains?: Array<{
+    tokens: number;
+    lanes: number;
+    firstLane?: number;
+    uniqueCursorPhases?: number;
+    cursorPhaseCoverage?: number;
+    minimumCursorPhaseLanes?: number;
+    maximumCursorPhaseLanes?: number;
+  }>;
   minimumLaneStreamTokens?: number;
   maximumLaneStreamTokens?: number;
   uniqueCursorPhases?: number;
@@ -863,7 +871,7 @@ export class LaboratoryView {
         ? ""
         : ` · ${diagnostic.activeStateLanes ?? 0}/${diagnostic.stateLanes ?? run.configuration.stateLanes ?? 1} active lanes · ${diagnostic.uniqueCursorPhases}/${run.configuration.contextLength ?? 64} cursor phases${diagnostic.minimumCursorPhaseLanes === undefined ? "" : ` · ${diagnostic.minimumCursorPhaseLanes}–${diagnostic.maximumCursorPhaseLanes ?? diagnostic.minimumCursorPhaseLanes} lanes/phase`}`;
       const streamDomains = diagnostic?.laneStreamDomains?.length
-        ? ` · domains ${diagnostic.laneStreamDomains.map((domain) => `${domain.lanes}×${domain.tokens.toLocaleString()}`).join(" + ")}`
+        ? ` · domains ${diagnostic.laneStreamDomains.map((domain) => `${domain.lanes}×${domain.tokens.toLocaleString()}${domain.uniqueCursorPhases === undefined ? "" : ` @ ${domain.uniqueCursorPhases}/${run.configuration.contextLength ?? 64} phases`}`).join(" + ")}`
         : "";
       const laneAccuracy = this.laneAccuracySpread(run);
       const gradientSummary = run.latestTrain?.classBiasGradientNorm === undefined

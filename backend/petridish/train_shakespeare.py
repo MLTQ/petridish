@@ -242,21 +242,28 @@ def expand_persistent_state_lanes(
     if stream_lengths is None:
         raise RuntimeError("continuous stream domains were not restored")
     preserved_positions = positions.unsqueeze(0) if current_lanes == 1 else positions
+    preserved_lengths = (
+        stream_lengths.unsqueeze(0) if current_lanes == 1 else stream_lengths
+    )
     added = target_lanes - current_lanes
     sampled_positions = experiment.task.initial_stream_positions(
         experiment.config.batch_size * added, experiment.generator
     ).reshape(added, experiment.config.batch_size).to(device=positions.device)
+    if preserved_positions.is_meta or preserved_lengths.is_meta:
+        same_domain_positions = preserved_positions
+    else:
+        same_domain_lanes = (
+            preserved_lengths[:, 0] == experiment.task.training_stream_tokens
+        )
+        same_domain_positions = preserved_positions[same_domain_lanes]
     added_positions = _phase_balanced_added_positions(
         sampled_positions,
-        preserved_positions,
+        same_domain_positions,
         stream_tokens=experiment.task.training_stream_tokens,
         sequence_length=experiment.task.sequence_length,
     )
     experiment._training_stream_positions = torch.cat(
         (preserved_positions, added_positions), dim=0
-    )
-    preserved_lengths = (
-        stream_lengths.unsqueeze(0) if current_lanes == 1 else stream_lengths
     )
     added_lengths = torch.full(
         (added, experiment.config.batch_size),
@@ -407,22 +414,46 @@ def _scientific_metrics(experiment: SequenceExperiment) -> dict[str, Any]:
     stream_positions = experiment._training_stream_positions
     experience_trajectories = 0 if stream_positions is None else stream_positions.numel()
     stream_lengths = experiment._training_stream_lengths
-    lane_stream_domains: list[dict[str, int]] = []
+    lane_stream_domains: list[dict[str, int | float]] = []
     if stream_lengths is not None:
         shaped_lengths = (
             stream_lengths.unsqueeze(0)
             if experiment.state_lanes == 1 else stream_lengths
         )
+        if stream_positions is None:
+            raise RuntimeError("stream domains exist without cursor positions")
+        shaped_positions = (
+            stream_positions.unsqueeze(0)
+            if experiment.state_lanes == 1 else stream_positions
+        )
         if not bool((shaped_lengths == shaped_lengths[:, :1]).all()):
             raise RuntimeError("one experience lane spans multiple stream domains")
-        domain_groups: dict[int, dict[str, int]] = {}
+        domain_groups: dict[int, dict[str, int | float]] = {}
         for lane, tokens in enumerate(shaped_lengths[:, 0].detach().cpu().tolist()):
             stream_tokens = int(tokens)
             domain = domain_groups.setdefault(
                 stream_tokens,
                 {"tokens": stream_tokens, "lanes": 0, "firstLane": lane},
             )
-            domain["lanes"] += 1
+            domain["lanes"] = int(domain["lanes"]) + 1
+        context_length = experiment.task.sequence_length
+        for stream_tokens, domain in domain_groups.items():
+            matching_lanes = shaped_lengths[:, 0] == stream_tokens
+            phase_counts = torch.bincount(
+                shaped_positions[matching_lanes]
+                .detach().to(device="cpu", dtype=torch.long)
+                .flatten().remainder(context_length),
+                minlength=context_length,
+            )
+            unique_phases = int((phase_counts > 0).sum())
+            domain.update(
+                {
+                    "uniqueCursorPhases": unique_phases,
+                    "cursorPhaseCoverage": unique_phases / context_length,
+                    "minimumCursorPhaseLanes": int(phase_counts.min()),
+                    "maximumCursorPhaseLanes": int(phase_counts.max()),
+                }
+            )
         lane_stream_domains = list(domain_groups.values())
     unique_cursor_phases = (
         0
