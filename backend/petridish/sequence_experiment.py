@@ -114,6 +114,7 @@ class SequenceExperiment:
             )
             if self._training_stream_positions is not None else None
         )
+        self._training_stream_origin_lengths: torch.Tensor | None = None
         self._training_runtime_state: SequenceRuntimeState | None = None
         self._training_runtime_bank: list[SequenceRuntimeState | None] = [
             None for _ in range(state_lanes)
@@ -163,6 +164,8 @@ class SequenceExperiment:
         self.last_batch_accuracy = 0.0
         self.last_random_offset_auxiliary_loss: float | None = None
         self.last_random_offset_auxiliary_accuracy: float | None = None
+        self.last_novel_stream_token_fraction = 0.0
+        self.last_novel_stream_rows = 0
         self.test_accuracy: float | None = None
         self.accuracy_history: deque[float] = deque(maxlen=160)
         self.loss_history: deque[float] = deque(maxlen=160)
@@ -262,7 +265,9 @@ class SequenceExperiment:
 
     def _continuous_batch(
         self,
-    ) -> tuple[SequenceBatch, torch.Tensor, int, SequenceRuntimeState | None]:
+    ) -> tuple[
+        SequenceBatch, torch.Tensor, int, SequenceRuntimeState | None, float, int
+    ]:
         """Read the next corpus window without advancing state until update success."""
 
         if self._training_stream_positions is None:
@@ -278,6 +283,26 @@ class SequenceExperiment:
             self._training_stream_lengths
             if self.state_lanes == 1 else self._training_stream_lengths[lane]
         )
+        origin_lengths = (
+            None
+            if self._training_stream_origin_lengths is None
+            else self._training_stream_origin_lengths
+            if self.state_lanes == 1
+            else self._training_stream_origin_lengths[lane]
+        )
+        novel_fraction = 0.0
+        novel_rows = 0
+        if origin_lengths is not None:
+            starts = positions.detach().to(device="cpu", dtype=torch.long)
+            lengths = stream_lengths.detach().to(device="cpu", dtype=torch.long)
+            origins = origin_lengths.detach().to(device="cpu", dtype=torch.long)
+            indices = (
+                starts.unsqueeze(1)
+                + torch.arange(self.task.sequence_length).unsqueeze(0)
+            ) % lengths.unsqueeze(1)
+            novel = indices >= origins.unsqueeze(1)
+            novel_fraction = float(novel.float().mean())
+            novel_rows = int(novel.any(dim=1).sum())
         batch, next_positions = self.task.stream_batch(
             positions, stream_lengths=stream_lengths
         )
@@ -288,7 +313,7 @@ class SequenceExperiment:
         return SequenceBatch(
             batch.tokens.to(self.device), batch.targets.to(self.device),
             batch.loss_mask.to(self.device),
-        ), next_positions, lane, runtime_state
+        ), next_positions, lane, runtime_state, novel_fraction, novel_rows
 
     def _masked_loss_accuracy(
         self, logits: torch.Tensor, batch: SequenceBatch
@@ -346,8 +371,13 @@ class SequenceExperiment:
     ) -> None:
         self._require_persistent_gradient_contexts()
         self.model.train()
+        novel_stream_token_fraction = 0.0
+        novel_stream_rows = 0
         if self.stream_mode == "continuous":
-            batch, next_stream_positions, state_lane, runtime_state = (
+            (
+                batch, next_stream_positions, state_lane, runtime_state,
+                novel_stream_token_fraction, novel_stream_rows,
+            ) = (
                 self._continuous_batch()
             )
         else:
@@ -576,6 +606,8 @@ class SequenceExperiment:
                 self.events = [dict(event, tick=self.tick) for event in events]
                 progress_callback("lifecycle", 1, 1)
         self.training_step = completed
+        self.last_novel_stream_token_fraction = novel_stream_token_fraction
+        self.last_novel_stream_rows = novel_stream_rows
         self.seen_examples += self.config.batch_size
         self.last_loss = float(task_loss.detach())
         self.last_batch_accuracy = accuracy

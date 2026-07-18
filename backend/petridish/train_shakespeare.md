@@ -234,7 +234,9 @@ or runtime tensors.
 Changes only checkpointed per-row stream-domain lengths after validating continuous
 mode, cursor bounds, loaded corpus capacity, and monotonic breadth. Reapplying the
 same completed transition during exact-phase resume is an idempotent no-op. It never
-changes a cursor or organism-owned runtime tensor.
+changes a cursor or organism-owned runtime tensor. It stores the old lengths as
+measurement origins; train/scientific records report current-window novel-token
+fraction and novel rows, and checkpoint resume preserves those origins.
 
 Compilation remains opt-in because the measured stable-forward attempt currently has
 dynamic topology graph breaks; production runs should use `--compile off`.

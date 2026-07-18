@@ -47,6 +47,7 @@ def _experiment_state(experiment: SequenceExperiment) -> dict[str, Any]:
         "last_batch_accuracy", "test_accuracy", "recall_pair_count",
         "last_random_offset_auxiliary_loss",
         "last_random_offset_auxiliary_accuracy",
+        "last_novel_stream_token_fraction", "last_novel_stream_rows",
         "last_synapse_update_ratio", "last_mean_attention_entropy",
         "last_gradient_norms",
         "lifecycle_active", "lifecycle_reason", "structure_unlocked",
@@ -79,6 +80,9 @@ def _experiment_state(experiment: SequenceExperiment) -> dict[str, Any]:
             "topology_profile": experiment.topology_profile,
             "_training_stream_positions": experiment._training_stream_positions,
             "_training_stream_lengths": experiment._training_stream_lengths,
+            "_training_stream_origin_lengths": (
+                experiment._training_stream_origin_lengths
+            ),
             "_training_runtime_state": experiment._training_runtime_state,
             "_training_runtime_bank": experiment._training_runtime_bank,
         }
@@ -225,6 +229,14 @@ def restore_checkpoint(
             raise ValueError(
                 "curriculum cannot shrink below a preserved lane stream domain"
             )
+    if experiment._training_stream_origin_lengths is not None:
+        origins = experiment._training_stream_origin_lengths
+        if (
+            experiment._training_stream_lengths is None
+            or origins.shape != experiment._training_stream_lengths.shape
+            or bool((origins > experiment._training_stream_lengths).any())
+        ):
+            raise ValueError("checkpoint stream expansion origins are invalid")
     rng = payload["random"]
     experiment.generator.set_state(rng["training_generator"].cpu())
     experiment.eval_generator.set_state(rng["evaluation_generator"].cpu())
@@ -290,6 +302,13 @@ def expand_persistent_state_lanes(
     experiment._training_stream_lengths = torch.cat(
         (preserved_lengths, added_lengths), dim=0
     )
+    if experiment._training_stream_origin_lengths is not None:
+        preserved_origins = experiment._training_stream_origin_lengths
+        if current_lanes == 1:
+            preserved_origins = preserved_origins.unsqueeze(0)
+        experiment._training_stream_origin_lengths = torch.cat(
+            (preserved_origins, added_lengths.clone()), dim=0
+        )
     preserved_bank = list(experiment._training_runtime_bank)
     if len(preserved_bank) != current_lanes:
         raise RuntimeError(
@@ -320,6 +339,7 @@ def expand_persistent_stream_domains(
         return
     if bool((positions < 0).any()) or bool((positions >= lengths).any()):
         raise ValueError("checkpoint stream cursor is outside its carried domain")
+    experiment._training_stream_origin_lengths = lengths.clone()
     experiment._training_stream_lengths = torch.full_like(lengths, target_tokens)
 
 
@@ -535,6 +555,8 @@ def _scientific_metrics(experiment: SequenceExperiment) -> dict[str, Any]:
         "randomOffsetAuxiliaryAccuracy": (
             experiment.last_random_offset_auxiliary_accuracy
         ),
+        "novelStreamTokenFraction": experiment.last_novel_stream_token_fraction,
+        "novelStreamRows": experiment.last_novel_stream_rows,
         "activeStateLanes": active_state_lanes,
         "coldStateLanes": experiment.state_lanes - active_state_lanes,
         "experienceTrajectoryCount": experience_trajectories,
@@ -1342,6 +1364,10 @@ def main() -> None:
             "randomOffsetAuxiliaryAccuracy": (
                 experiment.last_random_offset_auxiliary_accuracy
             ),
+            "novelStreamTokenFraction": (
+                experiment.last_novel_stream_token_fraction
+            ),
+            "novelStreamRows": experiment.last_novel_stream_rows,
             "stateLane": (experiment.training_step - 1) % experiment.state_lanes,
             "stateLaneStreamTokens": int(
                 experiment._training_stream_lengths[

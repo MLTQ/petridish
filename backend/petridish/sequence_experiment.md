@@ -63,6 +63,10 @@ Each continuous lane also owns a checkpointed stream-domain length. A lane wraps
 absolute cursor inside that preserved corpus prefix even if a later curriculum exposes
 more tokens to newly appended lanes. The exact-trajectory audit clones the selected
 lane's position, electrical state, and stream domain together and reports that domain.
+An explicit carried-domain expansion also checkpoints the prior per-row lengths.
+Every optimizer window reports the fraction of input-token indices beyond that prior
+boundary and the number of affected rows. This measures genuinely lived novel text;
+the origin tensor never changes propagation or gradients.
 Topology policy is phase-local and checkpointed: fixed continues routing through the
 existing graph, adaptive permits pruning plus growth, and prune-only permits signed-
 utility pruning while forbidding replacement growth. None of these policies reset

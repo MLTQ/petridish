@@ -133,7 +133,8 @@ retain every old cursor/state/domain exactly, assign the broader domain only to 
 new lanes, train across the mixed domains, and reject a curriculum smaller than any
 preserved domain. Explicit carried-domain expansion must change only domain lengths,
 retain model/optimizer/RNG/cursors/runtime objects exactly, and demonstrate that new
-tokens appear at the old wrap boundary rather than through cursor remapping. Pre-update process
+tokens appear at the old wrap boundary rather than through cursor remapping. Its
+checkpointed origin lengths must produce exact novel-token fraction/row metrics. Pre-update process
 failures must persist a newline-free, bounded record. The
 excitotoxicity regression verifies stun, seeded recovery without
 edge deletion, and lethal classification only after accumulated damage crosses the

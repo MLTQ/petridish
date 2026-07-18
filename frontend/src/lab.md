@@ -154,6 +154,9 @@ validated launch or stop requests.
 - **Does**: Can explicitly expand existing carried stream domains without appending
   trajectories. Phase labels distinguish this from cold-lane allocation, and the
   checkbox is capability-gated against older servers.
+- **Does**: Displays the measured fraction of the current optimizer window whose
+  token indices lie beyond that trajectory's pre-expansion domain, plus affected
+  rows, so configured breadth cannot masquerade as lived novel input.
 - **Does**: Can expand a continued organism's persistent experience lanes without
   exposing a shrink operation; existing lane positions and electrical histories stay
   organism-owned while newly allocated lanes begin cold at independent phases.

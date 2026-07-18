@@ -1040,6 +1040,15 @@ def test_stream_domain_expansion_preserves_organism_state_and_next_cursor() -> N
     assert torch.equal(old_window.tokens[:, :4], expanded_window.tokens[:, :4])
     assert old_window.targets[0, 3] != expanded_window.targets[0, 3]
 
+    active_lane = experiment.training_step % experiment.state_lanes
+    experiment._training_stream_positions[active_lane, 0] = 130
+    experiment.train_updates(1)
+    assert experiment.last_novel_stream_token_fraction == pytest.approx(1.0)
+    assert experiment.last_novel_stream_rows == 1
+    metrics = _scientific_metrics(experiment)
+    assert metrics["novelStreamTokenFraction"] == pytest.approx(1.0)
+    assert metrics["novelStreamRows"] == 1
+
 
 def test_large_lane_expansion_fills_every_cursor_phase_without_moving_old_lanes() -> None:
     text = "One fox ran. Two birds flew. Three cats slept. " * 100
