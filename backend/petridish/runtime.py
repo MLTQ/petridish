@@ -320,7 +320,10 @@ class ExperimentRuntime:
         context_length = int(task_payload["context_length"])
         task = (
             load_tiny_stories_task(
-                context_length, len(tuple(task_payload.get("vocabulary", ())))
+                context_length, len(tuple(task_payload.get("vocabulary", ()))),
+                tokenizer_profile=str(
+                    task_payload.get("tokenizer_profile") or "wordpiece"
+                ),
             )
             if task_key == "tiny_stories"
             else load_tiny_shakespeare_task(context_length)

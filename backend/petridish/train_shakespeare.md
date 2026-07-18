@@ -12,6 +12,10 @@ service files and checkpoints. Metrics report token throughput for both task typ
 `--vocabulary-size` selects a 64–2,048 power-of-two lexical curriculum without
 changing the 64-cell input/output population banks. Resume derives the saved size
 from checkpoint vocabulary metadata rather than silently restoring 2,048 pieces.
+`--tokenizer-profile wordpiece|byte` records either the legacy bounded wordpiece
+curriculum or a complete 256-byte UTF-8 vocabulary. Byte mode has no aggregate
+unknown class; resume restores the checkpoint's tokenizer profile and exact
+vocabulary, while old checkpoints default explicitly to wordpiece.
 `--stream-mode continuous` is the corpus default: adjacent windows carry the full
 detached cellular runtime state across optimizer steps. `windowed` retains the old
 random-context/cold-electrical-state behavior as a recorded control. Checkpoints save
@@ -46,6 +50,7 @@ physical from conducting edges, report pruning pressure and exact cumulative edg
 turnover, expose lifecycle/structure gate reasons plus remaining warm-up or plateau
 budget, and compare output reach within one token, one context, and the complete graph.
 Held-out records include a fixed-prompt greedy continuation and diversity ratio;
+generation records also expose exact token IDs plus special/unknown-token ratios;
 token-corpus records also carry exact unigram and bigram validation baselines;
 those baselines include add-one-smoothed loss so model perplexity is calibrated as
 well as top-one accuracy;
@@ -69,6 +74,10 @@ causally improves prediction on identical tokens.
 counterfactual, appends that complete held-out record without an optimizer update,
 and exits. This lets older or interrupted trainers gain new diagnostics without
 altering the organism being measured.
+Every trainer evaluation starts from the recorded `--evaluation-seed` and restores
+the checkpoint sampler afterward, making validation slices comparable across phases.
+Read-only laboratory audits use sixteen batches; scheduled training diagnostics stay
+at four to bound training interruptions.
 `--state-retention 0..1` records the fraction of electrical/private/workspace state
 retained at each context boundary. One reproduces indefinite persistence; the lab
 defaults new controlled launches to 0.9 after the no-relaxation trajectory ablation

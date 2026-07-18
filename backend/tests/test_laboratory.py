@@ -46,7 +46,9 @@ def test_snapshot_advertises_checkpoint_evaluation_route(
     monkeypatch.setattr(laboratory, "_discover_runs", lambda active: [])
     monkeypatch.setattr(laboratory, "_discover_benchmarks", lambda: [])
 
-    assert laboratory.snapshot()["capabilities"]["checkpointEvaluation"] is True
+    capabilities = laboratory.snapshot()["capabilities"]
+    assert capabilities["checkpointEvaluation"] is True
+    assert capabilities["tokenizerProfiles"] == ["wordpiece", "byte"]
 
 
 def test_spec_preserves_single_column_geometry(tmp_path: Path) -> None:
@@ -212,6 +214,7 @@ def test_checkpoint_evaluation_is_read_only_and_keeps_the_phase(
     assert result["status"] == "evaluating"
     assert "--evaluate-only" in command
     assert "--state-horizon-eval" in command
+    assert command[command.index("--eval-batches") + 1] == "16"
     assert "--resume-plasticity" not in command
     assert command[command.index("--organism-id") + 1] == "organism-test"
     assert command[command.index("--phase-index") + 1] == "2"
@@ -266,6 +269,27 @@ def test_laboratory_preserves_token_vocabulary_curriculum(tmp_path: Path) -> Non
     with pytest.raises(ValueError, match="vocabulary size"):
         laboratory._validate_spec(
             LaunchSpec("invalid", "GPU-example", vocabulary_size=100)
+        )
+
+
+def test_laboratory_enforces_byte_complete_tokenizer_contract(tmp_path: Path) -> None:
+    laboratory = Laboratory(tmp_path, run_root=tmp_path / "runs", control_enabled=True)
+    spec = LaunchSpec(
+        "trial", "GPU-example", task="tiny_stories", field_size=68,
+        vocabulary_size=256, tokenizer_profile="byte",
+    )
+
+    laboratory._validate_spec(spec)
+    command = laboratory._trainer_command(spec, tmp_path / "runs" / "trial")
+
+    assert command[command.index("--tokenizer-profile") + 1] == "byte"
+    assert command[command.index("--vocabulary-size") + 1] == "256"
+    with pytest.raises(ValueError, match="256-token"):
+        laboratory._validate_spec(
+            LaunchSpec(
+                "invalid", "GPU-example", task="tiny_stories",
+                vocabulary_size=128, tokenizer_profile="byte",
+            )
         )
 
 

@@ -44,6 +44,10 @@ class SequenceTask:
     bigram_baseline_loss: float | None = None
     training_stream: torch.Tensor | None = None
     evaluation_stream: torch.Tensor | None = None
+    tokenizer_profile: str | None = None
+    special_token_ids: tuple[int, ...] = ()
+    unknown_token_id: int | None = None
+    validation_unknown_token_rate: float | None = None
 
     def batch(
         self, batch_size: int, generator: torch.Generator, *, evaluation: bool = False

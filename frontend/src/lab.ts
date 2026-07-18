@@ -65,12 +65,19 @@ interface MetricRecord {
   generationPrompt?: string;
   generationSample?: string;
   generationUniqueTokenRatio?: number;
+  generationSpecialTokenRatio?: number;
+  generationUnknownTokenRatio?: number;
+  generationTokenIds?: number[];
   positionIndices?: number[];
   positionAccuracy?: number[];
   unigramBaselineAccuracy?: number;
   bigramBaselineAccuracy?: number;
   unigramBaselineLoss?: number;
   bigramBaselineLoss?: number;
+  validationUnknownTokenRate?: number;
+  evaluationSeed?: number | null;
+  evaluationBatches?: number;
+  evaluatedTokens?: number;
   electricalStateTokens?: number;
   coldStateLoss?: number;
   coldStateAccuracy?: number;
@@ -129,6 +136,7 @@ interface LaboratorySnapshot {
     ampModes: string[];
     lifecycleProfiles: string[];
     topologyProfiles?: string[];
+    tokenizerProfiles?: string[];
     checkpointEvaluation?: boolean;
   };
   gpus: GpuSnapshot[];
@@ -223,6 +231,8 @@ export class LaboratoryView {
   private readonly gpuSelect = required<HTMLSelectElement>("#lab-gpu");
   private readonly taskSelect = required<HTMLSelectElement>("#lab-task");
   private readonly architectureSelect = required<HTMLSelectElement>("#lab-architecture");
+  private readonly tokenizerSelect = required<HTMLSelectElement>("#lab-tokenizer-profile");
+  private readonly vocabularySelect = required<HTMLSelectElement>("#lab-vocabulary-size");
   private readonly messageStepsSelect = required<HTMLSelectElement>("#lab-message-steps");
   private readonly broadcastGainInput = required<HTMLInputElement>("#lab-broadcast-gain");
   private readonly lifecycleProfileSelect = required<HTMLSelectElement>("#lab-lifecycle-profile");
@@ -254,7 +264,9 @@ export class LaboratoryView {
     this.taskSelect.addEventListener("change", () => {
       this.messageStepsSelect.value = this.taskSelect.value === "tiny_stories" ? "12" : "2";
       this.broadcastGainInput.value = this.taskSelect.value === "tiny_stories" ? "0.35" : "0.3";
+      this.syncTokenizer();
     });
+    this.tokenizerSelect.addEventListener("change", () => this.syncTokenizer());
     void this.refresh();
     this.timer = window.setInterval(() => void this.refresh(), 3000);
     window.addEventListener("beforeunload", () => {
@@ -308,6 +320,13 @@ export class LaboratoryView {
       snapshot.capabilities.architectures.map((name) => ({ value: name, label: name.toUpperCase() })),
     );
     this.populateSelect(
+      this.tokenizerSelect,
+      (snapshot.capabilities.tokenizerProfiles ?? ["wordpiece", "byte"]).map((name) => ({
+        value: name,
+        label: name === "byte" ? "UTF-8 bytes (complete)" : "wordpieces (may contain <unk>)",
+      })),
+    );
+    this.populateSelect(
       this.lifecycleProfileSelect,
       snapshot.capabilities.lifecycleProfiles.map((name) => ({ value: name, label: name })),
     );
@@ -335,6 +354,7 @@ export class LaboratoryView {
         control.disabled = !snapshot.controlEnabled;
       }
     }
+    this.syncTokenizer();
     const canContinue = snapshot.controlEnabled && this.continueRunSelect.options.length > 0;
     for (const control of this.continueForm.elements) {
       if (control instanceof HTMLInputElement || control instanceof HTMLSelectElement || control instanceof HTMLButtonElement) {
@@ -674,7 +694,7 @@ export class LaboratoryView {
           ? "state age unreported"
           : `state age ${diagnostic.electricalStateTokens.toLocaleString()} tokens`;
       const routing = diagnostic
-        ? `${String(run.configuration.streamMode ?? "windowed")} · retention ${String(run.configuration.stateRetention ?? "1 legacy")} · ${String(run.configuration.stateLanes ?? 1)} state lane${Number(run.configuration.stateLanes ?? 1) === 1 ? "" : "s"} · ${stateAge} · ${diagnostic.minimumOutputHops ?? "—"}/${diagnostic.medianOutputHops ?? "—"} hops · ${diagnostic.tokenReachableOutputs ?? 0}/${diagnostic.contextReachableOutputs ?? 0}/${diagnostic.reachableOutputs ?? 0} token/context/graph · broadcast ${String(run.configuration.broadcastGain ?? "legacy")}${(diagnostic.tokenReachableOutputs ?? 0) === 0 && Number(run.configuration.messageSteps ?? 0) < Number(diagnostic.minimumOutputHops ?? 0) ? ` · insufficient ${run.configuration.messageSteps ?? "—"} < ${diagnostic.minimumOutputHops ?? "—"}` : ""}${heldOut?.graphReferenceAccuracy === undefined ? "" : ` · causal ref ${this.percent(heldOut.graphReferenceAccuracy)} · silence Δacc ${this.signedPercent(heldOut.graphSilencedAccuracyDelta)} / Δloss ${this.signedNumber(heldOut.graphSilencedLossDelta)} · rotate Δacc ${this.signedPercent(heldOut.sourceRotatedAccuracyDelta)} / Δloss ${this.signedNumber(heldOut.sourceRotatedLossDelta)}`}`
+        ? `${String(run.configuration.tokenizerProfile ?? "legacy tokenizer")} · ${String(run.configuration.streamMode ?? "windowed")} · retention ${String(run.configuration.stateRetention ?? "1 legacy")} · ${String(run.configuration.stateLanes ?? 1)} state lane${Number(run.configuration.stateLanes ?? 1) === 1 ? "" : "s"} · ${stateAge} · ${diagnostic.minimumOutputHops ?? "—"}/${diagnostic.medianOutputHops ?? "—"} hops · ${diagnostic.tokenReachableOutputs ?? 0}/${diagnostic.contextReachableOutputs ?? 0}/${diagnostic.reachableOutputs ?? 0} token/context/graph · broadcast ${String(run.configuration.broadcastGain ?? "legacy")}${(diagnostic.tokenReachableOutputs ?? 0) === 0 && Number(run.configuration.messageSteps ?? 0) < Number(diagnostic.minimumOutputHops ?? 0) ? ` · insufficient ${run.configuration.messageSteps ?? "—"} < ${diagnostic.minimumOutputHops ?? "—"}` : ""}${heldOut?.graphReferenceAccuracy === undefined ? "" : ` · causal ref ${this.percent(heldOut.graphReferenceAccuracy)} · silence Δacc ${this.signedPercent(heldOut.graphSilencedAccuracyDelta)} / Δloss ${this.signedNumber(heldOut.graphSilencedLossDelta)} · rotate Δacc ${this.signedPercent(heldOut.sourceRotatedAccuracyDelta)} / Δloss ${this.signedNumber(heldOut.sourceRotatedLossDelta)}`}`
         : "—";
       const lifecycle = diagnostic
         ? `${String(run.configuration.lifecycleProfile ?? (run.configuration.lifecycle ? "baseline" : "off"))} · ${diagnostic.lifecycleReason ?? (diagnostic.lifecycleActive ? "active" : "inactive")}${(diagnostic.lifecycleWarmupRemaining ?? 0) > 0 ? ` · ${diagnostic.lifecycleWarmupRemaining} warm-up updates` : ""} · ${diagnostic.stunnedCells ?? 0} stunned · +${diagnostic.cumulativeBirths ?? 0}/−${diagnostic.cumulativeDeaths ?? 0} cells · ${diagnostic.cumulativeStuns ?? 0}/${diagnostic.cumulativeRecoveries ?? 0} stun/recover`
@@ -691,7 +711,7 @@ export class LaboratoryView {
         : "—";
       const sample = heldOut?.generationSample === undefined
         ? "—"
-        : `${heldOut.generationPrompt ?? ""} → ${this.compactSample(heldOut.generationSample)} · ${this.percent(heldOut.generationUniqueTokenRatio)} unique`;
+        : `${heldOut.generationPrompt ?? ""} → ${this.compactSample(heldOut.generationSample)} · ${this.percent(heldOut.generationUniqueTokenRatio)} unique · ${this.percent(heldOut.generationSpecialTokenRatio)} special · ${this.percent(heldOut.generationUnknownTokenRatio)} unknown${heldOut.validationUnknownTokenRate === undefined ? "" : ` · validation ${this.percent(heldOut.validationUnknownTokenRate)} unknown`}${heldOut.evaluatedTokens === undefined ? "" : ` · audit ${heldOut.evaluatedTokens.toLocaleString()} tokens @ seed ${heldOut.evaluationSeed ?? "evolving"}`}`;
       const positionAccuracy = heldOut ? this.positionBands(heldOut) : "—";
       for (const value of [
         `${run.id} · ${this.lineagePhase(run)}`, graph, routing, lifecycle, structure, positionAccuracy, sample,
@@ -800,9 +820,10 @@ export class LaboratoryView {
       runId: String(form.get("runId")), gpuUuid: String(form.get("gpuUuid")),
       task: String(form.get("task")),
       architecture: String(form.get("architecture")),
+      tokenizerProfile: this.tokenizerSelect.value,
       fieldSize: 68,
       batchSize: Number(form.get("batchSize")), contextLength: 64,
-      vocabularySize: Number(form.get("vocabularySize")),
+      vocabularySize: Number(this.vocabularySelect.value),
       streamMode: String(form.get("streamMode")),
       stateRetention: Number(form.get("stateRetention")),
       stateLanes: Number(form.get("stateLanes")),
@@ -827,6 +848,15 @@ export class LaboratoryView {
     } finally {
       this.launchButton.disabled = !(this.snapshot?.controlEnabled ?? false);
     }
+  }
+
+  private syncTokenizer(): void {
+    const enabled = this.snapshot?.controlEnabled ?? false;
+    const tokenTask = this.taskSelect.value === "tiny_stories";
+    const byteComplete = tokenTask && this.tokenizerSelect.value === "byte";
+    if (byteComplete) this.vocabularySelect.value = "256";
+    this.tokenizerSelect.disabled = !enabled || !tokenTask;
+    this.vocabularySelect.disabled = !enabled || !tokenTask || byteComplete;
   }
 
   private async stop(runId: string, button: HTMLButtonElement): Promise<void> {

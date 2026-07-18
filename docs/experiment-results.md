@@ -429,3 +429,40 @@ to change discrete accuracy, so this is evidence for selective consolidation rat
 than a solved routing mechanism. The next intervention should preserve this lineage
 and test whether a fixed-topology learning phase strengthens the small loss-level
 causal effect before any cell lifecycle or renewed growth is enabled.
+
+## Same-organism fixed-topology consolidation — 2026-07-18
+
+Both post-prune organisms continued for another 100 updates with topology and
+lifecycle mutation disabled. The saved connectome still conducted messages and all
+ordinary weights/dynamics remained trainable. Organism IDs, cells, edges, cumulative
+turnover counters, optimizer state, corpus position, and electrical state continued
+from the prune-only checkpoints.
+
+| Lineage | Update | State age | Edges | Cells | Checkpoint | Cold | State delta | Silence loss delta | Rotate loss delta |
+|---------|-------:|----------:|------:|------:|-----------:|-----:|------------:|-------------------:|------------------:|
+| 2070, broadcast | 2,700 | 86,400 | 14,884 | 2,237 | 36.33% | 36.33% | 0.00 pp | +0.00123 | +0.00361 |
+| 4090, local | 1,700 | 108,800 | 15,441 | 2,237 | 28.71% | 28.32% | +0.39 pp | −0.02139 | +0.03817 |
+
+The fixed phase did not strengthen the 4090 graph's small post-prune benefit. Its
+saved-state accuracy advantage contracted from +6.84 to +0.39 points and graph
+silencing again improved loss. Rotating graph sources still worsened loss, suggesting
+endpoint organization carries information even though the aggregate weighted traffic
+is not reliably helpful. The graph batches contain only 256 predictions and advance
+with checkpoint sampler state, so before/after sign changes are not yet a robust
+estimate. Future causal audits require a larger, checkpoint-independent fixed
+validation slice.
+
+## 128-wordpiece unknown-token confound — 2026-07-18
+
+The repeated replacement-character generations were traced to the tokenizer rather
+than the renderer. Vocabulary index 1 is `<unk>`, and the decoder intentionally renders
+it as `�`. With only 128 wordpieces, every out-of-vocabulary piece collapses into that
+single class. Direct measurement found `<unk>` at 30.43% of the training stream and
+30.64% of validation; it is the modal token in both. The reported 30.64% unigram
+baseline is therefore unknown-token prediction, not language competence.
+
+These lineages remain informative for persistent-state and routing experiments, but
+their 29–36% top-one accuracy cannot be presented as meaningful token prediction.
+The next corpus lineage must use a complete byte vocabulary or byte-fallback tokenizer
+with no aggregate unknown class. Generation diagnostics must also report special-token
+rates so future modal collapse is explicit rather than hidden behind decoded text.

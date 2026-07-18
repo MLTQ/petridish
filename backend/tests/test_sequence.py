@@ -605,6 +605,31 @@ def test_token_corpus_uses_distributed_ports_and_incremental_state() -> None:
     assert torch.allclose(full.logits[:, 3:], suffix.logits, atol=1e-5, rtol=1e-5)
 
 
+def test_byte_token_corpus_has_complete_round_trip_without_unknown_class() -> None:
+    text = "Once upon a time, café fox ran.\n" * 20
+    task = build_token_task(
+        text, context_length=8, vocabulary_size=256, tokenizer_profile="byte"
+    )
+
+    encoded = task.encode("A café.\n") if task.encode is not None else []
+
+    assert len(task.vocabulary) == 256
+    assert task.tokenizer_profile == "byte"
+    assert task.special_token_ids == ()
+    assert task.unknown_token_id is None
+    assert task.validation_unknown_token_rate == 0.0
+    assert task.decode is not None
+    assert task.decode(encoded) == "A café.\n"
+    assert task.training_stream is not None
+    assert int(task.training_stream.min()) >= 0
+    assert int(task.training_stream.max()) < 256
+    with pytest.raises(ValueError, match="256-token"):
+        build_token_task(
+            text, context_length=8, vocabulary_size=128,
+            tokenizer_profile="byte",
+        )
+
+
 def test_corpus_stream_windows_are_contiguous_across_training_updates() -> None:
     text = "One fox ran. Two birds flew. Three cats slept. " * 30
     task = build_token_task(text, context_length=8, vocabulary_size=32)
@@ -871,6 +896,28 @@ def test_state_ablation_reuses_identical_validation_stream_and_one_rng_advance()
     assert torch.equal(
         experiment._training_runtime_state.workspace, checkpoint_state.workspace
     )
+
+
+def test_fixed_seed_checkpoint_audit_is_repeatable_and_sampler_read_only() -> None:
+    text = "One fox ran. Two birds flew. Three cats slept. " * 30
+    task = build_token_task(text, context_length=8, vocabulary_size=32)
+    experiment = SequenceExperiment(
+        task, replace(corpus_config(), batch_size=1), seed=53,
+        device="cpu", stream_mode="continuous",
+    )
+    experiment.train_updates(1)
+    before = experiment.eval_generator.get_state().clone()
+
+    first = _held_out_diagnostics(experiment, 3, evaluation_seed=12345)
+    middle = experiment.eval_generator.get_state().clone()
+    second = _held_out_diagnostics(experiment, 3, evaluation_seed=12345)
+
+    assert first == second
+    assert first["evaluationSeed"] == 12345
+    assert first["evaluationBatches"] == 3
+    assert first["evaluatedTokens"] == 24
+    assert torch.equal(before, middle)
+    assert torch.equal(before, experiment.eval_generator.get_state())
 
 
 def test_graph_ablation_is_causal_matched_and_restores_the_organism() -> None:

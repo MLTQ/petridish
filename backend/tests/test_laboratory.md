@@ -48,6 +48,8 @@ control-enable contracts without requiring NVIDIA hardware or launching trainers
   rejects gains above the bounded workspace range.
 - **Does**: Preserves a power-of-two TinyStories vocabulary curriculum and rejects
   unsupported intermediate sizes.
+- **Does**: Preserves byte-complete versus wordpiece tokenization and requires the
+  byte profile's exact 256-token vocabulary.
 - **Does**: Preserves continuous versus windowed experience in the trainer command
   and rejects unlabeled reset modes.
 - **Does**: Preserves a bounded electrical-retention coefficient separately from
@@ -63,6 +65,8 @@ control-enable contracts without requiring NVIDIA hardware or launching trainers
   the fresh-run flag.
 - **Does**: Proves checkpoint evaluation invokes the read-only trainer path, retains
   lineage/phase metadata, and can request state horizons without a plasticity override.
+- **Does**: Requires read-only audits to use sixteen fixed-seed batches rather than
+  the smaller scheduled-training sample.
 
 ## Contracts
 

@@ -24,6 +24,8 @@ explicitly enabled trainer processes.
   microtick budget; zero is the hard physical-routing ablation.
 - **Does**: Records a 64–2,048 power-of-two token-vocabulary curriculum while
   preserving the same 64-port physical population code.
+- **Does**: Records legacy wordpiece versus byte-complete TinyStories tokenization;
+  byte mode requires exactly 256 tokens and has no aggregate unknown class.
 - **Does**: Records continuous organism experience versus the random cold-window
   control and passes that immutable mode to the trainer.
 - **Does**: Records and bounds electrical retention independently from structure;
@@ -92,6 +94,8 @@ explicitly enabled trainer processes.
 ### `EvaluateSpec` / `Laboratory.evaluate_run`
 - **Does**: Starts read-only held-out evaluation from a stopped checkpoint, optionally
   including the electrical-memory horizon, without appending a phase or optimizer step.
+- **Does**: Uses sixteen fixed-seed batches for a larger checkpoint-comparable causal
+  audit than the four-batch scheduled training diagnostic.
 - **Rationale**: Causal state/topology diagnostics can be refreshed after code changes
   without altering the organism being measured.
 

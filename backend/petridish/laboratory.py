@@ -17,6 +17,7 @@ import uuid
 
 from .sequence_cells import CELL_ARCHITECTURES
 from .sequence_tasks import STREAM_MODES
+from .token_corpus_task import TOKENIZER_PROFILES
 from .lifecycle_profiles import LIFECYCLE_PROFILES, resolve_lifecycle_profile
 from .topology_profiles import (
     TOPOLOGY_PROFILES,
@@ -44,6 +45,7 @@ class LaunchSpec:
     batch_size: int = 16
     context_length: int = 64
     vocabulary_size: int = 2_048
+    tokenizer_profile: str = "wordpiece"
     stream_mode: str = "continuous"
     state_retention: float = 0.9
     state_lanes: int = 1
@@ -115,6 +117,7 @@ class Laboratory:
                 "ampModes": ["off", "bfloat16"],
                 "lifecycleProfiles": list(LIFECYCLE_PROFILES),
                 "topologyProfiles": list(TOPOLOGY_PROFILES),
+                "tokenizerProfiles": list(TOKENIZER_PROFILES),
                 "checkpointEvaluation": True,
             },
             "gpus": gpus,
@@ -180,6 +183,9 @@ class Laboratory:
                 "batchSize": spec.batch_size,
                 "contextLength": spec.context_length,
                 "vocabularySize": spec.vocabulary_size,
+                "tokenizerProfile": (
+                    spec.tokenizer_profile if spec.task == "tiny_stories" else "character"
+                ),
                 "streamMode": spec.stream_mode,
                 "stateRetention": spec.state_retention,
                 "stateLanes": spec.state_lanes,
@@ -412,6 +418,11 @@ class Laboratory:
             raise ValueError("context length must be between 8 and 256")
         if spec.vocabulary_size not in {64, 128, 256, 512, 1_024, 2_048}:
             raise ValueError("vocabulary size must be a supported power of two from 64 to 2048")
+        if spec.task == "tiny_stories":
+            if spec.tokenizer_profile not in TOKENIZER_PROFILES:
+                raise ValueError("unknown TinyStories tokenizer profile")
+            if spec.tokenizer_profile == "byte" and spec.vocabulary_size != 256:
+                raise ValueError("byte tokenization requires a 256-token vocabulary")
         if spec.stream_mode not in STREAM_MODES:
             raise ValueError("unknown corpus stream mode")
         if not 0 <= spec.state_retention <= 1:
@@ -449,6 +460,7 @@ class Laboratory:
             "--batch-size", str(spec.batch_size),
             "--context-length", str(spec.context_length),
             "--vocabulary-size", str(spec.vocabulary_size),
+            "--tokenizer-profile", spec.tokenizer_profile,
             "--stream-mode", spec.stream_mode,
             "--state-retention", str(spec.state_retention),
             "--state-lanes", str(spec.state_lanes),
@@ -515,7 +527,7 @@ class Laboratory:
         command = [
             sys.executable, "-m", "petridish.train_shakespeare",
             "--device", "cuda", "--checkpoint-dir", str(directory),
-            "--resume", "--evaluate-only", "--eval-batches", "8",
+            "--resume", "--evaluate-only", "--eval-batches", "16",
         ]
         if organism_id:
             command.extend(

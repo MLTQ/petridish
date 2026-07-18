@@ -39,6 +39,8 @@ runtime device is configurable independently from trainer workers.
   global-workspace runs are explicit API interventions.
 - **Does**: Restricts token-vocabulary curriculum requests to 64–2,048 entries;
   the laboratory applies the exact supported power-of-two set.
+- **Does**: Selects legacy wordpiece or byte-complete TinyStories tokenization; the
+  laboratory enforces the byte profile's exact 256-token vocabulary.
 - **Does**: Carries an explicit continuous or cold-window experience mode; the
   laboratory performs exact validation before process launch.
 - **Does**: Bounds state retention from zero through one for recorded electrical

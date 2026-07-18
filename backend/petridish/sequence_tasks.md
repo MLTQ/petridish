@@ -17,6 +17,9 @@ path from spatial classification to language modeling.
   decoder, character/token counts, tokenizer metadata, source URL, and measured
   unigram/bigram validation accuracy plus smoothed loss baselines for cached corpus
   tasks.
+- **Does**: Carries an explicit tokenizer profile, special-token IDs, unknown-token
+  identity, and measured validation unknown rate so generation collapse cannot be
+  hidden by text decoding.
 - **Does**: Optionally exposes raw training/validation token streams and slices
   contiguous, wrapping windows from explicit per-lane positions.
 - **Rationale**: Persistent organisms must receive adjacent experience without

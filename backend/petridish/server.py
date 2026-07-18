@@ -43,6 +43,7 @@ class LabLaunchRequest(BaseModel):
     batchSize: int = Field(default=16, ge=1, le=256)
     contextLength: int = Field(default=64, ge=8, le=256)
     vocabularySize: int = Field(default=2_048, ge=64, le=2_048)
+    tokenizerProfile: str = "wordpiece"
     streamMode: str = "continuous"
     stateRetention: float = Field(default=0.9, ge=0, le=1)
     stateLanes: int = Field(default=1, ge=1, le=16)
@@ -139,6 +140,7 @@ async def launch_lab_run(request: LabLaunchRequest) -> dict[str, object]:
         batch_size=request.batchSize,
         context_length=request.contextLength,
         vocabulary_size=request.vocabularySize,
+        tokenizer_profile=request.tokenizerProfile,
         stream_mode=request.streamMode,
         state_retention=request.stateRetention,
         state_lanes=request.stateLanes,

@@ -42,8 +42,10 @@ training and intervention mutations behind one lock.
 - **Does**: Omits manifest-described 64×64 corpus checkpoints whose 64- or
   66-port banks wrap onto a second boundary column, and rejects any legacy
   checkpoint whose restored task ports cannot fit into one interior-height column.
-- **Does**: Validates Tiny Shakespeare or TinyStories task metadata, vocabulary, and configuration,
-  restores the complete trainer checkpoint, and rebuilds one measured visual trace.
+- **Does**: Validates Tiny Shakespeare or TinyStories task metadata, tokenizer
+  profile, vocabulary, and configuration, restores the complete trainer checkpoint,
+  and rebuilds one measured visual trace. TinyStories checkpoints without profile
+  metadata retain the legacy wordpiece contract.
 - **Rationale**: Checkpoints use trusted local PyTorch payloads; the WebSocket
   command cannot escape the repository run directory.
 

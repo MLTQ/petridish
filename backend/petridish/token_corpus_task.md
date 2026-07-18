@@ -16,6 +16,11 @@ runtime or the multi-gigabyte training split.
 
 ### `build_token_task`
 - **Does**: Builds the same task from supplied text for tests and offline experiments.
+- **Does**: Supports the legacy bounded leading-space wordpiece curriculum and a
+  256-symbol UTF-8 byte profile with complete coverage and no aggregate unknown class.
+- **Rationale**: A small wordpiece vocabulary can make `<unk>` the modal target;
+  byte-complete experiments trade longer sequences for honest, always-decodable
+  language targets.
 - **Does**: Measures exact held-out unigram accuracy and a train-fitted bigram
   lookup baseline with vectorized counts, plus add-one-smoothed validation
   cross-entropy/perplexity for both distributions.
@@ -38,3 +43,4 @@ runtime or the multi-gigabyte training split.
 | `sequence_tasks.py` | Lazy loading avoids network work for other tasks | Eager download |
 | `sequence_model.py` | Vocabulary may be larger than physical port banks | Restoring one-port-per-token assumptions |
 | Runtime | Cache survives restarts under `data/tinystories/` | Cache location |
+| Checkpoints | Tokenizer profile plus exact vocabulary select the cached task | Silent tokenizer substitution |

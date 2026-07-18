@@ -23,7 +23,7 @@ from .corpus_task import load_tiny_shakespeare_task
 from .lifecycle_profiles import (
     LIFECYCLE_PROFILES, apply_lifecycle_profile, resolve_lifecycle_profile,
 )
-from .token_corpus_task import load_tiny_stories_task
+from .token_corpus_task import TOKENIZER_PROFILES, load_tiny_stories_task
 from .mnist_config import MnistModelConfig
 from .sequence_config import sequence_config
 from .sequence_experiment import SequenceExperiment
@@ -124,6 +124,7 @@ def save_checkpoint(
             "state_retention": experiment.state_retention,
             "state_lanes": experiment.state_lanes,
             "topology_profile": experiment.topology_profile,
+            "tokenizer_profile": experiment.task.tokenizer_profile,
         },
         "model": experiment.model.state_dict(),
         "optimizer": experiment.optimizer.state_dict(),
@@ -299,11 +300,21 @@ def _generation_diagnostics(experiment: SequenceExperiment) -> dict[str, Any]:
         return {}
     prompt = "Once upon a time" if experiment.task.key == "tiny_stories" else "ROMEO:"
     sample, token_ids = experiment.greedy_completion(prompt, max_tokens=16)
+    special = set(experiment.task.special_token_ids)
+    unknown = experiment.task.unknown_token_id
     return {
         "generationPrompt": prompt,
         "generationSample": sample,
         "generationTokenCount": len(token_ids),
         "generationUniqueTokenRatio": len(set(token_ids)) / max(1, len(token_ids)),
+        "generationSpecialTokenRatio": (
+            sum(token in special for token in token_ids) / max(1, len(token_ids))
+        ),
+        "generationUnknownTokenRatio": (
+            sum(token == unknown for token in token_ids) / max(1, len(token_ids))
+            if unknown is not None else 0.0
+        ),
+        "generationTokenIds": token_ids,
     }
 
 
@@ -318,13 +329,14 @@ def _baseline_diagnostics(experiment: SequenceExperiment) -> dict[str, float]:
             ("bigramBaselineAccuracy", task.bigram_baseline_accuracy),
             ("unigramBaselineLoss", task.unigram_baseline_loss),
             ("bigramBaselineLoss", task.bigram_baseline_loss),
+            ("validationUnknownTokenRate", task.validation_unknown_token_rate),
         )
         if value is not None
     }
 
 
 @torch.no_grad()
-def _held_out_diagnostics(
+def _held_out_diagnostics_from_current_sampler(
     experiment: SequenceExperiment,
     batches: int,
     *,
@@ -380,6 +392,36 @@ def _held_out_diagnostics(
         diagnostics["stateHorizon"] = experiment.evaluate_state_horizons(
             max(16, batches)
         )
+    return diagnostics
+
+
+@torch.no_grad()
+def _held_out_diagnostics(
+    experiment: SequenceExperiment,
+    batches: int,
+    *,
+    include_state_horizons: bool = False,
+    evaluation_seed: int | None = None,
+) -> dict[str, Any]:
+    """Evaluate a checkpoint on an optional fixed slice and restore sampler state."""
+
+    before = experiment.eval_generator.get_state().clone()
+    try:
+        if evaluation_seed is not None:
+            experiment.eval_generator.manual_seed(evaluation_seed)
+        diagnostics = _held_out_diagnostics_from_current_sampler(
+            experiment, batches, include_state_horizons=include_state_horizons
+        )
+    finally:
+        if evaluation_seed is not None:
+            experiment.eval_generator.set_state(before)
+    diagnostics["evaluationSeed"] = evaluation_seed
+    diagnostics["evaluationBatches"] = max(1, min(50, batches))
+    diagnostics["evaluatedTokens"] = (
+        max(1, min(50, batches))
+        * experiment.config.batch_size
+        * experiment.task.sequence_length
+    )
     return diagnostics
 
 
@@ -482,9 +524,13 @@ def main() -> None:
     parser.add_argument("--checkpoint-interval", type=int, default=100)
     parser.add_argument("--eval-interval", type=int, default=500)
     parser.add_argument("--eval-batches", type=int, default=4)
+    parser.add_argument("--evaluation-seed", type=int, default=10_001)
     parser.add_argument("--progress-interval", type=int, default=10)
     parser.add_argument("--evaluate-only", action="store_true")
     parser.add_argument("--state-horizon-eval", action="store_true")
+    parser.add_argument(
+        "--tokenizer-profile", choices=TOKENIZER_PROFILES, default="wordpiece"
+    )
     parser.add_argument("--resume", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--resume-plasticity", action="store_true")
     parser.add_argument("--organism-id")
@@ -532,6 +578,9 @@ def main() -> None:
         args.state_retention = float(saved_task.get("state_retention", 1.0))
         args.state_lanes = int(saved_task.get("state_lanes", 1))
         args.vocabulary_size = len(tuple(saved_task.get("vocabulary", ())))
+        args.tokenizer_profile = str(
+            saved_task.get("tokenizer_profile") or "wordpiece"
+        )
         config = MnistModelConfig(**payload["configuration"])
         topology_profile = resolve_topology_profile(
             saved_task.get("topology_profile"),
@@ -569,7 +618,10 @@ def main() -> None:
             topology_profile=topology_profile,
         )
     task = (
-        load_tiny_stories_task(args.context_length, args.vocabulary_size)
+        load_tiny_stories_task(
+            args.context_length, args.vocabulary_size,
+            tokenizer_profile=args.tokenizer_profile,
+        )
         if args.task == "tiny_stories"
         else load_tiny_shakespeare_task(args.context_length)
     )
@@ -610,6 +662,7 @@ def main() -> None:
         f"architecture={config.cell_architecture} batch={config.batch_size} "
         f"stream={args.stream_mode} retention={args.state_retention:.3f} "
         f"lanes={args.state_lanes} topology={experiment.topology_profile} "
+        f"tokenizer={experiment.task.tokenizer_profile or 'character'} "
         f"organism={organism_id} phase={phase_index}:{phase_name} "
         f"amp={args.amp} compile={args.compile_mode}",
         flush=True,
@@ -624,6 +677,7 @@ def main() -> None:
             **_held_out_diagnostics(
                 experiment, args.eval_batches,
                 include_state_horizons=args.state_horizon_eval,
+                evaluation_seed=args.evaluation_seed,
             ),
         }
         _append_metric(metrics_path, record)
@@ -671,7 +725,10 @@ def main() -> None:
                     "type": "held_out", "update": experiment.training_step,
                     "organismId": organism_id, "phaseIndex": phase_index,
                     "phaseName": phase_name,
-                    **_held_out_diagnostics(experiment, args.eval_batches),
+                    **_held_out_diagnostics(
+                        experiment, args.eval_batches,
+                        evaluation_seed=args.evaluation_seed,
+                    ),
                 },
             )
         if experiment.training_step % max(1, args.progress_interval) == 0:

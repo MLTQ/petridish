@@ -57,6 +57,9 @@ sequence split across incremental calls produces the same logits as one uninterr
 forward pass. It also requires exact unigram and train-fitted bigram validation
 baselines, with the contextual baseline outperforming global frequency. The
 same fixture requires smoothed bigram loss to beat smoothed unigram loss. The
+byte-token regression requires all 256 byte values, UTF-8 prompt round trips, no
+special or unknown class, zero validation unknown rate, and rejection of a truncated
+byte vocabulary. The
 continuous-experience regressions prove adjacent windows share the boundary token,
 optimizer updates carry detached neuron state, checkpoints resume the exact lane and
 runtime state, and cell death preserves each surviving neuron's state by physical
@@ -78,6 +81,9 @@ tokens while advancing the sampler exactly once. The
 checkpoint-state ablation must seed every held-out counterfactual from a storage-
 independent clone of the real saved hidden/private/workspace state, report its
 absolute seed age, and leave the live runtime tensors unchanged. The
+fixed-audit regression requires repeated checkpoint evaluations to use the same
+validation slice, publish seed/batch/token counts, and restore the checkpoint sampler
+bit-for-bit. The
 phase-continuation regression must allow prune-only topology without altering any
 checkpoint-owned electrical, graph, optimizer, or RNG state. The
 state-lane regression must alternate two independent persistent trajectories at

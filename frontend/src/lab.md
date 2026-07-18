@@ -86,6 +86,8 @@ validated launch or stop requests.
   local-only corpus routing is distinguishable from legacy/global runs.
 - **Does**: Launches a recorded power-of-two lexical curriculum independently from
   the fixed distributed I/O population size.
+- **Does**: Selects byte-complete TinyStories tokenization by default, locks its
+  vocabulary to 256, and labels legacy wordpieces as capable of producing `<unk>`.
 - **Does**: Launches and displays continuous state-carrying experience separately
   from the cold-window control; legacy runs are labeled windowed rather than guessed
   to be continuous.
@@ -119,6 +121,9 @@ validated launch or stop requests.
 - **Does**: Offers read-only evaluation on stopped checkpoints so new causal metrics
   can be collected without continuing training or changing plasticity phase; the
   button appears only when the serving backend advertises the matching route.
+- **Does**: Displays fixed audit seed/sample size plus generation special/unknown
+  rates and the validation unknown rate, so modal collapse cannot masquerade as
+  readable token prediction.
 - **Does**: Renders direct-routing controls with microticks, minimum hops, and
   one-token output reach instead of recall-only columns, with the measured task's
   chance baseline drawn directly on the accuracy plot.

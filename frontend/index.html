@@ -97,7 +97,8 @@
         <label>Task <select id="lab-task" name="task" required></select></label>
         <label>Cell architecture <select id="lab-architecture" name="architecture" required></select></label>
         <label>Batch <input id="lab-batch" name="batchSize" type="number" min="1" max="256" value="16" required></label>
-        <label>Token vocabulary <select id="lab-vocabulary-size" name="vocabularySize"><option value="64">64</option><option value="128">128</option><option value="256">256</option><option value="512">512</option><option value="1024">1,024</option><option value="2048" selected>2,048</option></select></label>
+        <label>TinyStories tokenizer <select id="lab-tokenizer-profile" name="tokenizerProfile"><option value="byte" selected>UTF-8 bytes (complete)</option><option value="wordpiece">wordpieces (may contain &lt;unk&gt;)</option></select></label>
+        <label>Token vocabulary <select id="lab-vocabulary-size" name="vocabularySize"><option value="64">64</option><option value="128">128</option><option value="256" selected>256</option><option value="512">512</option><option value="1024">1,024</option><option value="2048">2,048</option></select></label>
         <label>Experience stream <select id="lab-stream-mode" name="streamMode"><option value="continuous" selected>continuous organism</option><option value="windowed">cold-window control</option></select></label>
         <label>Electrical retention <input id="lab-state-retention" name="stateRetention" type="number" min="0" max="1" step="0.05" value="0.9" required></label>
         <label>Persistent state lanes <input id="lab-state-lanes" name="stateLanes" type="number" min="1" max="16" step="1" value="1" required></label>
