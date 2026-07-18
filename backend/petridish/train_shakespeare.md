@@ -104,6 +104,10 @@ masquerade as held-out performance.
 the exact next saved stream position plus its matching recurrent state lane. It is
 the causal counterpart to rolling training accuracy, not a claim of random-offset or
 held-out generalization.
+`--trajectory-lane N` selects one explicit checkpointed lane for that read-only audit.
+It is rejected outside evaluate-only trajectory mode, never changes the round-robin
+training pointer, and lets mixed-domain organisms measure inherited and appended
+experience independently.
 Every trainer evaluation starts from the recorded `--evaluation-seed` and restores
 the checkpoint sampler afterward, making validation slices comparable across phases.
 Read-only laboratory audits use sixteen batches; scheduled training diagnostics stay
@@ -128,7 +132,7 @@ the corpus shard and appends lanes, existing lanes retain their old modulo/domai
 token continuation; only new lanes receive the larger domain. Legacy checkpoints
 infer every saved lane's domain from their saved shard before any expansion. Training
 records name the active lane's domain, and diagnostics publish the number of lanes in
-each distinct domain.
+each distinct domain plus the first lane that can represent it in an explicit audit.
 Scientific diagnostics report active versus still-cold lanes, the total number of
 tensor trajectories, and unique corpus-cursor phases modulo context length. This
 distinguishes nominal lane allocation from measured phase diversity.

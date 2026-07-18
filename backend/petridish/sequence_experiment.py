@@ -829,6 +829,7 @@ class SequenceExperiment:
         state_horizon_windows: int | None = None,
         initial_runtime_state: SequenceRuntimeState | None = None,
         evaluation_split: str = "validation",
+        trajectory_lane: int | None = None,
     ) -> dict[str, Any]:
         """Return validation or active-shard metrics without mutating training state."""
 
@@ -836,6 +837,9 @@ class SequenceExperiment:
             raise ValueError(
                 "evaluation split must be 'validation', 'training', or 'trajectory'"
             )
+        selected_trajectory_lane = self._trajectory_lane_for_evaluation(
+            evaluation_split, trajectory_lane
+        )
         use_validation_stream = evaluation_split == "validation"
         if carry_state is not None and self.stream_mode != "continuous":
             raise ValueError("state-carry evaluation requires a continuous corpus stream")
@@ -863,23 +867,21 @@ class SequenceExperiment:
         distractor_predictions = 0
         absent_value_predictions = 0
         batch_count = max(1, min(50, batches))
-        trajectory_lane: int | None = None
         trajectory_stream_lengths: torch.Tensor | None = None
         if self.stream_mode == "continuous" and evaluation_split == "trajectory":
             if self._training_stream_positions is None:
                 raise RuntimeError("continuous stream positions were not initialized")
             if self._training_stream_lengths is None:
                 raise RuntimeError("continuous stream domains were not initialized")
-            trajectory_lane = self.training_step % self.state_lanes
             stream_positions = (
                 self._training_stream_positions
                 if self.state_lanes == 1
-                else self._training_stream_positions[trajectory_lane]
+                else self._training_stream_positions[selected_trajectory_lane]
             ).detach().clone()
             trajectory_stream_lengths = (
                 self._training_stream_lengths
                 if self.state_lanes == 1
-                else self._training_stream_lengths[trajectory_lane]
+                else self._training_stream_lengths[selected_trajectory_lane]
             ).detach().clone()
         else:
             stream_positions = (
@@ -986,7 +988,7 @@ class SequenceExperiment:
             "initialStateTokens": initial_state_tokens,
             "stateHorizonWindows": state_horizon_windows,
             "evaluationSplit": evaluation_split,
-            "trajectoryLane": trajectory_lane,
+            "trajectoryLane": selected_trajectory_lane,
             "trajectoryStreamTokens": (
                 int(trajectory_stream_lengths.flatten()[0])
                 if trajectory_stream_lengths is not None else None
@@ -1014,25 +1016,33 @@ class SequenceExperiment:
 
     @torch.no_grad()
     def evaluate_state_ablation(
-        self, batches: int = 8, *, evaluation_split: str = "validation"
+        self,
+        batches: int = 8,
+        *,
+        evaluation_split: str = "validation",
+        trajectory_lane: int | None = None,
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         """Compare checkpoint and cold state on identical validation tokens."""
 
         if self.stream_mode != "continuous":
             raise ValueError("state ablation requires continuous training mode")
         before = self.eval_generator.get_state().clone()
-        checkpoint_state = self._runtime_state_for_evaluation_split(evaluation_split)
+        checkpoint_state = self._runtime_state_for_evaluation_split(
+            evaluation_split, trajectory_lane=trajectory_lane
+        )
         carried = self.evaluate_metrics(
             batches,
             carry_state=True,
             initial_runtime_state=checkpoint_state,
             evaluation_split=evaluation_split,
+            trajectory_lane=trajectory_lane,
         )
         after = self.eval_generator.get_state().clone()
         try:
             self.eval_generator.set_state(before)
             cold = self.evaluate_metrics(
-                batches, carry_state=False, evaluation_split=evaluation_split
+                batches, carry_state=False, evaluation_split=evaluation_split,
+                trajectory_lane=trajectory_lane,
             )
         finally:
             self.eval_generator.set_state(after)
@@ -1041,7 +1051,11 @@ class SequenceExperiment:
 
     @torch.no_grad()
     def evaluate_graph_ablation(
-        self, batches: int = 8, *, evaluation_split: str = "validation"
+        self,
+        batches: int = 8,
+        *,
+        evaluation_split: str = "validation",
+        trajectory_lane: int | None = None,
     ) -> tuple[
         dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]
     ]:
@@ -1053,10 +1067,13 @@ class SequenceExperiment:
         original_weights = substrate.synapse_weight.detach().clone()
         original_broadcast_gain = self.model.broadcast_gain.detach().clone()
         active = substrate.active_edge_mask.clone()
-        checkpoint_state = self._runtime_state_for_evaluation_split(evaluation_split)
+        checkpoint_state = self._runtime_state_for_evaluation_split(
+            evaluation_split, trajectory_lane=trajectory_lane
+        )
         reference = self.evaluate_metrics(
             batches, initial_runtime_state=checkpoint_state,
             evaluation_split=evaluation_split,
+            trajectory_lane=trajectory_lane,
         )
         after_rng = self.eval_generator.get_state().clone()
         try:
@@ -1065,6 +1082,7 @@ class SequenceExperiment:
             silenced = self.evaluate_metrics(
                 batches, initial_runtime_state=checkpoint_state,
                 evaluation_split=evaluation_split,
+                trajectory_lane=trajectory_lane,
             )
 
             substrate.synapse_weight.copy_(original_weights)
@@ -1076,6 +1094,7 @@ class SequenceExperiment:
             source_rotated = self.evaluate_metrics(
                 batches, initial_runtime_state=checkpoint_state,
                 evaluation_split=evaluation_split,
+                trajectory_lane=trajectory_lane,
             )
 
             substrate.dendrite_source.copy_(original_sources)
@@ -1090,6 +1109,7 @@ class SequenceExperiment:
             weight_reassigned = self.evaluate_metrics(
                 batches, initial_runtime_state=checkpoint_state,
                 evaluation_split=evaluation_split,
+                trajectory_lane=trajectory_lane,
             )
 
             substrate.dendrite_source.copy_(original_sources)
@@ -1100,6 +1120,7 @@ class SequenceExperiment:
                 broadcast_silenced = self.evaluate_metrics(
                     batches, initial_runtime_state=checkpoint_state,
                     evaluation_split=evaluation_split,
+                    trajectory_lane=trajectory_lane,
                 )
             else:
                 broadcast_silenced = dict(reference)
@@ -1116,14 +1137,38 @@ class SequenceExperiment:
         )
 
     def _runtime_state_for_evaluation_split(
-        self, evaluation_split: str
+        self,
+        evaluation_split: str,
+        *,
+        trajectory_lane: int | None = None,
     ) -> SequenceRuntimeState | None:
         """Return the checkpoint state aligned with a named read-only split."""
 
         if evaluation_split != "trajectory" or self.state_lanes == 1:
             return self._training_runtime_state
-        lane = self.training_step % self.state_lanes
+        lane = self._trajectory_lane_for_evaluation(
+            evaluation_split, trajectory_lane
+        )
         return self._training_runtime_bank[lane]
+
+    def _trajectory_lane_for_evaluation(
+        self, evaluation_split: str, trajectory_lane: int | None
+    ) -> int | None:
+        """Resolve one read-only trajectory lane without changing round-robin state."""
+
+        if trajectory_lane is not None and evaluation_split != "trajectory":
+            raise ValueError("trajectory lane requires the trajectory evaluation split")
+        if evaluation_split != "trajectory":
+            return None
+        selected = (
+            self.training_step % self.state_lanes
+            if trajectory_lane is None else int(trajectory_lane)
+        )
+        if selected < 0 or selected >= self.state_lanes:
+            raise ValueError(
+                f"trajectory lane must be between 0 and {self.state_lanes - 1}"
+            )
+        return selected
 
     @torch.no_grad()
     def evaluate_state_horizons(
@@ -1132,6 +1177,7 @@ class SequenceExperiment:
         horizons: tuple[int, ...] = (1, 2, 4, 8, 16),
         *,
         evaluation_split: str = "validation",
+        trajectory_lane: int | None = None,
     ) -> list[dict[str, float | int]]:
         """Measure useful electrical-memory lifetime on one identical token stream."""
 
@@ -1149,8 +1195,11 @@ class SequenceExperiment:
                     bounded_batches,
                     carry_state=True,
                     state_horizon_windows=horizon,
-                    initial_runtime_state=self._training_runtime_state,
+                    initial_runtime_state=self._runtime_state_for_evaluation_split(
+                        evaluation_split, trajectory_lane=trajectory_lane
+                    ),
                     evaluation_split=evaluation_split,
+                    trajectory_lane=trajectory_lane,
                 )
                 if after is None:
                     after = self.eval_generator.get_state().clone()

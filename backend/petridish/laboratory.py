@@ -103,6 +103,7 @@ class EvaluateSpec:
     gpu_uuid: str
     state_horizons: bool = False
     evaluation_split: str = "validation"
+    trajectory_lane: int | None = None
 
 
 class Laboratory:
@@ -144,6 +145,7 @@ class Laboratory:
                 "trainingShardCurriculum": True,
                 "stateLaneExpansion": True,
                 "stateLaneDomains": True,
+                "trajectoryLaneAudit": True,
                 "checkpointFork": True,
                 "sameLineageRetry": True,
             },
@@ -700,6 +702,7 @@ class Laboratory:
             phase_name=str(phase.get("name", "training")),
             state_horizons=spec.state_horizons,
             evaluation_split=spec.evaluation_split,
+            trajectory_lane=spec.trajectory_lane,
         )
         process = self._start_process(
             spec.run_id, spec.gpu_uuid, command, directory
@@ -847,17 +850,24 @@ class Laboratory:
         phase_name: str,
         state_horizons: bool,
         evaluation_split: str,
+        trajectory_lane: int | None,
     ) -> list[str]:
         if evaluation_split not in {"validation", "training", "trajectory"}:
             raise ValueError(
                 "evaluation split must be validation, training, or trajectory"
             )
+        if trajectory_lane is not None and evaluation_split != "trajectory":
+            raise ValueError("trajectory lane requires the trajectory evaluation split")
+        if trajectory_lane is not None and not 0 <= trajectory_lane < 32:
+            raise ValueError("trajectory lane must be between 0 and 31")
         command = [
             sys.executable, "-m", "petridish.train_shakespeare",
             "--device", "cuda", "--checkpoint-dir", str(directory),
             "--resume", "--evaluate-only", "--eval-batches", "16",
             "--evaluation-split", evaluation_split,
         ]
+        if trajectory_lane is not None:
+            command.extend(("--trajectory-lane", str(trajectory_lane)))
         if organism_id:
             command.extend(
                 (
@@ -998,6 +1008,20 @@ class Laboratory:
                 ),
                 None,
             )
+            latest_trajectory_audits: list[dict[str, Any]] = []
+            seen_trajectory_lanes: set[int | None] = set()
+            for record in reversed(records):
+                if record.get("type") != "trajectory_audit":
+                    continue
+                raw_lane = record.get("trajectoryLane")
+                lane = int(raw_lane) if isinstance(raw_lane, (int, float)) else None
+                if lane in seen_trajectory_lanes:
+                    continue
+                seen_trajectory_lanes.add(lane)
+                latest_trajectory_audits.append(record)
+            latest_trajectory_audits.sort(
+                key=lambda record: int(record.get("trajectoryLane") or 0)
+            )
             latest_diagnostics = next(
                 (record for record in reversed(records) if record.get("type") == "diagnostic"), None
             )
@@ -1039,6 +1063,7 @@ class Laboratory:
                     "latestHeldOut": latest_held_out,
                     "latestTrainingAudit": latest_training_audit,
                     "latestTrajectoryAudit": latest_trajectory_audit,
+                    "latestTrajectoryAudits": latest_trajectory_audits,
                     "latestDiagnostics": latest_diagnostics,
                     "latestFailure": latest_failure,
                     "hasCheckpoint": has_checkpoint,

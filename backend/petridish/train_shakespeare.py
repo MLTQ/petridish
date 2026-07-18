@@ -370,13 +370,15 @@ def _scientific_metrics(experiment: SequenceExperiment) -> dict[str, Any]:
         )
         if not bool((shaped_lengths == shaped_lengths[:, :1]).all()):
             raise RuntimeError("one experience lane spans multiple stream domains")
-        domains, counts = torch.unique(
-            shaped_lengths[:, 0].detach().cpu(), return_counts=True
-        )
-        lane_stream_domains = [
-            {"tokens": int(tokens), "lanes": int(count)}
-            for tokens, count in zip(domains.tolist(), counts.tolist(), strict=True)
-        ]
+        domain_groups: dict[int, dict[str, int]] = {}
+        for lane, tokens in enumerate(shaped_lengths[:, 0].detach().cpu().tolist()):
+            stream_tokens = int(tokens)
+            domain = domain_groups.setdefault(
+                stream_tokens,
+                {"tokens": stream_tokens, "lanes": 0, "firstLane": lane},
+            )
+            domain["lanes"] += 1
+        lane_stream_domains = list(domain_groups.values())
     unique_cursor_phases = (
         0
         if stream_positions is None
@@ -505,12 +507,14 @@ def _held_out_diagnostics_from_current_sampler(
     *,
     include_state_horizons: bool = False,
     evaluation_split: str = "validation",
+    trajectory_lane: int | None = None,
 ) -> dict[str, Any]:
     """Evaluate one checkpoint on a named split with matched counterfactuals."""
 
     if experiment.stream_mode == "continuous":
         held_out, cold_state = experiment.evaluate_state_ablation(
-            max(1, batches), evaluation_split=evaluation_split
+            max(1, batches), evaluation_split=evaluation_split,
+            trajectory_lane=trajectory_lane,
         )
         held_out.update(
             {
@@ -526,14 +530,16 @@ def _held_out_diagnostics_from_current_sampler(
         )
     else:
         held_out = experiment.evaluate_metrics(
-            max(1, batches), evaluation_split=evaluation_split
+            max(1, batches), evaluation_split=evaluation_split,
+            trajectory_lane=trajectory_lane,
         )
     (
         graph_reference, graph_silenced, source_rotated, weight_reassigned,
         broadcast_silenced,
     ) = (
         experiment.evaluate_graph_ablation(
-            max(1, batches), evaluation_split=evaluation_split
+            max(1, batches), evaluation_split=evaluation_split,
+            trajectory_lane=trajectory_lane,
         )
     )
     held_out.update(
@@ -584,7 +590,8 @@ def _held_out_diagnostics_from_current_sampler(
     }
     if include_state_horizons and experiment.stream_mode == "continuous":
         diagnostics["stateHorizon"] = experiment.evaluate_state_horizons(
-            max(16, batches), evaluation_split=evaluation_split
+            max(16, batches), evaluation_split=evaluation_split,
+            trajectory_lane=trajectory_lane,
         )
     return diagnostics
 
@@ -597,6 +604,7 @@ def _held_out_diagnostics(
     include_state_horizons: bool = False,
     evaluation_seed: int | None = None,
     evaluation_split: str = "validation",
+    trajectory_lane: int | None = None,
 ) -> dict[str, Any]:
     """Evaluate a checkpoint on an optional fixed slice and restore sampler state."""
 
@@ -607,6 +615,7 @@ def _held_out_diagnostics(
         diagnostics = _held_out_diagnostics_from_current_sampler(
             experiment, batches, include_state_horizons=include_state_horizons,
             evaluation_split=evaluation_split,
+            trajectory_lane=trajectory_lane,
         )
     finally:
         if evaluation_seed is not None:
@@ -725,6 +734,10 @@ def main() -> None:
         default="validation",
         help="read-only audit split; scheduled training evaluation stays validation",
     )
+    parser.add_argument(
+        "--trajectory-lane", type=int,
+        help="explicit saved lane for a read-only trajectory audit",
+    )
     parser.add_argument("--evaluation-seed", type=int, default=10_001)
     parser.add_argument("--progress-interval", type=int, default=10)
     parser.add_argument("--evaluate-only", action="store_true")
@@ -759,6 +772,14 @@ def main() -> None:
         parser.error("--state-retention must be between 0 and 1")
     if args.state_lanes is not None and not 1 <= args.state_lanes <= 32:
         parser.error("--state-lanes must be between 1 and 32")
+    if args.trajectory_lane is not None and (
+        not args.evaluate_only or args.evaluation_split != "trajectory"
+    ):
+        parser.error(
+            "--trajectory-lane requires --evaluate-only --evaluation-split trajectory"
+        )
+    if args.trajectory_lane is not None and not 0 <= args.trajectory_lane < 32:
+        parser.error("--trajectory-lane must be between 0 and 31")
     if args.phase_index is not None and args.phase_index < 0:
         parser.error("--phase-index must be non-negative")
 
@@ -923,6 +944,7 @@ def main() -> None:
                 include_state_horizons=args.state_horizon_eval,
                 evaluation_seed=args.evaluation_seed,
                 evaluation_split=args.evaluation_split,
+                trajectory_lane=args.trajectory_lane,
             ),
         }
         _append_metric(metrics_path, record)

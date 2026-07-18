@@ -180,6 +180,9 @@ validated launch or stop requests.
 - **Does**: Offers and displays an exact next-trajectory audit separately from the
   random-offset shard audit, including the matched recurrent lane and graph
   counterfactuals plus that lane's checkpointed stream domain.
+- **Does**: On a mixed-domain organism, offers one explicit read-only audit button for
+  the first lane in each measured domain and displays the newest causal result for
+  every audited lane instead of replacing them with the last completed audit.
 - **Does**: Displays fixed audit seed/sample size plus generation special/unknown
   rates and the validation unknown rate, so modal collapse cannot masquerade as
   readable token prediction.

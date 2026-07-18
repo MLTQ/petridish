@@ -92,6 +92,8 @@ control-enable contracts without requiring NVIDIA hardware or launching trainers
   overfit result never overwrites validation accuracy in run discovery.
 - **Does**: Keeps exact-trajectory audits distinct from both validation and
   random-offset shard records.
+- **Does**: Forwards an explicit saved trajectory lane to the read-only trainer,
+  rejects it for validation, and retains the newest audit per measured lane.
 - **Does**: Reconstructs a missing current phase for display when authoritative
   checkpoint training metrics are newer than an older manifest, without mutating
   either artifact during discovery.

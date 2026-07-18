@@ -840,7 +840,7 @@ def test_state_lane_expansion_preserves_every_existing_trajectory(
     assert metrics["coldStateLanes"] == 4 - starting_lanes
     assert metrics["experienceTrajectoryCount"] == 4
     assert metrics["laneStreamDomains"] == [
-        {"tokens": task.training_stream_tokens, "lanes": 4}
+        {"tokens": task.training_stream_tokens, "lanes": 4, "firstLane": 0}
     ]
     assert metrics["uniqueCursorPhases"] == len(
         set(experiment._training_stream_positions.flatten().remainder(8).tolist())
@@ -922,10 +922,24 @@ def test_lane_expansion_preserves_old_domain_and_assigns_new_domain_only_to_new_
         assert torch.equal(restored._training_runtime_bank[index].hidden, state.hidden)
         assert restored._training_runtime_bank[index].position == state.position
     assert metrics["laneStreamDomains"] == [
-        {"tokens": 128, "lanes": 2}, {"tokens": 256, "lanes": 2}
+        {"tokens": 128, "lanes": 2, "firstLane": 0},
+        {"tokens": 256, "lanes": 2, "firstLane": 2},
     ]
     restored.train_updates(4)
     assert [state.position for state in restored._training_runtime_bank] == [16, 16, 8, 8]
+    positions_before_audit = restored._training_stream_positions.clone()
+    lane_two_state = restored._training_runtime_bank[2]
+    assert lane_two_state is not None
+    trajectory = restored.evaluate_metrics(
+        1,
+        evaluation_split="trajectory",
+        trajectory_lane=2,
+        initial_runtime_state=lane_two_state,
+    )
+    assert trajectory["trajectoryLane"] == 2
+    assert trajectory["trajectoryStreamTokens"] == 256
+    assert trajectory["initialStateTokens"] == lane_two_state.position
+    assert torch.equal(restored._training_stream_positions, positions_before_audit)
 
     shrunken_task = build_token_task(
         text, context_length=8, vocabulary_size=32, training_shard_tokens=64
@@ -1257,13 +1271,22 @@ def test_fixed_seed_checkpoint_audit_is_repeatable_and_sampler_read_only() -> No
     assert torch.equal(before, experiment.eval_generator.get_state())
 
     trajectory = _held_out_diagnostics(
-        experiment, 3, evaluation_seed=12345, evaluation_split="trajectory"
+        experiment, 3, evaluation_seed=12345, evaluation_split="trajectory",
+        trajectory_lane=0,
     )
     assert trajectory["evaluationSplit"] == "trajectory"
     assert trajectory["trajectoryLane"] == 0
     assert trajectory["trajectoryStreamTokens"] == task.training_stream_tokens
     assert trajectory["initialStateTokens"] == experiment._training_runtime_state.position
     assert torch.equal(before, experiment.eval_generator.get_state())
+    with pytest.raises(ValueError, match="requires the trajectory"):
+        experiment.evaluate_metrics(
+            1, evaluation_split="validation", trajectory_lane=0
+        )
+    with pytest.raises(ValueError, match="between 0 and 0"):
+        experiment.evaluate_metrics(
+            1, evaluation_split="trajectory", trajectory_lane=1
+        )
 
 
 def test_graph_ablation_is_causal_matched_and_restores_the_organism() -> None:

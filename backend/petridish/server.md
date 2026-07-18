@@ -71,6 +71,8 @@ evaluation actions.
   optimizer step.
 - **Does**: Accepts `trajectory` as the third explicit audit condition for the exact
   next checkpointed cursor/state lane.
+- **Does**: Optionally bounds an explicit trajectory lane from zero through thirty-one;
+  the laboratory rejects it for every non-trajectory evaluation.
 
 ### `LabForkRequest`
 - **Does**: Accepts only a bounded run ID for a new stopped-checkpoint branch; the

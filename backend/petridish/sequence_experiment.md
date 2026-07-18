@@ -30,6 +30,10 @@ The distinct `trajectory` split clones the exact next saved corpus position and 
 matching state lane. It measures the aligned recurrent behavior seen by the trainer
 without advancing that cursor, while the random-offset training split separately
 tests phase-shift generalization within the same shard.
+Callers may select an explicit saved trajectory lane; otherwise the next round-robin
+lane remains the default. The selected cursor, stream domain, and recurrent state are
+kept aligned through saved/cold-state and every graph counterfactual, and invalid or
+non-trajectory lane requests fail rather than silently measuring another lane.
 Continuous training may set a bounded `state_retention` at truncation boundaries.
 This models homeostatic electrical relaxation, not organism reset: current state is
 mixed with the same physical cells' resting field while topology, synapses, genotype,

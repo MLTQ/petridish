@@ -43,7 +43,22 @@ def test_training_shard_audit_is_not_mislabeled_as_validation(tmp_path: Path) ->
                 json.dumps(
                     {
                         "type": "trajectory_audit", "update": 10,
+                        "accuracy": 0.9, "evaluationSplit": "trajectory",
+                        "trajectoryLane": 0, "trajectoryStreamTokens": 2_048,
+                    }
+                ),
+                json.dumps(
+                    {
+                        "type": "trajectory_audit", "update": 10,
+                        "accuracy": 0.7, "evaluationSplit": "trajectory",
+                        "trajectoryLane": 16, "trajectoryStreamTokens": 4_096,
+                    }
+                ),
+                json.dumps(
+                    {
+                        "type": "trajectory_audit", "update": 11,
                         "accuracy": 1.0, "evaluationSplit": "trajectory",
+                        "trajectoryLane": 0, "trajectoryStreamTokens": 2_048,
                     }
                 ),
             )
@@ -59,6 +74,12 @@ def test_training_shard_audit_is_not_mislabeled_as_validation(tmp_path: Path) ->
     assert summary["latestTrainingAudit"]["evaluationSplit"] == "training"
     assert summary["latestTrajectoryAudit"]["accuracy"] == 1.0
     assert summary["latestTrajectoryAudit"]["evaluationSplit"] == "trajectory"
+    assert [record["trajectoryLane"] for record in summary["latestTrajectoryAudits"]] == [
+        0, 16,
+    ]
+    assert [record["accuracy"] for record in summary["latestTrajectoryAudits"]] == [
+        1.0, 0.7,
+    ]
 
 
 def test_run_discovery_repairs_lagging_phase_metadata_from_training_metrics(
@@ -661,6 +682,58 @@ def test_checkpoint_evaluation_is_read_only_and_keeps_the_phase(
     assert command[command.index("--organism-id") + 1] == "organism-test"
     assert command[command.index("--phase-index") + 1] == "2"
     assert manifest["phaseHistory"] == phase_history
+
+
+def test_checkpoint_evaluation_selects_one_saved_trajectory_lane(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    run = tmp_path / "runs" / "trial"
+    run.mkdir(parents=True)
+    (run / "latest.pt").touch()
+    (run / "manifest.json").write_text(
+        json.dumps(
+            {
+                "runId": "trial", "organismId": "organism-test",
+                "phaseHistory": [{"index": 3, "name": "mixed domains"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    laboratory = Laboratory(
+        tmp_path, run_root=tmp_path / "runs", control_enabled=True
+    )
+    monkeypatch.setattr(
+        laboratory, "_gpu_snapshot", lambda: ([{"uuid": "GPU-example"}], [])
+    )
+    launched: dict[str, object] = {}
+
+    def fake_start(
+        run_id: str, gpu_uuid: str, command: list[str], directory: Path
+    ) -> SimpleNamespace:
+        launched["command"] = command
+        return SimpleNamespace(pid=4321)
+
+    monkeypatch.setattr(laboratory, "_start_process", fake_start)
+    monkeypatch.setattr(laboratory, "_git_commit", lambda: "eval-commit")
+
+    laboratory.evaluate_run(
+        EvaluateSpec(
+            "trial", "GPU-example", evaluation_split="trajectory",
+            trajectory_lane=16,
+        )
+    )
+
+    command = launched["command"]
+    assert isinstance(command, list)
+    assert command[command.index("--evaluation-split") + 1] == "trajectory"
+    assert command[command.index("--trajectory-lane") + 1] == "16"
+
+    with pytest.raises(ValueError, match="requires the trajectory"):
+        laboratory._evaluation_command(
+            run, organism_id="organism-test", phase_index=3,
+            phase_name="mixed domains", state_horizons=False,
+            evaluation_split="validation", trajectory_lane=0,
+        )
 
 
 def test_laboratory_preserves_bounded_learning_rate_scale(tmp_path: Path) -> None:

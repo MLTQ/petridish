@@ -105,7 +105,7 @@ interface MetricRecord {
   activeStateLanes?: number;
   coldStateLanes?: number;
   experienceTrajectoryCount?: number;
-  laneStreamDomains?: Array<{ tokens: number; lanes: number }>;
+  laneStreamDomains?: Array<{ tokens: number; lanes: number; firstLane?: number }>;
   minimumLaneStreamTokens?: number;
   maximumLaneStreamTokens?: number;
   uniqueCursorPhases?: number;
@@ -166,6 +166,7 @@ interface RunSnapshot {
   latestHeldOut: MetricRecord | null;
   latestTrainingAudit: MetricRecord | null;
   latestTrajectoryAudit: MetricRecord | null;
+  latestTrajectoryAudits?: MetricRecord[];
   latestDiagnostics: MetricRecord | null;
   latestFailure: MetricRecord | null;
   hasCheckpoint: boolean;
@@ -185,6 +186,7 @@ interface LaboratorySnapshot {
     trainingShardCurriculum?: boolean;
     stateLaneExpansion?: boolean;
     stateLaneDomains?: boolean;
+    trajectoryLaneAudit?: boolean;
     checkpointFork?: boolean;
     sameLineageRetry?: boolean;
   };
@@ -769,13 +771,29 @@ export class LaboratoryView {
             run, shard, "training",
           ));
           state.append(shard);
-          const trajectory = document.createElement("button");
-          trajectory.type = "button";
-          trajectory.textContent = "Audit next trajectory";
-          trajectory.addEventListener("click", () => void this.evaluateCheckpoint(
-            run, trajectory, "trajectory",
-          ));
-          state.append(trajectory);
+          const domains = run.latestDiagnostics?.laneStreamDomains ?? [];
+          const targets = this.snapshot.capabilities.trajectoryLaneAudit
+            ? domains.filter((domain) => domain.firstLane !== undefined)
+            : [];
+          if (targets.length > 0) {
+            for (const domain of targets) {
+              const trajectory = document.createElement("button");
+              trajectory.type = "button";
+              trajectory.textContent = `Audit lane ${domain.firstLane} · ${domain.tokens.toLocaleString()} tokens`;
+              trajectory.addEventListener("click", () => void this.evaluateCheckpoint(
+                run, trajectory, "trajectory", domain.firstLane,
+              ));
+              state.append(trajectory);
+            }
+          } else {
+            const trajectory = document.createElement("button");
+            trajectory.type = "button";
+            trajectory.textContent = "Audit next trajectory";
+            trajectory.addEventListener("click", () => void this.evaluateCheckpoint(
+              run, trajectory, "trajectory",
+            ));
+            state.append(trajectory);
+          }
         }
       }
       row.append(state);
@@ -795,7 +813,9 @@ export class LaboratoryView {
       const diagnostic = run.latestDiagnostics;
       const heldOut = run.latestHeldOut;
       const shardAudit = run.latestTrainingAudit;
-      const trajectoryAudit = run.latestTrajectoryAudit;
+      const trajectoryAudits = run.latestTrajectoryAudits?.length
+        ? run.latestTrajectoryAudits
+        : run.latestTrajectoryAudit ? [run.latestTrajectoryAudit] : [];
       const row = document.createElement("tr");
       const graph = diagnostic
         ? `${diagnostic.livingCells ?? "—"} cells · ${diagnostic.edgeCount ?? "—"} physical · ${diagnostic.conductingEdgeCount ?? "—"} conducting`
@@ -820,9 +840,10 @@ export class LaboratoryView {
       const shardCausality = shardAudit?.graphReferenceAccuracy === undefined
         ? ""
         : ` · shard causal ref ${this.percent(shardAudit.graphReferenceAccuracy)} · silence Δacc ${this.signedPercent(shardAudit.graphSilencedAccuracyDelta)} / Δloss ${this.signedNumber(shardAudit.graphSilencedLossDelta)} · rotate Δacc ${this.signedPercent(shardAudit.sourceRotatedAccuracyDelta)} / Δloss ${this.signedNumber(shardAudit.sourceRotatedLossDelta)} · reassign Δacc ${this.signedPercent(shardAudit.weightReassignedAccuracyDelta)} / Δloss ${this.signedNumber(shardAudit.weightReassignedLossDelta)}`;
-      const trajectoryCausality = trajectoryAudit?.graphReferenceAccuracy === undefined
-        ? ""
-        : ` · trajectory lane ${trajectoryAudit.trajectoryLane ?? "—"}${trajectoryAudit.trajectoryStreamTokens == null ? "" : ` @ ${trajectoryAudit.trajectoryStreamTokens.toLocaleString()} tokens`} ref ${this.percent(trajectoryAudit.graphReferenceAccuracy)} · silence Δacc ${this.signedPercent(trajectoryAudit.graphSilencedAccuracyDelta)} / Δloss ${this.signedNumber(trajectoryAudit.graphSilencedLossDelta)} · rotate Δacc ${this.signedPercent(trajectoryAudit.sourceRotatedAccuracyDelta)} / Δloss ${this.signedNumber(trajectoryAudit.sourceRotatedLossDelta)} · reassign Δacc ${this.signedPercent(trajectoryAudit.weightReassignedAccuracyDelta)} / Δloss ${this.signedNumber(trajectoryAudit.weightReassignedLossDelta)}`;
+      const trajectoryCausality = trajectoryAudits
+        .filter((audit) => audit.graphReferenceAccuracy !== undefined)
+        .map((audit) => ` · trajectory lane ${audit.trajectoryLane ?? "—"}${audit.trajectoryStreamTokens == null ? "" : ` @ ${audit.trajectoryStreamTokens.toLocaleString()} tokens`} ref ${this.percent(audit.graphReferenceAccuracy)} · silence Δacc ${this.signedPercent(audit.graphSilencedAccuracyDelta)} / Δloss ${this.signedNumber(audit.graphSilencedLossDelta)} · rotate Δacc ${this.signedPercent(audit.sourceRotatedAccuracyDelta)} / Δloss ${this.signedNumber(audit.sourceRotatedLossDelta)} · reassign Δacc ${this.signedPercent(audit.weightReassignedAccuracyDelta)} / Δloss ${this.signedNumber(audit.weightReassignedLossDelta)}`)
+        .join("");
       const routing = diagnostic
         ? `${String(run.configuration.tokenizerProfile ?? "legacy tokenizer")} · ${String(run.configuration.streamMode ?? "windowed")} · retention ${String(run.configuration.stateRetention ?? "1 legacy")} · ${String(run.configuration.stateLanes ?? 1)} state lane${Number(run.configuration.stateLanes ?? 1) === 1 ? "" : "s"} · ${stateAge}${phaseCoverage}${streamDomains}${laneAccuracy} · ${diagnostic.minimumOutputHops ?? "—"}/${diagnostic.medianOutputHops ?? "—"} hops · ${diagnostic.tokenReachableOutputs ?? 0}/${diagnostic.contextReachableOutputs ?? 0}/${diagnostic.reachableOutputs ?? 0} token/context/graph · broadcast ${String(run.configuration.broadcastGain ?? "legacy")}${(diagnostic.tokenReachableOutputs ?? 0) === 0 && Number(run.configuration.messageSteps ?? 0) < Number(diagnostic.minimumOutputHops ?? 0) ? ` · insufficient ${run.configuration.messageSteps ?? "—"} < ${diagnostic.minimumOutputHops ?? "—"}` : ""}${gradientSummary}${heldOut?.graphReferenceAccuracy === undefined ? "" : ` · validation causal ref ${this.percent(heldOut.graphReferenceAccuracy)} · silence Δacc ${this.signedPercent(heldOut.graphSilencedAccuracyDelta)} / Δloss ${this.signedNumber(heldOut.graphSilencedLossDelta)} · rotate topology Δacc ${this.signedPercent(heldOut.sourceRotatedAccuracyDelta)} / Δloss ${this.signedNumber(heldOut.sourceRotatedLossDelta)}${heldOut.weightReassignedLossDelta === undefined ? "" : ` · reassign weights Δacc ${this.signedPercent(heldOut.weightReassignedAccuracyDelta)} / Δloss ${this.signedNumber(heldOut.weightReassignedLossDelta)}`}${heldOut.broadcastAblationApplicable ? ` · silence broadcast Δacc ${this.signedPercent(heldOut.broadcastSilencedAccuracyDelta)} / Δloss ${this.signedNumber(heldOut.broadcastSilencedLossDelta)}` : ""}`}${shardCausality}${trajectoryCausality}`
         : "—";
@@ -1069,6 +1090,7 @@ export class LaboratoryView {
   private async evaluateCheckpoint(
     run: RunSnapshot, button: HTMLButtonElement,
     evaluationSplit: "validation" | "training" | "trajectory",
+    trajectoryLane?: number,
   ): Promise<void> {
     const gpuUuid = run.gpuUuid ?? this.snapshot?.gpus[0]?.uuid;
     if (!gpuUuid) {
@@ -1081,12 +1103,14 @@ export class LaboratoryView {
       {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ gpuUuid, stateHorizons: false, evaluationSplit }),
+        body: JSON.stringify({
+          gpuUuid, stateHorizons: false, evaluationSplit, trajectoryLane,
+        }),
       },
     );
     const payload = await response.json() as { status?: string; detail?: string };
     this.status.value = response.ok
-      ? `${run.id}: ${payload.status ?? "evaluating"} ${evaluationSplit}`
+      ? `${run.id}: ${payload.status ?? "evaluating"} ${evaluationSplit}${trajectoryLane === undefined ? "" : ` lane ${trajectoryLane}`}`
       : (payload.detail ?? "evaluation failed");
     await this.refresh();
   }

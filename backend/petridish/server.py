@@ -89,6 +89,7 @@ class LabEvaluateRequest(BaseModel):
     evaluationSplit: str = Field(
         default="validation", pattern="^(validation|training|trajectory)$"
     )
+    trajectoryLane: int | None = Field(default=None, ge=0, le=31)
 
 
 class LabRetryRequest(BaseModel):
@@ -234,6 +235,7 @@ async def evaluate_lab_run(
                 gpu_uuid=request.gpuUuid,
                 state_horizons=request.stateHorizons,
                 evaluation_split=request.evaluationSplit,
+                trajectory_lane=request.trajectoryLane,
             ),
         )
     except PermissionError as error:

@@ -48,6 +48,8 @@ explicitly enabled trainer processes.
   backend can never misinterpret phase-diversity controls as ordinary continuation.
 - **Does**: Advertises checkpointed state-lane domains separately so mixed replay/new
   curricula are shown only when the server preserves their sampler semantics.
+- **Does**: Advertises explicit trajectory-lane audits so the frontend never assumes
+  a mixed-domain organism was measured through whichever lane happened to be next.
 - **Does**: Advertises exact checkpoint forking explicitly so the frontend cannot
   present paired counterfactual controls against an older copy-only backend.
 - **Interacts with**: `/api/lab` in `server.py` and `lab.ts`.
@@ -152,6 +154,8 @@ explicitly enabled trainer processes.
 - **Does**: Also exposes the exact next saved trajectory as a separately recorded
   audit, preserving the distinction between aligned competence and random-offset
   shard competence.
+- **Does**: Can select one explicit saved trajectory lane and retains the latest audit
+  for every measured lane in run discovery while keeping the legacy newest audit.
 - **Does**: Discovers active-shard `training_audit` records separately from
   `held_out` validation records so higher memorization accuracy cannot replace the
   laboratory's generalization result.

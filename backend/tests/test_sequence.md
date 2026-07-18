@@ -103,7 +103,9 @@ bit-for-bit. The
 active-training-shard audit must use the independent evaluation RNG, report its split
 explicitly, and restore graph sources and weights after every counterfactual. The
 trajectory audit must clone the exact next stream position and matching state lane,
-report that lane, preserve the cursor, and restore every graph counterfactual. The
+report that lane, preserve the cursor, and restore every graph counterfactual. An
+explicit lane audit must select its matching recurrent state and checkpointed stream
+domain, remain sampler-read-only, and reject an out-of-range or non-trajectory lane. The
 phase-continuation regression must allow prune-only topology without altering any
 checkpoint-owned electrical, graph, optimizer, or RNG state. The
 state-lane regression must alternate two independent persistent trajectories at
@@ -113,7 +115,8 @@ must preserve every old cursor and runtime state, consume rather than reseed the
 saved training RNG for new positions, co-locate new cursors with a CUDA-restored
 checkpoint, reject shrinking, and survive a checkpoint round trip with added lanes
 still cold. Diagnostics must separately measure active/cold lanes, tensor trajectory
-count, unique cursor phases, and per-domain lane counts. Per-row stream tests require
+count, unique cursor phases, and per-domain lane counts. Each domain diagnostic also
+identifies its first representative lane. Per-row stream tests require
 independent wrap lengths, and legacy checkpoint expansion must infer the old shard,
 retain every old cursor/state/domain exactly, assign the broader domain only to cold
 new lanes, train across the mixed domains, and reject a curriculum smaller than any
