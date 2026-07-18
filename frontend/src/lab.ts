@@ -1017,7 +1017,7 @@ export class LaboratoryView {
       : `uni ${this.percent(record.unigramBaselineAccuracy)} / ppl ${this.perplexity(record.unigramBaselineLoss)} · bi ${this.percent(record.bigramBaselineAccuracy)} / ppl ${this.perplexity(record.bigramBaselineLoss)}${record.accuracy === undefined ? "" : ` · model−uni ${this.signedPercent(record.accuracy - record.unigramBaselineAccuracy)} · model−bi ${this.signedPercent(record.accuracy - (record.bigramBaselineAccuracy ?? 0))}`}`;
     const stateSummary = record.coldStateAccuracy === undefined
       ? ""
-      : `saved-state clone ${this.percent(record.accuracy)} · read-only cold clone ${this.percent(record.coldStateAccuracy)} · state Δacc ${this.signedPercent(record.stateCarryAccuracyDelta)} / Δloss ${this.signedNumber(record.stateCarryLossDelta)} · checkpoint state age ${(record.initialStateTokens ?? 0).toLocaleString()}`;
+      : `saved-state clone ${this.percent(record.accuracy)} · read-only cold clone ${this.percent(record.coldStateAccuracy)} · state Δacc ${this.signedPercent(record.stateCarryAccuracyDelta)} / Δloss ${this.signedNumber(record.stateCarryLossDelta ?? (record.coldStateLoss === undefined || record.loss === undefined ? undefined : record.coldStateLoss - record.loss))} · checkpoint state age ${(record.initialStateTokens ?? 0).toLocaleString()}`;
     const horizonSummary = (record.stateHorizon ?? []).map(
       (point) => `h${point.windows} ${this.percent(point.accuracy)}`,
     ).join(" · ");

@@ -102,6 +102,8 @@ validated launch or stop requests.
   clone and their signed accuracy/loss state-value deltas. Both branches are evaluation-only;
   neither overwrites or resets the checkpointed organism. The checkpoint electrical
   age is shown explicitly.
+- **Does**: Derives the loss delta from saved/cold loss for historical records written
+  before the backend published that signed field explicitly.
 - **Does**: Launches and displays the bounded electrical-retention intervention so
   indefinite persistence and homeostatic relaxation remain distinguishable.
 - **Does**: Shows optional h1/h2/h4/h8/h16 held-out accuracy from the identical-token
