@@ -138,6 +138,10 @@ validated launch or stop requests.
 - **Does**: Shows pre-clipping bias/readout/token/rule/synapse gradient norms beside
   routing diagnostics, together with total norm and clip scale, to localize
   frequency-only learning failures and clipped instability.
+- **Does**: Summarizes up to 160 current-phase clip scales as the median, tenth
+  percentile, and fraction at or below 0.1. This distinguishes sustained optimizer
+  starvation from an isolated recurrent-gradient spike without mixing curriculum
+  phases or implying that the organism itself restarted.
 - **Does**: Separates phase-local grown/pruned edge counts from lifetime totals when
   the matching phase boundary recorded its starting counters.
 - **Does**: Offers read-only evaluation on stopped checkpoints so new causal metrics

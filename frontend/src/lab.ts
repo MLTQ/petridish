@@ -738,7 +738,7 @@ export class LaboratoryView {
           : `state age ${diagnostic.electricalStateTokens.toLocaleString()} tokens`;
       const gradientSummary = run.latestTrain?.classBiasGradientNorm === undefined
         ? ""
-        : ` · grad bias/readout/token/rule/edge ${this.scientific(run.latestTrain.classBiasGradientNorm)}/${this.scientific(run.latestTrain.outputReadoutGradientNorm)}/${this.scientific(run.latestTrain.tokenEncoderGradientNorm)}/${this.scientific(run.latestTrain.cellRuleGradientNorm)}/${this.scientific(run.latestTrain.synapseGradientNorm)} · total ${this.scientific(run.latestTrain.totalGradientNorm)} × clip ${this.number(run.latestTrain.gradientClipScale, 3)}`;
+        : ` · grad bias/readout/token/rule/edge ${this.scientific(run.latestTrain.classBiasGradientNorm)}/${this.scientific(run.latestTrain.outputReadoutGradientNorm)}/${this.scientific(run.latestTrain.tokenEncoderGradientNorm)}/${this.scientific(run.latestTrain.cellRuleGradientNorm)}/${this.scientific(run.latestTrain.synapseGradientNorm)} · total ${this.scientific(run.latestTrain.totalGradientNorm)} × clip ${this.number(run.latestTrain.gradientClipScale, 3)}${this.gradientPressure(run)}`;
       const routing = diagnostic
         ? `${String(run.configuration.tokenizerProfile ?? "legacy tokenizer")} · ${String(run.configuration.streamMode ?? "windowed")} · retention ${String(run.configuration.stateRetention ?? "1 legacy")} · ${String(run.configuration.stateLanes ?? 1)} state lane${Number(run.configuration.stateLanes ?? 1) === 1 ? "" : "s"} · ${stateAge} · ${diagnostic.minimumOutputHops ?? "—"}/${diagnostic.medianOutputHops ?? "—"} hops · ${diagnostic.tokenReachableOutputs ?? 0}/${diagnostic.contextReachableOutputs ?? 0}/${diagnostic.reachableOutputs ?? 0} token/context/graph · broadcast ${String(run.configuration.broadcastGain ?? "legacy")}${(diagnostic.tokenReachableOutputs ?? 0) === 0 && Number(run.configuration.messageSteps ?? 0) < Number(diagnostic.minimumOutputHops ?? 0) ? ` · insufficient ${run.configuration.messageSteps ?? "—"} < ${diagnostic.minimumOutputHops ?? "—"}` : ""}${gradientSummary}${heldOut?.graphReferenceAccuracy === undefined ? "" : ` · causal ref ${this.percent(heldOut.graphReferenceAccuracy)} · silence Δacc ${this.signedPercent(heldOut.graphSilencedAccuracyDelta)} / Δloss ${this.signedNumber(heldOut.graphSilencedLossDelta)} · rotate topology Δacc ${this.signedPercent(heldOut.sourceRotatedAccuracyDelta)} / Δloss ${this.signedNumber(heldOut.sourceRotatedLossDelta)}${heldOut.weightReassignedLossDelta === undefined ? "" : ` · reassign weights Δacc ${this.signedPercent(heldOut.weightReassignedAccuracyDelta)} / Δloss ${this.signedNumber(heldOut.weightReassignedLossDelta)}`}${heldOut.broadcastAblationApplicable ? ` · silence broadcast Δacc ${this.signedPercent(heldOut.broadcastSilencedAccuracyDelta)} / Δloss ${this.signedNumber(heldOut.broadcastSilencedLossDelta)}` : ""}`}`
         : "—";
@@ -790,6 +790,29 @@ export class LaboratoryView {
     }));
     this.histories = new Map(responses);
     this.drawChart();
+    this.renderRunDiagnostics(this.snapshot?.runs ?? []);
+  }
+
+  private gradientPressure(run: RunSnapshot): string {
+    const phaseIndex = run.latestTrain?.phaseIndex;
+    const scales = (this.histories.get(run.id) ?? [])
+      .filter((record) => (
+        record.type === "train"
+        && record.gradientClipScale !== undefined
+        && (phaseIndex === undefined || record.phaseIndex === phaseIndex)
+      ))
+      .map((record) => record.gradientClipScale as number)
+      .filter(Number.isFinite)
+      .slice(-160)
+      .sort((left, right) => left - right);
+    if (scales.length < 2) return "";
+    const percentile = (fraction: number): number => (
+      scales[Math.min(scales.length - 1, Math.floor((scales.length - 1) * fraction))]
+      ?? scales[0]
+      ?? 1
+    );
+    const severe = scales.filter((scale) => scale <= 0.1).length / scales.length;
+    return ` · clip pressure n${scales.length} median ×${this.number(percentile(0.5), 3)} / p10 ×${this.number(percentile(0.1), 3)} / severe ${this.percent(severe)}`;
   }
 
   private drawChart(): void {
