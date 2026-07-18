@@ -187,6 +187,9 @@ validated launch or stop requests.
 - **Does**: Keeps measured novel-token exposure visible after the one-time domain
   expansion phase; later phases retain their wider carried domains even when they do
   not reapply the expansion operation.
+- **Does**: Shows cumulative phase novel sensory tokens and affected windows beside
+  the instantaneous window value, so polling during familiar replay cannot make a
+  breadth experiment appear to have seen no new text.
 - **Does**: Shows the current repeated-shard size or full-stream curriculum directly
   beside the lineage phase before the next held-out audit is available.
 - **Does**: Displays rolling training and held-out accuracy separately in the run

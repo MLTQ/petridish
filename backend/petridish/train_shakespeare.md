@@ -144,6 +144,11 @@ records matching both phase index and phase name. A graceful same-phase worker/G
 handoff therefore continues the same phase curve instead of presenting process-local
 statistics as if the organism had entered a new phase; malformed trailing JSON is
 ignored without rewriting the metric history.
+Phase-local lived-novelty counters follow the same resume contract. Every training
+record publishes current and cumulative novel sensory tokens/windows, so a dashboard
+poll that lands on a familiar window cannot hide how much genuinely post-expansion
+text the organism has encountered. Legacy per-window records are folded into the
+cumulative counters when a same-phase worker resumes.
 `--state-retention 0..1` records the fraction of electrical/private/workspace state
 retained at each context boundary. One reproduces indefinite persistence; the lab
 defaults new controlled launches to 0.9 after the no-relaxation trajectory ablation

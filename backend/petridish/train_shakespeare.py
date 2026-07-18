@@ -885,6 +885,56 @@ def _phase_metric_history(
     return accuracies, losses
 
 
+def _phase_novel_exposure(
+    path: Path,
+    *,
+    phase_index: int,
+    phase_name: str,
+    sensory_tokens_per_update: int,
+) -> tuple[int, int, int, int]:
+    """Restore cumulative lived-novelty counters for one persistent phase."""
+
+    novel_tokens = 0
+    sensory_tokens = 0
+    novel_windows = 0
+    training_windows = 0
+    if not path.exists():
+        return novel_tokens, sensory_tokens, novel_windows, training_windows
+    with path.open(encoding="utf-8") as stream:
+        for line in stream:
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if (
+                record.get("type") != "train"
+                or record.get("phaseIndex") != phase_index
+                or record.get("phaseName") != phase_name
+            ):
+                continue
+            cumulative = (
+                record.get("phaseNovelStreamTokens"),
+                record.get("phaseSensoryTokens"),
+                record.get("phaseNovelStreamWindows"),
+                record.get("phaseTrainingWindows"),
+            )
+            if all(isinstance(value, int) and value >= 0 for value in cumulative):
+                novel_tokens, sensory_tokens, novel_windows, training_windows = cumulative
+                continue
+            fraction = record.get("novelStreamTokenFraction")
+            if not isinstance(fraction, (int, float)) or not math.isfinite(fraction):
+                continue
+            current_sensory_tokens = int(
+                record.get("sensoryTokens", sensory_tokens_per_update)
+            )
+            current_novel_tokens = round(float(fraction) * current_sensory_tokens)
+            novel_tokens += max(0, min(current_sensory_tokens, current_novel_tokens))
+            sensory_tokens += current_sensory_tokens
+            novel_windows += int(current_novel_tokens > 0)
+            training_windows += 1
+    return novel_tokens, sensory_tokens, novel_windows, training_windows
+
+
 def _record_process_failure(arguments: list[str], error: BaseException) -> None:
     """Persist a bounded terminal failure even when training never reaches update one."""
 
@@ -1275,6 +1325,18 @@ def main() -> None:
     phase_accuracy_history, phase_loss_history = _phase_metric_history(
         metrics_path, phase_index=phase_index, phase_name=phase_name
     )
+    sensory_tokens_per_update = config.batch_size * args.context_length
+    (
+        phase_novel_stream_tokens,
+        phase_sensory_tokens,
+        phase_novel_stream_windows,
+        phase_training_windows,
+    ) = _phase_novel_exposure(
+        metrics_path,
+        phase_index=phase_index,
+        phase_name=phase_name,
+        sensory_tokens_per_update=sensory_tokens_per_update,
+    )
     print(
         f"starting at update {experiment.training_step} on {experiment.device}; "
         f"architecture={config.cell_architecture} batch={config.batch_size} "
@@ -1331,6 +1393,14 @@ def main() -> None:
         experiment.train_updates(1)
         phase_accuracy_history.append(experiment.last_batch_accuracy)
         phase_loss_history.append(experiment.last_loss)
+        current_novel_stream_tokens = round(
+            experiment.last_novel_stream_token_fraction
+            * sensory_tokens_per_update
+        )
+        phase_novel_stream_tokens += current_novel_stream_tokens
+        phase_sensory_tokens += sensory_tokens_per_update
+        phase_novel_stream_windows += int(current_novel_stream_tokens > 0)
+        phase_training_windows += 1
         if experiment.device.type == "cuda":
             torch.cuda.synchronize(experiment.device)
         update_seconds = time.perf_counter() - update_started
@@ -1368,6 +1438,15 @@ def main() -> None:
                 experiment.last_novel_stream_token_fraction
             ),
             "novelStreamRows": experiment.last_novel_stream_rows,
+            "sensoryTokens": sensory_tokens_per_update,
+            "phaseNovelStreamTokens": phase_novel_stream_tokens,
+            "phaseSensoryTokens": phase_sensory_tokens,
+            "phaseNovelStreamTokenFraction": (
+                phase_novel_stream_tokens / phase_sensory_tokens
+                if phase_sensory_tokens else 0.0
+            ),
+            "phaseNovelStreamWindows": phase_novel_stream_windows,
+            "phaseTrainingWindows": phase_training_windows,
             "stateLane": (experiment.training_step - 1) % experiment.state_lanes,
             "stateLaneStreamTokens": int(
                 experiment._training_stream_lengths[
@@ -1386,8 +1465,8 @@ def main() -> None:
                 if experiment._training_runtime_state is not None else 0
             ),
             "updateSeconds": update_seconds,
-            "targetCharactersPerSecond": config.batch_size * args.context_length / update_seconds,
-            "targetTokensPerSecond": config.batch_size * args.context_length / update_seconds,
+            "targetCharactersPerSecond": sensory_tokens_per_update / update_seconds,
+            "targetTokensPerSecond": sensory_tokens_per_update / update_seconds,
             "timestamp": time.time(),
         }
         _append_metric(metrics_path, record)

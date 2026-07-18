@@ -145,6 +145,11 @@ interface MetricRecord {
   randomOffsetAuxiliaryAccuracy?: number | null;
   novelStreamTokenFraction?: number;
   novelStreamRows?: number;
+  phaseNovelStreamTokenFraction?: number;
+  phaseNovelStreamTokens?: number;
+  phaseSensoryTokens?: number;
+  phaseNovelStreamWindows?: number;
+  phaseTrainingWindows?: number;
   evaluationSplit?: "validation" | "training" | "trajectory" | "random_context" | "full_corpus_context";
   trajectoryLane?: number | null;
   trajectoryStreamTokens?: number | null;
@@ -959,8 +964,11 @@ export class LaboratoryView {
         : this.snapshot?.capabilities.persistentStateTraining
           ? " · persistent-state gradients only"
           : " · random-offset aux off";
-      const novelStreamSummary = run.latestTrain?.novelStreamTokenFraction !== undefined
-        ? ` · novel sensory tokens ${this.percent(run.latestTrain?.novelStreamTokenFraction)}${run.latestTrain?.novelStreamRows === undefined ? "" : ` · ${run.latestTrain.novelStreamRows} novel rows`}`
+      const phaseNovelFraction = run.latestTrain?.phaseNovelStreamTokenFraction;
+      const novelStreamSummary = phaseNovelFraction !== undefined
+        ? ` · lived novel sensory ${this.percent(phaseNovelFraction)} (${run.latestTrain?.phaseNovelStreamTokens?.toLocaleString() ?? "—"}/${run.latestTrain?.phaseSensoryTokens?.toLocaleString() ?? "—"} tokens · ${run.latestTrain?.phaseNovelStreamWindows?.toLocaleString() ?? "—"}/${run.latestTrain?.phaseTrainingWindows?.toLocaleString() ?? "—"} windows) · current ${this.percent(run.latestTrain?.novelStreamTokenFraction)}${run.latestTrain?.novelStreamRows === undefined ? "" : ` / ${run.latestTrain.novelStreamRows} rows`}`
+        : run.latestTrain?.novelStreamTokenFraction !== undefined
+        ? ` · current novel sensory ${this.percent(run.latestTrain?.novelStreamTokenFraction)}${run.latestTrain?.novelStreamRows === undefined ? "" : ` · ${run.latestTrain.novelStreamRows} novel rows`}`
         : "";
       const shardCausality = shardAudit?.graphReferenceAccuracy === undefined
         ? ""

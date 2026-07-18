@@ -48,6 +48,7 @@ from petridish.train_shakespeare import (
     _held_out_diagnostics,
     _migrate_model_state,
     _phase_metric_history,
+    _phase_novel_exposure,
     _scientific_metrics,
     _record_process_failure,
     load_checkpoint,
@@ -1602,6 +1603,46 @@ def test_phase_metric_history_survives_same_phase_worker_resume(
     assert list(loss) == [2.0, 1.0]
     assert accuracy.maxlen == 2
     assert loss.maxlen == 2
+
+
+def test_phase_novel_exposure_survives_legacy_and_cumulative_metrics(
+    tmp_path: Path,
+) -> None:
+    metrics = tmp_path / "metrics.jsonl"
+    records = [
+        {
+            "type": "train", "phaseIndex": 21, "phaseName": "breadth",
+            "novelStreamTokenFraction": 0.25,
+        },
+        {
+            "type": "train", "phaseIndex": 21, "phaseName": "breadth",
+            "novelStreamTokenFraction": 0.0,
+        },
+        {
+            "type": "train", "phaseIndex": 22, "phaseName": "control",
+            "novelStreamTokenFraction": 1.0,
+        },
+    ]
+    metrics.write_text(
+        "\n".join(json.dumps(record) for record in records) + "\n{partial",
+        encoding="utf-8",
+    )
+
+    assert _phase_novel_exposure(
+        metrics, phase_index=21, phase_name="breadth",
+        sensory_tokens_per_update=64,
+    ) == (16, 128, 1, 2)
+
+    with metrics.open("a", encoding="utf-8") as stream:
+        stream.write("\n" + json.dumps({
+            "type": "train", "phaseIndex": 21, "phaseName": "breadth",
+            "phaseNovelStreamTokens": 28, "phaseSensoryTokens": 192,
+            "phaseNovelStreamWindows": 2, "phaseTrainingWindows": 3,
+        }) + "\n")
+    assert _phase_novel_exposure(
+        metrics, phase_index=21, phase_name="breadth",
+        sensory_tokens_per_update=64,
+    ) == (28, 192, 2, 3)
 
 
 def test_graph_ablation_is_causal_matched_and_restores_the_organism() -> None:
