@@ -121,6 +121,19 @@ explicitly enabled trainer processes.
 - **Rationale**: Two GPUs can compare fixed, pruning, or lifecycle interventions from
   byte-identical evolved structure without overwriting the sole original lineage.
 
+### `RetrySpec` / `Laboratory.retry_run`
+- **Does**: Restarts only a failed, stopped plasticity phase from the `latest.pt` in
+  that same run directory, without appending a phase or constructing a model.
+- **Does**: Fails closed unless the persisted command requires resume-plasticity,
+  names the manifest's immutable organism ID, points to the same resolved checkpoint
+  directory, and has no fresh-run or evaluation flags.
+- **Does**: Fingerprints the checkpoint before launch and appends a retry boundary so
+  the recovered execution supersedes the earlier failure without deleting its audit
+  record.
+- **Rationale**: A Python worker may restart; the cells, graph, electrical lanes,
+  optimizer, sampler, RNG, curriculum, and phase remain checkpoint-owned organism
+  state.
+
 ### `EvaluateSpec` / `Laboratory.evaluate_run`
 - **Does**: Starts read-only held-out evaluation from a stopped checkpoint, optionally
   including the electrical-memory horizon, without appending a phase or optimizer step.
@@ -147,6 +160,8 @@ explicitly enabled trainer processes.
   including failures before update one, and returns that bounded diagnostic.
 - **Does**: Scopes terminal failure status to the current phase so an explicitly
   continued checkpoint is not permanently labeled by an earlier failed phase.
+- **Does**: Treats a same-phase retry as an execution boundary, preserving the old
+  failure in JSONL while reporting only failures that occurred after the latest retry.
 
 ### `Laboratory._pid_alive`
 - **Does**: Treats Linux zombie processes as stopped before falling back to a

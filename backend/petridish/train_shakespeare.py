@@ -233,6 +233,29 @@ def reconcile_plasticity_phase_status(experiment: SequenceExperiment) -> None:
     )
 
 
+def structural_checkpoint_due(experiment: SequenceExperiment) -> bool:
+    """Return whether the next update can mutate population or graph structure."""
+
+    completed = experiment.training_step + 1
+    config = experiment.config
+    lifecycle_due = (
+        bool(config.lifecycle_enabled)
+        and completed >= config.lifecycle_warmup_trials
+        and (
+            completed - config.lifecycle_warmup_trials
+        ) % max(1, config.lifecycle_interval) == 0
+    )
+    topology_due = (
+        bool(config.structural_enabled)
+        and topology_mutates(experiment.topology_profile)
+        and completed >= config.structural_warmup_trials
+        and (
+            completed - config.structural_warmup_trials
+        ) % max(1, config.structural_interval) == 0
+    )
+    return lifecycle_due or topology_due
+
+
 def _migrate_model_state(state: dict[str, Any]) -> dict[str, Any]:
     """Map pre-architecture GRU keys into the shared cell-rule wrapper."""
 
@@ -823,6 +846,14 @@ def main() -> None:
         return
 
     while experiment.training_step < max(0, args.updates) and not stop_requested:
+        structural_transaction = structural_checkpoint_due(experiment)
+        if structural_transaction:
+            save_checkpoint(
+                latest, experiment,
+                context_length=args.context_length, amp_mode=args.amp,
+                organism_id=organism_id, phase_index=phase_index,
+                phase_name=phase_name,
+            )
         if experiment.device.type == "cuda":
             torch.cuda.synchronize(experiment.device)
         update_started = time.perf_counter()
@@ -866,6 +897,32 @@ def main() -> None:
             "timestamp": time.time(),
         }
         _append_metric(metrics_path, record)
+
+        if structural_transaction:
+            save_checkpoint(
+                latest, experiment,
+                context_length=args.context_length, amp_mode=args.amp,
+                organism_id=organism_id, phase_index=phase_index,
+                phase_name=phase_name,
+            )
+            _append_metric(
+                metrics_path,
+                {
+                    "type": "checkpoint",
+                    "update": experiment.training_step,
+                    "organismId": organism_id,
+                    "phaseIndex": phase_index,
+                    "phaseName": phase_name,
+                    "reason": "structural-transaction",
+                    "populationChanged": bool(
+                        experiment.last_births or experiment.last_deaths
+                    ),
+                    "graphChanged": bool(
+                        experiment.last_grown_edges or experiment.last_pruned_edges
+                    ),
+                    "timestamp": time.time(),
+                },
+            )
 
         if experiment.training_step % max(1, args.eval_interval) == 0:
             _append_metric(
@@ -912,7 +969,10 @@ def main() -> None:
                 raise FloatingPointError("non-finite loss or gradient")
             interval_started = time.perf_counter()
             interval_updates = 0
-        if experiment.training_step % max(1, args.checkpoint_interval) == 0:
+        if (
+            not structural_transaction
+            and experiment.training_step % max(1, args.checkpoint_interval) == 0
+        ):
             save_checkpoint(
                 latest, experiment, context_length=args.context_length, amp_mode=args.amp,
                 organism_id=organism_id, phase_index=phase_index, phase_name=phase_name,

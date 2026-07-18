@@ -54,6 +54,7 @@ from petridish.train_shakespeare import (
     reconcile_plasticity_phase_status,
     restore_checkpoint,
     save_checkpoint,
+    structural_checkpoint_due,
 )
 
 
@@ -1491,6 +1492,42 @@ def test_structural_update_reports_unbounded_exact_prune_count() -> None:
     assert expected > 0
     assert update.pruned_edges == expected
     assert update.grown_edges == 0
+
+
+def test_structural_checkpoint_boundary_precedes_every_possible_mutation() -> None:
+    task = build_token_task(
+        "Once upon a time there was a small persistent neuron. " * 24,
+        context_length=8, vocabulary_size=32,
+    )
+    lifecycle = SequenceExperiment(
+        task,
+        replace(
+            corpus_config(), structural_enabled=0, lifecycle_enabled=True,
+            lifecycle_warmup_trials=4, lifecycle_interval=3,
+        ),
+        seed=45, device="cpu", topology_profile="fixed",
+    )
+    lifecycle.training_step = 2
+    assert structural_checkpoint_due(lifecycle) is False
+    lifecycle.training_step = 3
+    assert structural_checkpoint_due(lifecycle) is True
+    lifecycle.training_step = 4
+    assert structural_checkpoint_due(lifecycle) is False
+    lifecycle.training_step = 6
+    assert structural_checkpoint_due(lifecycle) is True
+
+    topology = SequenceExperiment(
+        task,
+        replace(
+            corpus_config(), structural_enabled=1, lifecycle_enabled=False,
+            structural_warmup_trials=5, structural_interval=2,
+        ),
+        seed=46, device="cpu", topology_profile="adaptive",
+    )
+    topology.training_step = 4
+    assert structural_checkpoint_due(topology) is True
+    topology.topology_profile = "fixed"
+    assert structural_checkpoint_due(topology) is False
 
 
 def test_excitotoxicity_stuns_recovers_and_only_repetition_becomes_lethal() -> None:

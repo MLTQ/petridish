@@ -119,6 +119,10 @@ validated launch or stop requests.
   accuracy, distinguishing broad consolidation from one inherited trajectory.
 - **Does**: Shows bounded explicit trainer failures in the authoritative run-status
   cell instead of labeling pre-checkpoint OOM as an ordinary stop.
+- **Does**: Offers `Retry same organism` only for a failed stopped run with an atomic
+  checkpoint and only when the backend advertises fail-closed retry support. The
+  result reports the immutable organism ID and checkpoint fingerprint; the browser
+  supplies only a GPU and cannot alter phase, curriculum, graph, or state.
 - **Does**: Launches and displays fixed/adaptive topology independently from the
   selected lifecycle profile, and accepts a measured `failed` run state.
 - **Does**: Launches and displays prune-only phases separately from adaptive

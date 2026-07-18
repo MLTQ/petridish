@@ -10,7 +10,7 @@ from types import SimpleNamespace
 import pytest
 
 from petridish.laboratory import (
-    ContinueSpec, EvaluateSpec, ForkSpec, Laboratory, LaunchSpec,
+    ContinueSpec, EvaluateSpec, ForkSpec, Laboratory, LaunchSpec, RetrySpec,
 )
 
 
@@ -214,7 +214,120 @@ def test_snapshot_advertises_checkpoint_evaluation_route(
     assert capabilities["trainingShardCurriculum"] is True
     assert capabilities["stateLaneExpansion"] is True
     assert capabilities["checkpointFork"] is True
+    assert capabilities["sameLineageRetry"] is True
     assert capabilities["tokenizerProfiles"] == ["wordpiece", "byte"]
+
+
+def test_failed_phase_retry_preserves_checkpoint_command_and_lineage(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    run = tmp_path / "runs" / "persistent"
+    run.mkdir(parents=True)
+    checkpoint = b"same cells graph weights state optimizer sampler and rng"
+    (run / "latest.pt").write_bytes(checkpoint)
+    command = [
+        "/trusted/python", "-m", "petridish.train_shakespeare",
+        "--checkpoint-dir", str(run), "--resume", "--resume-plasticity",
+        "--organism-id", "organism-persistent", "--phase-index", "11",
+        "--phase-name", "replacement lifecycle", "--updates", "6750",
+    ]
+    phase_history = [
+        {"index": 11, "name": "replacement lifecycle", "startUpdate": 6250}
+    ]
+    (run / "manifest.json").write_text(
+        json.dumps(
+            {
+                "runId": "persistent", "organismId": "organism-persistent",
+                "pid": 0, "command": command, "phaseHistory": phase_history,
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run / "metrics.jsonl").write_text(
+        "\n".join(
+            (
+                json.dumps({"type": "phase", "update": 6250}),
+                json.dumps({"type": "train", "update": 6532}),
+                json.dumps({"type": "failure", "failureType": "ValueError"}),
+            )
+        ) + "\n",
+        encoding="utf-8",
+    )
+    laboratory = Laboratory(
+        tmp_path, run_root=tmp_path / "runs", control_enabled=True
+    )
+    monkeypatch.setattr(
+        laboratory, "_gpu_snapshot", lambda: ([{"uuid": "GPU-example"}], [])
+    )
+    launched: dict[str, object] = {}
+
+    def fake_start(
+        run_id: str, gpu_uuid: str, launch_command: list[str], directory: Path
+    ) -> SimpleNamespace:
+        launched.update(
+            run_id=run_id, gpu_uuid=gpu_uuid, command=launch_command,
+            directory=directory,
+        )
+        return SimpleNamespace(pid=1234)
+
+    monkeypatch.setattr(laboratory, "_start_process", fake_start)
+    monkeypatch.setattr(laboratory, "_git_commit", lambda: "retry-commit")
+
+    result = laboratory.retry_run(RetrySpec("persistent", "GPU-example"))
+
+    manifest = json.loads((run / "manifest.json").read_text(encoding="utf-8"))
+    records = [
+        json.loads(line)
+        for line in (run / "metrics.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    assert launched["command"] == command
+    assert launched["directory"] == run
+    assert (run / "latest.pt").read_bytes() == checkpoint
+    assert manifest["organismId"] == "organism-persistent"
+    assert manifest["phaseHistory"] == phase_history
+    assert manifest["command"] == command
+    assert manifest["retryCount"] == 1
+    assert result["organismId"] == "organism-persistent"
+    assert result["checkpointSha256"] == hashlib.sha256(checkpoint).hexdigest()
+    assert records[-1]["type"] == "retry"
+    assert records[-1]["checkpointSha256"] == result["checkpointSha256"]
+
+    summary = laboratory._discover_runs({})[0]
+    assert summary["latestFailure"] is None
+
+
+def test_retry_rejects_any_command_that_can_construct_a_fresh_organism(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    run = tmp_path / "runs" / "unsafe"
+    run.mkdir(parents=True)
+    (run / "latest.pt").touch()
+    (run / "manifest.json").write_text(
+        json.dumps(
+            {
+                "organismId": "organism-preserved", "pid": 0,
+                "command": [
+                    "/python", "-m", "petridish.train_shakespeare",
+                    "--checkpoint-dir", str(run), "--no-resume",
+                    "--organism-id", "organism-preserved",
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run / "metrics.jsonl").write_text(
+        json.dumps({"type": "failure", "failureType": "RuntimeError"}) + "\n",
+        encoding="utf-8",
+    )
+    laboratory = Laboratory(
+        tmp_path, run_root=tmp_path / "runs", control_enabled=True
+    )
+    monkeypatch.setattr(
+        laboratory, "_gpu_snapshot", lambda: ([{"uuid": "GPU-example"}], [])
+    )
+
+    with pytest.raises(ValueError, match="same-lineage"):
+        laboratory.retry_run(RetrySpec("unsafe", "GPU-example"))
 
 
 def test_spec_preserves_single_column_geometry(tmp_path: Path) -> None:

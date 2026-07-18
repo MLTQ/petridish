@@ -14,7 +14,9 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from .laboratory import ContinueSpec, EvaluateSpec, ForkSpec, Laboratory, LaunchSpec
+from .laboratory import (
+    ContinueSpec, EvaluateSpec, ForkSpec, Laboratory, LaunchSpec, RetrySpec,
+)
 from .runtime import ExperimentRuntime
 
 
@@ -87,6 +89,12 @@ class LabEvaluateRequest(BaseModel):
     evaluationSplit: str = Field(
         default="validation", pattern="^(validation|training|trajectory)$"
     )
+
+
+class LabRetryRequest(BaseModel):
+    """Browser-safe GPU selection for an exact failed-phase retry."""
+
+    gpuUuid: str
 
 
 @asynccontextmanager
@@ -227,6 +235,23 @@ async def evaluate_lab_run(
                 state_horizons=request.stateHorizons,
                 evaluation_split=request.evaluationSplit,
             ),
+        )
+    except PermissionError as error:
+        raise HTTPException(status_code=403, detail=str(error)) from error
+    except (OSError, ValueError) as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+
+@app.post("/api/lab/runs/{run_id}/retry")
+async def retry_lab_run(
+    run_id: str, request: LabRetryRequest
+) -> dict[str, object]:
+    """Restart a failed phase from that run's unchanged atomic checkpoint."""
+
+    try:
+        return await asyncio.to_thread(
+            laboratory.retry_run,
+            RetrySpec(run_id=run_id, gpu_uuid=request.gpuUuid),
         )
     except PermissionError as error:
         raise HTTPException(status_code=403, detail=str(error)) from error

@@ -25,6 +25,11 @@ control-enable contracts without requiring NVIDIA hardware or launching trainers
 - **Does**: Proves a checkpoint fork copies bytes rather than sharing a mutable
   inode, preserves lineage and phase history, fingerprints its exact parent, leaves
   the source manifest unchanged, and refuses to branch a running organism.
+- **Does**: Proves a failed-phase retry launches the exact persisted continuation
+  command, preserves checkpoint bytes, organism ID, and phase history, fingerprints
+  the checkpoint, and supersedes only the old failure in current status.
+- **Does**: Rejects any retry command that can construct a fresh organism, including
+  `--no-resume`, even when a checkpoint file happens to exist.
 - **Does**: Requires the server snapshot to advertise checkpoint evaluation before
   the frontend exposes that action.
 - **Does**: Verify a defunct Linux trainer is not reported as a live run merely

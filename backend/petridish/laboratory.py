@@ -88,6 +88,14 @@ class ForkSpec:
 
 
 @dataclass(frozen=True, slots=True)
+class RetrySpec:
+    """Restart a failed trainer from its own unchanged checkpoint and phase."""
+
+    run_id: str
+    gpu_uuid: str
+
+
+@dataclass(frozen=True, slots=True)
 class EvaluateSpec:
     """Read-only held-out evaluation for one checkpointed organism."""
 
@@ -136,6 +144,7 @@ class Laboratory:
                 "trainingShardCurriculum": True,
                 "stateLaneExpansion": True,
                 "checkpointFork": True,
+                "sameLineageRetry": True,
             },
             "gpus": gpus,
             "runs": self._discover_runs(active_runs),
@@ -520,6 +529,114 @@ class Laboratory:
             "status": "checkpointed",
         }
 
+    def retry_run(self, spec: RetrySpec) -> dict[str, Any]:
+        """Resume a failed phase from its own atomic checkpoint, without mutation."""
+
+        if not self.control_enabled:
+            raise PermissionError("laboratory process control is disabled")
+        available = {gpu["uuid"] for gpu in self._gpu_snapshot()[0]}
+        if spec.gpu_uuid not in available:
+            raise ValueError("unknown GPU UUID")
+        directory = self._run_directory(spec.run_id)
+        manifest_path = directory / "manifest.json"
+        manifest = self._read_json(manifest_path)
+        checkpoint = directory / "latest.pt"
+        if not checkpoint.is_file():
+            raise ValueError("run has no checkpoint to retry")
+        pid = int(manifest.get("pid", 0) or 0)
+        if pid > 0 and self._pid_alive(pid):
+            raise ValueError("organism is already running")
+
+        records = self.metrics(spec.run_id, limit=2_000)
+        last_boundary = max(
+            (
+                index for index, record in enumerate(records)
+                if record.get("type") in {"phase", "retry"}
+            ),
+            default=-1,
+        )
+        if not any(
+            record.get("type") == "failure" for record in records[last_boundary + 1 :]
+        ):
+            raise ValueError("run has no unrecovered trainer failure")
+
+        raw_command = manifest.get("command")
+        if not isinstance(raw_command, list) or not all(
+            isinstance(argument, str) for argument in raw_command
+        ):
+            raise ValueError("failed run has no valid trainer command")
+        command = list(raw_command)
+        if (
+            len(command) < 3
+            or "petridish.train_shakespeare" not in command
+            or "--resume" not in command
+            or "--resume-plasticity" not in command
+            or "--no-resume" in command
+            or "--evaluate-only" in command
+        ):
+            raise ValueError("retry command is not a same-lineage training continuation")
+        try:
+            checkpoint_directory = Path(
+                command[command.index("--checkpoint-dir") + 1]
+            ).resolve()
+        except (ValueError, IndexError):
+            raise ValueError("retry command has no checkpoint directory") from None
+        if checkpoint_directory != directory:
+            raise ValueError("retry command points at a different organism directory")
+        organism_id = str(manifest.get("organismId") or "")
+        try:
+            command_organism_id = command[command.index("--organism-id") + 1]
+        except (ValueError, IndexError):
+            raise ValueError("retry command has no organism lineage ID") from None
+        if not organism_id or command_organism_id != organism_id:
+            raise ValueError("retry command does not match organism lineage")
+
+        checkpoint_sha256 = self._file_sha256(checkpoint)
+        process = self._start_process(
+            spec.run_id, spec.gpu_uuid, command, directory
+        )
+        retry_at = time.time()
+        retry_count = int(manifest.get("retryCount", 0) or 0) + 1
+        manifest.update(
+            {
+                "pid": process.pid,
+                "gpuUuid": spec.gpu_uuid,
+                "commit": self._git_commit(),
+                "lastRetryAt": retry_at,
+                "retryCount": retry_count,
+                "lastRetryCheckpointSha256": checkpoint_sha256,
+            }
+        )
+        self._write_json(manifest_path, manifest)
+        self._append_jsonl(
+            directory / "metrics.jsonl",
+            {
+                "type": "retry",
+                "update": int(
+                    next(
+                        (
+                            record.get("update", 0) for record in reversed(records)
+                            if record.get("type") == "train"
+                        ),
+                        0,
+                    )
+                    or 0
+                ),
+                "organismId": organism_id,
+                "checkpointSha256": checkpoint_sha256,
+                "retryCount": retry_count,
+                "timestamp": retry_at,
+            },
+        )
+        return {
+            "runId": spec.run_id,
+            "organismId": organism_id,
+            "checkpointSha256": checkpoint_sha256,
+            "retryCount": retry_count,
+            "pid": process.pid,
+            "status": "running",
+        }
+
     def stop_run(self, run_id: str) -> dict[str, Any]:
         """Request the trainer's signal-safe checkpoint-and-stop path."""
 
@@ -780,7 +897,7 @@ class Laboratory:
             latest_phase_offset = max(
                 (
                     index for index, record in enumerate(records)
-                    if record.get("type") == "phase"
+                    if record.get("type") in {"phase", "retry"}
                 ),
                 default=-1,
             )

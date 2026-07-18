@@ -140,6 +140,21 @@ stop flag; the current indivisible update finishes, then a final atomic checkpoi
 written. Progress reports loss, accuracy, update and target-token throughput, GPU
 memory, and a finite-loss/gradient check.
 
+Every update at which lifecycle or topology policy can mutate the population or graph
+is an explicit storage transaction. The trainer atomically saves the complete organism
+immediately before the update and again after it succeeds, then appends a
+`structural-transaction` checkpoint metric. A failure inside turnover therefore leaves
+the pre-mutation cells, graph, all recurrent lanes, optimizer, sampler, and RNG intact;
+successful births, deaths, or edge changes are committed together rather than waiting
+for the ordinary periodic checkpoint interval.
+
+### `structural_checkpoint_due`
+
+Predicts whether the next optimizer update reaches a configured lifecycle or mutable-
+topology interval. It intentionally permits an extra transaction before a topology
+policy has met its competence gate: false-positive checkpoints cost I/O, whereas a
+false negative could lose organism history.
+
 `--resume-plasticity` is the explicit same-lineage phase transition. It loads the
 complete checkpoint first, then applies only the requested topology enable and named
 lifecycle policy; population, positions, dendrites, weights, genotypes, electrical

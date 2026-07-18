@@ -118,6 +118,9 @@ failures must persist a newline-free, bounded record. The
 excitotoxicity regression verifies stun, seeded recovery without
 edge deletion, and lethal classification only after accumulated damage crosses the
 configured threshold.
+The structural-transaction cadence regression proves the trainer predicts every due
+lifecycle or mutable-topology update before entering it, including the first warm-up
+boundary and later intervals, while fixed topology does not trigger graph checkpoints.
 The direct-routing fixture supplies eight different tokens at the same single position
 with eight equally frequent targets, preventing position embeddings or class bias from
 masquerading as sensory-to-output learning.

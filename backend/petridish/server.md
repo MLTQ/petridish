@@ -22,8 +22,9 @@ runtime device is configurable independently from trainer workers.
 
 ### Laboratory routes
 - **Does**: Report measured GPUs/runs, return bounded metric histories, and expose
-  explicitly enabled launch, same-lineage plasticity continuation, and checkpoint-safe
-  stop plus exact checkpoint-fork and read-only checkpoint-evaluation actions.
+explicitly enabled launch, same-lineage plasticity continuation, and checkpoint-safe
+stop plus exact checkpoint-fork, failed-phase retry, and read-only checkpoint-
+evaluation actions.
 - **Interacts with**: `Laboratory` in `laboratory.py` and `lab.ts`.
 - **Rationale**: Trainer processes remain independent from the interactive organism
   so opening the viewer cannot stall or acquire their GPU state.
@@ -74,6 +75,12 @@ runtime device is configurable independently from trainer workers.
 ### `LabForkRequest`
 - **Does**: Accepts only a bounded run ID for a new stopped-checkpoint branch; the
   laboratory preserves and fingerprints the complete parent organism state.
+
+### `LabRetryRequest`
+- **Does**: Selects only a measured GPU; the laboratory derives every training,
+  lineage, phase, and checkpoint argument from the failed run's persisted manifest.
+- **Rationale**: The browser cannot accidentally turn recovery into a new organism or
+  a new experimental phase.
 
 ### `websocket_endpoint`
 - **Does**: Connects observers, receives JSON commands, and returns command errors.

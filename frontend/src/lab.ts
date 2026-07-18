@@ -17,7 +17,7 @@ interface GpuSnapshot {
 }
 
 interface MetricRecord {
-  type: "train" | "held_out" | "training_audit" | "trajectory_audit" | "diagnostic" | "failure" | "phase";
+  type: "train" | "held_out" | "training_audit" | "trajectory_audit" | "diagnostic" | "failure" | "phase" | "retry" | "checkpoint";
   update: number;
   loss?: number;
   rollingLoss?: number;
@@ -180,6 +180,7 @@ interface LaboratorySnapshot {
     trainingShardCurriculum?: boolean;
     stateLaneExpansion?: boolean;
     checkpointFork?: boolean;
+    sameLineageRetry?: boolean;
   };
   gpus: GpuSnapshot[];
   runs: RunSnapshot[];
@@ -726,6 +727,17 @@ export class LaboratoryView {
         const failure = document.createElement("small");
         failure.textContent = `${run.latestFailure.failureType ?? "failure"}: ${run.latestFailure.failureMessage ?? "no detail"}`;
         state.append(failure);
+        if (
+          run.hasCheckpoint
+          && this.snapshot?.controlEnabled
+          && this.snapshot.capabilities.sameLineageRetry
+        ) {
+          const retry = document.createElement("button");
+          retry.type = "button";
+          retry.textContent = "Retry same organism";
+          retry.addEventListener("click", () => void this.retryCheckpoint(run, retry));
+          state.append(retry);
+        }
       }
       if (
         run.status !== "running" && run.hasCheckpoint
@@ -1049,6 +1061,33 @@ export class LaboratoryView {
     this.status.value = response.ok
       ? `${run.id}: ${payload.status ?? "evaluating"} ${evaluationSplit}`
       : (payload.detail ?? "evaluation failed");
+    await this.refresh();
+  }
+
+  private async retryCheckpoint(
+    run: RunSnapshot, button: HTMLButtonElement,
+  ): Promise<void> {
+    const gpuUuid = run.gpuUuid ?? this.snapshot?.gpus[0]?.uuid;
+    if (!gpuUuid) {
+      this.status.value = `${run.id}: no GPU available for retry`;
+      return;
+    }
+    button.disabled = true;
+    this.status.value = `${run.id}: verifying same-lineage checkpoint`;
+    const response = await fetch(
+      `/api/lab/runs/${encodeURIComponent(run.id)}/retry`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ gpuUuid }),
+      },
+    );
+    const payload = await response.json() as {
+      status?: string; organismId?: string; checkpointSha256?: string; detail?: string;
+    };
+    this.status.value = response.ok
+      ? `${run.id}: ${payload.status ?? "running"} same organism ${payload.organismId ?? ""} · checkpoint ${payload.checkpointSha256?.slice(0, 12) ?? "verified"}`
+      : (payload.detail ?? "same-lineage retry failed");
     await this.refresh();
   }
 
