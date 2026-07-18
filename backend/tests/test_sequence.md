@@ -29,6 +29,8 @@ leaving lifecycle selection unchanged.
 The trace-free regression requires optimizer updates to advance metrics and examples
 without replacing the visible frame buffer, then verifies an explicit refresh rebuilds
 one current token/feedback/structural trace.
+The finite-update regression injects a NaN loss and requires rejection before
+backward, optimizer mutation, or training-step advancement.
 
 Streaming regressions require one callback per genuinely computed token with aligned
 logit shape, then verify a visual optimizer update reports forward, backward,

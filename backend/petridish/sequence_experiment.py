@@ -232,6 +232,8 @@ class SequenceExperiment:
             )
         task_loss, accuracy = self._masked_loss_accuracy(result.logits, batch)
         loss = task_loss + self.model.regularization()
+        if not bool(torch.isfinite(loss)):
+            raise FloatingPointError("non-finite loss before backward")
         gradient_hooks: list[torch.utils.hooks.RemovableHandle] = []
         if progress_callback is not None:
             backward_total = max(1, len(result.retained_states))
@@ -291,7 +293,10 @@ class SequenceExperiment:
         before = self.model.substrate.synapse_weight.detach().clone()
         if progress_callback is not None:
             progress_callback("optimizer", 0, 1)
-        clip_grad_norm_(self.model.parameters(), self.config.gradient_clip)
+        clip_grad_norm_(
+            self.model.parameters(), self.config.gradient_clip,
+            error_if_nonfinite=True,
+        )
         self.optimizer.step()
         with torch.no_grad():
             delta = (self.model.substrate.synapse_weight - before).abs()

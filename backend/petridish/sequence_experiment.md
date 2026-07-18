@@ -22,6 +22,10 @@ genotypes, readout, and active synaptic weights jointly. Gradient×state and
 gradient×weight credit are also recorded as slow local utility. After warm-up, the
 same energy homeostasis, birth/death, dendrite growth/pruning, forced lifecycle, and
 lesion pathways used by MNIST become active.
+Non-finite loss is rejected before backward, and a non-finite total gradient norm
+is rejected before the optimizer or homeostatic state can mutate. Failed long runs
+therefore preserve their last finite checkpoint instead of applying NaN gradients
+for several progress intervals.
 
 Adaptive topology and lifecycle are independently gated. A fixed-connectome control
 continues optimizing synaptic weights and neuron rules but can never unlock edge

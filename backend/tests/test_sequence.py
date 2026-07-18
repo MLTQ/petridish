@@ -303,6 +303,25 @@ def test_sequence_model_retains_state_and_backpropagates() -> None:
     assert float(model.substrate.synapse_weight.grad.abs().sum()) > 0
 
 
+def test_nonfinite_loss_is_rejected_before_optimizer_mutation() -> None:
+    experiment = SequenceExperiment(
+        "tiny_language", small_config(), seed=10, device="cpu"
+    )
+    parameter = experiment.model.token_identity.weight
+    before = parameter.detach().clone()
+
+    def nonfinite_loss(logits, _batch):
+        return logits.sum() * float("nan"), 0.0
+
+    experiment._masked_loss_accuracy = nonfinite_loss  # type: ignore[method-assign]
+
+    with pytest.raises(FloatingPointError, match="before backward"):
+        experiment.train_updates(1)
+
+    assert experiment.training_step == 0
+    assert torch.equal(parameter, before)
+
+
 def test_neuron_owned_binding_memory_is_optional_and_differentiable() -> None:
     task = resolve_sequence_task("associative_recall")
     config = sequence_config(
