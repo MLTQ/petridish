@@ -37,6 +37,8 @@ explicitly enabled trainer processes.
 - **Does**: Preserves atomic publisher status, completed updates, parameter counts,
   and measured CUDA allocation so in-progress experiments remain distinguishable
   from completed evidence.
+- **Does**: Preserves failed artifacts even before their first evaluation checkpoint,
+  including the bounded exception type/message published by the benchmark process.
 - **Does**: Preserves optional neuron-owner address diagnostics for relational-memory
   experiments without synthesizing values for baseline artifacts.
 - **Does**: Preserves message-microtick, output-count, and chance-baseline metadata

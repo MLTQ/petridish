@@ -110,7 +110,9 @@ interface BenchmarkSnapshot {
   device: string | null;
   steps: number | null;
   completedSteps: number;
-  status: "running" | "complete";
+  status: "running" | "complete" | "failed";
+  failureType: string | null;
+  failureMessage: string | null;
   seconds: number | null;
   lesionCount: number;
   lesionRadius: number | null;
@@ -290,7 +292,9 @@ export class LaboratoryView {
           : "—",
         benchmark.peakCudaAllocatedGiB === null ? "—" : `${benchmark.peakCudaAllocatedGiB.toFixed(2)} GiB`,
         benchmark.seconds === null ? "—" : `${benchmark.seconds.toFixed(1)} s`,
-        benchmark.status,
+        benchmark.status === "failed"
+          ? `failed · ${benchmark.failureType ?? "error"}${benchmark.failureMessage ? `: ${benchmark.failureMessage}` : ""}`
+          : benchmark.status,
       ];
       for (const value of values) {
         const cell = document.createElement("td");
@@ -332,13 +336,16 @@ export class LaboratoryView {
   private drawBenchmarkChart(benchmarks: BenchmarkSnapshot[]): void {
     this.benchmarkChart.replaceChildren();
     this.benchmarkLegend.replaceChildren();
-    if (benchmarks.length === 0) {
+    const measured = benchmarks.filter((benchmark) => benchmark.checkpoints.length > 0);
+    if (measured.length === 0) {
       const label = this.svg("text", { x: "360", y: "98", class: "chart-empty" });
-      label.textContent = "No matched benchmark cohort";
+      label.textContent = benchmarks.length === 0
+        ? "No matched benchmark cohort"
+        : "No evaluated checkpoint in matched cohort";
       this.benchmarkChart.append(label);
       return;
     }
-    const maxUpdate = Math.max(...benchmarks.flatMap((benchmark) => benchmark.checkpoints.map((checkpoint) => checkpoint.update)));
+    const maxUpdate = Math.max(...measured.flatMap((benchmark) => benchmark.checkpoints.map((checkpoint) => checkpoint.update)));
     const left = 46; const right = 706; const top = 12; const bottom = 164;
     const x = (value: number) => left + value / Math.max(1, maxUpdate) * (right - left);
     const y = (value: number) => bottom - Math.max(0, Math.min(1, value)) * (bottom - top);
@@ -346,7 +353,7 @@ export class LaboratoryView {
       this.svg("line", { x1: String(left), y1: String(bottom), x2: String(right), y2: String(bottom), class: "lab-axis" }),
       this.svg("line", { x1: String(left), y1: String(top), x2: String(left), y2: String(bottom), class: "lab-axis" }),
     );
-    const chance = benchmarks[0]?.chanceAccuracy;
+    const chance = measured[0]?.chanceAccuracy;
     if (chance !== null && chance !== undefined) {
       const chanceY = y(chance);
       this.benchmarkChart.append(
@@ -366,7 +373,7 @@ export class LaboratoryView {
       label.textContent = text;
       this.benchmarkChart.append(label);
     }
-    benchmarks.forEach((benchmark, index) => {
+    measured.forEach((benchmark, index) => {
       const seriesClass: string = SERIES_CLASSES[index] ?? "series-a";
       const path = this.svg("polyline", {
         points: benchmark.checkpoints.map((checkpoint) => (

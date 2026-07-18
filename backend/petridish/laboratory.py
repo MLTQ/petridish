@@ -304,7 +304,7 @@ class Laboratory:
                 and isinstance(checkpoint.get("heldOutAccuracy"), (int, float))
             ][:2_000]
             status = payload.get("status", "complete")
-            if not valid_checkpoints and status != "running":
+            if not valid_checkpoints and status not in {"running", "failed"}:
                 continue
             summaries.append(
                 {
@@ -327,6 +327,8 @@ class Laboratory:
                         valid_checkpoints[-1]["update"] if valid_checkpoints else 0,
                     ),
                     "status": status,
+                    "failureType": payload.get("failureType"),
+                    "failureMessage": payload.get("failureMessage"),
                     "parameterCount": payload.get("parameterCount"),
                     "trainableParameterCount": payload.get("trainableParameterCount"),
                     "cudaAllocatedGiB": payload.get("cudaAllocatedGiB"),

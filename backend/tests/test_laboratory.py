@@ -237,3 +237,28 @@ def test_running_benchmark_is_visible_before_first_checkpoint(tmp_path: Path) ->
 
     assert benchmark["status"] == "running"
     assert benchmark["checkpoints"] == []
+
+
+def test_failed_benchmark_is_visible_before_first_checkpoint(tmp_path: Path) -> None:
+    benchmark_root = tmp_path / "benchmarks"
+    benchmark_root.mkdir()
+    (benchmark_root / "failed.json").write_text(
+        json.dumps(
+            {
+                "task": "token_stream", "architecture": "gru",
+                "status": "failed", "completedSteps": 0, "checkpoints": [],
+                "failureType": "OutOfMemoryError",
+                "failureMessage": "CUDA out of memory",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    benchmark = Laboratory(
+        tmp_path, benchmark_root=benchmark_root
+    )._discover_benchmarks()[0]
+
+    assert benchmark["status"] == "failed"
+    assert benchmark["failureType"] == "OutOfMemoryError"
+    assert benchmark["failureMessage"] == "CUDA out of memory"
+    assert benchmark["checkpoints"] == []

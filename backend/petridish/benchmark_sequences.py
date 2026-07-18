@@ -211,59 +211,78 @@ def run_benchmark(
     if output_path is not None:
         _write_result(output_path, result("running", 0))
     interval = max(1, min(20, steps))
-    for update in range(1, steps + 1):
-        experiment.train_updates(1)
-        if update % interval == 0 or update == steps:
-            held_out = experiment.evaluate_metrics(4)
-            model = experiment.model
-            checkpoints.append(
-                {
-                    "update": update,
-                    "trainingAccuracy": round(experiment.rolling_accuracy, 4),
-                    "heldOutAccuracy": round(float(held_out["accuracy"]), 4),
-                    "heldOutSlotAccuracy": [
-                        round(float(accuracy), 4)
-                        for accuracy in held_out.get("slotAccuracy", [])
-                    ],
-                    "heldOutPositionAccuracy": [
-                        round(float(accuracy), 4)
-                        for accuracy in held_out.get("positionAccuracy", [])
-                    ],
-                    "heldOutPositionIndices": list(
-                        held_out.get("positionIndices", [])
-                    ),
-                    "heldOutPresentedValueRate": round(
-                        float(held_out.get("presentedValueRate", 0.0)), 4
-                    ),
-                    "heldOutDistractorRate": round(
-                        float(held_out.get("distractorRate", 0.0)), 4
-                    ),
-                    "heldOutAbsentValueRate": round(
-                        float(held_out.get("absentValueRate", 0.0)), 4
-                    ),
-                    "loss": round(experiment.rolling_loss, 5),
-                    "recallPairs": experiment.recall_pair_count,
-                    "gradientNorms": {
-                        "tokenIdentity": round(_gradient_norm([model.token_identity.weight]), 7),
-                        "inputProjection": round(_gradient_norm(
-                            list(model.input_value.parameters()) if model.input_value else []
-                        ), 7),
-                        "cellRule": round(_gradient_norm(list(model.cell_rule.parameters())), 7),
-                        "synapse": round(_gradient_norm([model.substrate.synapse_weight]), 7),
-                        "broadcast": round(_gradient_norm(
-                            list(model.broadcast_key.parameters())
-                            + list(model.broadcast_query.parameters())
-                            + list(model.broadcast_value.parameters())
-                            + [model.broadcast_gain]
-                        ), 7),
-                        "outputReadout": round(_gradient_norm(
-                            list(model.output_bank_readout.parameters())
-                        ), 7),
-                    },
-                }
-            )
-            if output_path is not None:
-                _write_result(output_path, result("running", update))
+    completed_steps = 0
+    try:
+        for update in range(1, steps + 1):
+            experiment.train_updates(1)
+            completed_steps = update
+            if update % interval == 0 or update == steps:
+                held_out = experiment.evaluate_metrics(4)
+                model = experiment.model
+                checkpoints.append(
+                    {
+                        "update": update,
+                        "trainingAccuracy": round(experiment.rolling_accuracy, 4),
+                        "heldOutAccuracy": round(float(held_out["accuracy"]), 4),
+                        "heldOutSlotAccuracy": [
+                            round(float(accuracy), 4)
+                            for accuracy in held_out.get("slotAccuracy", [])
+                        ],
+                        "heldOutPositionAccuracy": [
+                            round(float(accuracy), 4)
+                            for accuracy in held_out.get("positionAccuracy", [])
+                        ],
+                        "heldOutPositionIndices": list(
+                            held_out.get("positionIndices", [])
+                        ),
+                        "heldOutPresentedValueRate": round(
+                            float(held_out.get("presentedValueRate", 0.0)), 4
+                        ),
+                        "heldOutDistractorRate": round(
+                            float(held_out.get("distractorRate", 0.0)), 4
+                        ),
+                        "heldOutAbsentValueRate": round(
+                            float(held_out.get("absentValueRate", 0.0)), 4
+                        ),
+                        "loss": round(experiment.rolling_loss, 5),
+                        "recallPairs": experiment.recall_pair_count,
+                        "gradientNorms": {
+                            "tokenIdentity": round(
+                                _gradient_norm([model.token_identity.weight]), 7
+                            ),
+                            "inputProjection": round(_gradient_norm(
+                                list(model.input_value.parameters())
+                                if model.input_value else []
+                            ), 7),
+                            "cellRule": round(
+                                _gradient_norm(list(model.cell_rule.parameters())), 7
+                            ),
+                            "synapse": round(
+                                _gradient_norm([model.substrate.synapse_weight]), 7
+                            ),
+                            "broadcast": round(_gradient_norm(
+                                list(model.broadcast_key.parameters())
+                                + list(model.broadcast_query.parameters())
+                                + list(model.broadcast_value.parameters())
+                                + [model.broadcast_gain]
+                            ), 7),
+                            "outputReadout": round(_gradient_norm(
+                                list(model.output_bank_readout.parameters())
+                            ), 7),
+                        },
+                    }
+                )
+                if output_path is not None:
+                    _write_result(output_path, result("running", update))
+    except Exception as error:
+        if experiment.device.type == "cuda":
+            torch.cuda.empty_cache()
+        failed = result("failed", completed_steps)
+        failed["failureType"] = type(error).__name__
+        failed["failureMessage"] = str(error).splitlines()[0][:500]
+        if output_path is not None:
+            _write_result(output_path, failed)
+        raise
     final = result("complete", steps)
     if output_path is not None:
         _write_result(output_path, final)

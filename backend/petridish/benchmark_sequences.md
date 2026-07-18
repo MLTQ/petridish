@@ -32,6 +32,9 @@ already-trained one-binding organism.
 every evaluation checkpoint and replaces it with `complete` at the end. This lets
 the laboratory render real progress without parsing process output or accepting
 partially written JSON.
+If training raises, the same path is atomically replaced with `failed`, the last
+fully completed optimizer update, and a bounded exception type/message before the
+process exits nonzero.
 
 Optimizer updates use the public trace-free training path. Viewer frame capture and
 implicit validation are excluded; only the explicit checkpoint evaluations consume
