@@ -62,6 +62,8 @@ birth, inherited lineage, cause-classified death, content-aware growth, and prun
 ### `structural_step`
 - **Does**: Independently gates topology mutation and lifecycle turnover, reports
   death causes, and returns every changed edge and genotype site.
+- **Does**: Separates pruning from growth so a prune-only consolidation phase can
+  remove low-utility dendrites without immediately replacing them.
 - **Does**: Reports exact grown and pruned edge counts independently from the
   bounded event list used for visualization.
 - **Rationale**: Topology mutates only between differentiable trials.

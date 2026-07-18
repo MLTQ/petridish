@@ -17,6 +17,11 @@ from .sequence_config import sequence_config
 from .sequence_model import (
     CellularSequenceModel, SequenceForward, SequenceFrame, SequenceRuntimeState,
 )
+from .topology_profiles import (
+    resolve_topology_profile,
+    topology_grows,
+    topology_mutates,
+)
 from .sequence_tasks import (
     STREAM_MODES,
     SequenceBatch,
@@ -42,6 +47,7 @@ class SequenceExperiment:
         stream_mode: str = "windowed",
         state_retention: float = 1.0,
         state_lanes: int = 1,
+        topology_profile: str | None = None,
     ) -> None:
         self.task = resolve_sequence_task(task)
         self.experiment_name = self.task.key
@@ -58,6 +64,9 @@ class SequenceExperiment:
         self.stream_mode = stream_mode
         self.state_retention = state_retention
         self.state_lanes = state_lanes
+        self.topology_profile = resolve_topology_profile(
+            topology_profile, structure=bool(self.config.structural_enabled)
+        )
         self.device = resolve_device(device)
         if amp_mode not in {"off", "bfloat16"}:
             raise ValueError("amp_mode must be 'off' or 'bfloat16'")
@@ -410,7 +419,9 @@ class SequenceExperiment:
             progress_callback("lifecycle", 0, 1)
         if lifecycle_due or structure_due:
             update = self.model.substrate.structural_step(
-                apply_lifecycle=lifecycle_due, apply_topology=structure_due
+                apply_lifecycle=lifecycle_due,
+                apply_topology=structure_due,
+                allow_growth=topology_grows(self.topology_profile),
             )
             self._reset_mutation_optimizer_state(update.changed_edges, update.changed_sites)
             events.extend(update.events)
@@ -652,7 +663,9 @@ class SequenceExperiment:
         return True
 
     def _should_unlock_structure(self, completed: int, accuracy: float) -> bool:
-        if not self.config.structural_enabled:
+        if not self.config.structural_enabled or not topology_mutates(
+            self.topology_profile
+        ):
             self.structure_unlocked = False
             self.structure_unlock_reason = "disabled by configuration"
             return False

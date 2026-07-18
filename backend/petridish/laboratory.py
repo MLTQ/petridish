@@ -18,6 +18,11 @@ import uuid
 from .sequence_cells import CELL_ARCHITECTURES
 from .sequence_tasks import STREAM_MODES
 from .lifecycle_profiles import LIFECYCLE_PROFILES, resolve_lifecycle_profile
+from .topology_profiles import (
+    TOPOLOGY_PROFILES,
+    resolve_topology_profile,
+    topology_mutates,
+)
 
 
 RUN_ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
@@ -51,6 +56,7 @@ class LaunchSpec:
     lifecycle: bool = False
     lifecycle_profile: str = "off"
     structure: bool = True
+    topology_profile: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,6 +69,7 @@ class ContinueSpec:
     lifecycle: bool = False
     lifecycle_profile: str = "off"
     structure: bool = True
+    topology_profile: str | None = None
     phase_name: str | None = None
 
 
@@ -107,6 +114,7 @@ class Laboratory:
                 "architectures": list(CELL_ARCHITECTURES),
                 "ampModes": ["off", "bfloat16"],
                 "lifecycleProfiles": list(LIFECYCLE_PROFILES),
+                "topologyProfiles": list(TOPOLOGY_PROFILES),
                 "checkpointEvaluation": True,
             },
             "gpus": gpus,
@@ -151,7 +159,11 @@ class Laboratory:
         lifecycle_profile = resolve_lifecycle_profile(
             spec.lifecycle_profile, enabled=spec.lifecycle
         )
-        phase_name = self._phase_name(spec.structure, lifecycle_profile)
+        topology_profile = resolve_topology_profile(
+            spec.topology_profile, structure=spec.structure
+        )
+        structure_enabled = topology_mutates(topology_profile)
+        phase_name = self._phase_name(topology_profile, lifecycle_profile)
         command = self._trainer_command(
             spec, directory, organism_id=organism_id, phase_name=phase_name
         )
@@ -179,7 +191,8 @@ class Laboratory:
                 "amp": spec.amp,
                 "lifecycle": lifecycle_enabled,
                 "lifecycleProfile": lifecycle_profile,
-                "structure": spec.structure,
+                "structure": structure_enabled,
+                "topologyProfile": topology_profile,
             },
             "createdAt": time.time(),
             "phaseHistory": [
@@ -188,7 +201,8 @@ class Laboratory:
                     "name": phase_name,
                     "startUpdate": 0,
                     "targetUpdate": spec.updates,
-                    "structure": spec.structure,
+                    "structure": structure_enabled,
+                    "topologyProfile": topology_profile,
                     "lifecycleProfile": lifecycle_profile,
                     "startedAt": time.time(),
                 }
@@ -211,6 +225,10 @@ class Laboratory:
             raise ValueError("additional updates must be positive")
         if spec.lifecycle_profile not in LIFECYCLE_PROFILES:
             raise ValueError("unknown lifecycle profile")
+        topology_profile = resolve_topology_profile(
+            spec.topology_profile, structure=spec.structure
+        )
+        structure_enabled = topology_mutates(topology_profile)
         available = {gpu["uuid"] for gpu in self._gpu_snapshot()[0]}
         if spec.gpu_uuid not in available:
             raise ValueError("unknown GPU UUID")
@@ -239,6 +257,12 @@ class Laboratory:
                     "startUpdate": 0,
                     "targetUpdate": start_update,
                     "structure": bool(configuration.get("structure", False)),
+                    "topologyProfile": str(
+                        configuration.get(
+                            "topologyProfile",
+                            "adaptive" if configuration.get("structure") else "fixed",
+                        )
+                    ),
                     "lifecycleProfile": str(configuration.get("lifecycleProfile", "off")),
                     "startedAt": manifest.get("createdAt"),
                 }
@@ -247,14 +271,15 @@ class Laboratory:
         profile = resolve_lifecycle_profile(
             spec.lifecycle_profile, enabled=spec.lifecycle
         )
-        phase_name = spec.phase_name or self._phase_name(spec.structure, profile)
+        phase_name = spec.phase_name or self._phase_name(topology_profile, profile)
         command = self._continuation_command(
             directory,
             target_update=target_update,
             organism_id=organism_id,
             phase_index=phase_index,
             phase_name=phase_name,
-            structure=spec.structure,
+            structure=structure_enabled,
+            topology_profile=topology_profile,
             lifecycle_profile=profile,
         )
         phase = {
@@ -262,7 +287,8 @@ class Laboratory:
             "name": phase_name,
             "startUpdate": start_update,
             "targetUpdate": target_update,
-            "structure": spec.structure,
+            "structure": structure_enabled,
+            "topologyProfile": topology_profile,
             "lifecycleProfile": profile,
             "startedAt": time.time(),
         }
@@ -273,7 +299,8 @@ class Laboratory:
                 "updates": target_update,
                 "lifecycle": profile != "off",
                 "lifecycleProfile": profile,
-                "structure": spec.structure,
+                "structure": structure_enabled,
+                "topologyProfile": topology_profile,
             }
         )
         manifest.update(
@@ -296,7 +323,8 @@ class Laboratory:
                 "organismId": organism_id,
                 "phaseIndex": phase_index,
                 "phaseName": phase_name,
-                "structure": spec.structure,
+                "structure": structure_enabled,
+                "topologyProfile": topology_profile,
                 "lifecycleProfile": profile,
                 "timestamp": time.time(),
             },
@@ -404,6 +432,7 @@ class Laboratory:
             raise ValueError("unsupported AMP mode")
         if spec.lifecycle_profile not in LIFECYCLE_PROFILES:
             raise ValueError("unknown lifecycle profile")
+        resolve_topology_profile(spec.topology_profile, structure=spec.structure)
 
     def _trainer_command(
         self,
@@ -438,9 +467,13 @@ class Laboratory:
         if phase_name is not None:
             command.extend(("--phase-name", phase_name))
         profile = resolve_lifecycle_profile(spec.lifecycle_profile, enabled=spec.lifecycle)
+        topology = resolve_topology_profile(
+            spec.topology_profile, structure=spec.structure
+        )
         command.extend(("--lifecycle-profile", profile))
+        command.extend(("--topology-profile", topology))
         command.append("--lifecycle" if profile != "off" else "--no-lifecycle")
-        command.append("--structure" if spec.structure else "--no-structure")
+        command.append("--structure" if topology_mutates(topology) else "--no-structure")
         return command
 
     def _continuation_command(
@@ -452,6 +485,7 @@ class Laboratory:
         phase_index: int,
         phase_name: str,
         structure: bool,
+        topology_profile: str,
         lifecycle_profile: str,
     ) -> list[str]:
         command = [
@@ -463,6 +497,7 @@ class Laboratory:
             "--organism-id", organism_id, "--phase-index", str(phase_index),
             "--phase-name", phase_name,
             "--lifecycle-profile", lifecycle_profile,
+            "--topology-profile", topology_profile,
         ]
         command.append("--lifecycle" if lifecycle_profile != "off" else "--no-lifecycle")
         command.append("--structure" if structure else "--no-structure")
@@ -519,11 +554,12 @@ class Laboratory:
         return process
 
     @staticmethod
-    def _phase_name(structure: bool, lifecycle_profile: str) -> str:
-        if structure and lifecycle_profile != "off":
-            return f"adaptive topology + {lifecycle_profile} lifecycle"
-        if structure:
-            return "adaptive topology"
+    def _phase_name(topology_profile: str, lifecycle_profile: str) -> str:
+        if topology_profile != "fixed" and lifecycle_profile != "off":
+            topology = topology_profile.replace("_", "-")
+            return f"{topology} topology + {lifecycle_profile} lifecycle"
+        if topology_profile != "fixed":
+            return f"{topology_profile.replace('_', '-')} topology"
         if lifecycle_profile != "off":
             return f"fixed topology + {lifecycle_profile} lifecycle"
         return "fixed-topology warm-up"

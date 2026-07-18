@@ -52,6 +52,8 @@ control-enable contracts without requiring NVIDIA hardware or launching trainers
   and rejects unlabeled reset modes.
 - **Does**: Preserves a bounded electrical-retention coefficient separately from
   experience mode and rejects values above one.
+- **Does**: Preserves fixed, adaptive, and prune-only topology profiles in commands,
+  manifests, and continuation phase records while rejecting unknown policies.
 - **Does**: Preserves one to sixteen round-robin persistent state lanes independently
   from tensor batch and rejects larger banks.
 - **Does**: Reports a persisted pre-checkpoint trainer failure and its bounded detail

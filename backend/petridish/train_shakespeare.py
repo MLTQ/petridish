@@ -29,6 +29,11 @@ from .sequence_config import sequence_config
 from .sequence_experiment import SequenceExperiment
 from .sequence_cells import CELL_ARCHITECTURES
 from .sequence_tasks import STREAM_MODES
+from .topology_profiles import (
+    TOPOLOGY_PROFILES,
+    resolve_topology_profile,
+    topology_mutates,
+)
 
 
 CHECKPOINT_VERSION = 1
@@ -60,6 +65,7 @@ def _experiment_state(experiment: SequenceExperiment) -> dict[str, Any]:
             "stream_mode": experiment.stream_mode,
             "state_retention": experiment.state_retention,
             "state_lanes": experiment.state_lanes,
+            "topology_profile": experiment.topology_profile,
             "_training_stream_positions": experiment._training_stream_positions,
             "_training_runtime_state": experiment._training_runtime_state,
             "_training_runtime_bank": experiment._training_runtime_bank,
@@ -117,6 +123,7 @@ def save_checkpoint(
             "stream_mode": experiment.stream_mode,
             "state_retention": experiment.state_retention,
             "state_lanes": experiment.state_lanes,
+            "topology_profile": experiment.topology_profile,
         },
         "model": experiment.model.state_dict(),
         "optimizer": experiment.optimizer.state_dict(),
@@ -171,12 +178,14 @@ def plasticity_phase_config(
     structure: bool,
     lifecycle: bool,
     lifecycle_profile: str,
+    topology_profile: str | None = None,
 ) -> MnistModelConfig:
     """Change only plasticity policy while preserving organism dimensions and rules."""
 
     profile = resolve_lifecycle_profile(lifecycle_profile, enabled=lifecycle)
+    topology = resolve_topology_profile(topology_profile, structure=structure)
     return apply_lifecycle_profile(
-        replace(config, structural_enabled=int(structure)), profile
+        replace(config, structural_enabled=int(topology_mutates(topology))), profile
     )
 
 
@@ -238,6 +247,7 @@ def _scientific_metrics(experiment: SequenceExperiment) -> dict[str, Any]:
         ),
         "stateRetention": experiment.state_retention,
         "stateLanes": experiment.state_lanes,
+        "topologyProfile": experiment.topology_profile,
         "minimumElectricalStateTokens": min(lane_ages, default=0),
         "maximumElectricalStateTokens": max(lane_ages, default=0),
         "generation": substrate.generation,
@@ -385,11 +395,13 @@ def _fresh_config(
     learning_rate_scale: float = 1.0,
     lifecycle_profile: str = "off",
     structure: bool = True,
+    topology_profile: str | None = None,
 ) -> MnistModelConfig:
     """Apply launch overrides without erasing task-specific warm-up policy."""
 
     defaults = sequence_config(task)
     size = field_size or defaults.width
+    topology = resolve_topology_profile(topology_profile, structure=structure)
     config = sequence_config(
         task,
         width=size,
@@ -401,7 +413,7 @@ def _fresh_config(
         ),
         cell_architecture=architecture,
         lifecycle_enabled=int(lifecycle),
-        structural_enabled=int(structure),
+        structural_enabled=int(topology_mutates(topology)),
         learning_rate=defaults.learning_rate * learning_rate_scale,
         readout_learning_rate=defaults.readout_learning_rate * learning_rate_scale,
         synapse_learning_rate=defaults.synapse_learning_rate * learning_rate_scale,
@@ -480,6 +492,7 @@ def main() -> None:
     parser.add_argument("--phase-name")
     parser.add_argument("--lifecycle", action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument("--structure", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--topology-profile", choices=TOPOLOGY_PROFILES)
     parser.add_argument(
         "--lifecycle-profile", choices=LIFECYCLE_PROFILES, default="off"
     )
@@ -520,17 +533,28 @@ def main() -> None:
         args.state_lanes = int(saved_task.get("state_lanes", 1))
         args.vocabulary_size = len(tuple(saved_task.get("vocabulary", ())))
         config = MnistModelConfig(**payload["configuration"])
+        topology_profile = resolve_topology_profile(
+            saved_task.get("topology_profile"),
+            structure=bool(config.structural_enabled),
+        )
         if args.resume_plasticity:
+            topology_profile = resolve_topology_profile(
+                args.topology_profile, structure=args.structure
+            )
             config = plasticity_phase_config(
                 config,
                 structure=args.structure,
                 lifecycle=args.lifecycle,
                 lifecycle_profile=args.lifecycle_profile,
+                topology_profile=topology_profile,
             )
     else:
         organism_id = args.organism_id or f"organism-{uuid.uuid4().hex}"
         phase_index = args.phase_index or 0
         phase_name = args.phase_name or "initial training"
+        topology_profile = resolve_topology_profile(
+            args.topology_profile, structure=args.structure
+        )
         config = _fresh_config(
             args.task,
             field_size=args.field_size,
@@ -542,6 +566,7 @@ def main() -> None:
             learning_rate_scale=args.learning_rate_scale,
             lifecycle_profile=args.lifecycle_profile,
             structure=args.structure,
+            topology_profile=topology_profile,
         )
     task = (
         load_tiny_stories_task(args.context_length, args.vocabulary_size)
@@ -557,10 +582,12 @@ def main() -> None:
         task, config, seed=args.seed, device=args.device, amp_mode=args.amp,
         stream_mode=args.stream_mode, state_retention=args.state_retention,
         state_lanes=args.state_lanes,
+        topology_profile=topology_profile,
     )
     if payload is not None:
         restore_checkpoint(experiment, payload)
         if args.resume_plasticity:
+            experiment.topology_profile = topology_profile
             reconcile_plasticity_phase_status(experiment)
     if args.compile_mode != "off":
         experiment.enable_compile(args.compile_mode)
@@ -582,7 +609,7 @@ def main() -> None:
         f"starting at update {experiment.training_step} on {experiment.device}; "
         f"architecture={config.cell_architecture} batch={config.batch_size} "
         f"stream={args.stream_mode} retention={args.state_retention:.3f} "
-        f"lanes={args.state_lanes} "
+        f"lanes={args.state_lanes} topology={experiment.topology_profile} "
         f"organism={organism_id} phase={phase_index}:{phase_name} "
         f"amp={args.amp} compile={args.compile_mode}",
         flush=True,
@@ -625,6 +652,7 @@ def main() -> None:
             "streamMode": experiment.stream_mode,
             "stateRetention": experiment.state_retention,
             "stateLanes": experiment.state_lanes,
+            "topologyProfile": experiment.topology_profile,
             "electricalStateTokens": (
                 experiment._training_runtime_state.position
                 if experiment._training_runtime_state is not None else 0

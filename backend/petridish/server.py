@@ -55,6 +55,7 @@ class LabLaunchRequest(BaseModel):
     lifecycle: bool = False
     lifecycleProfile: str = "off"
     structure: bool = True
+    topologyProfile: str | None = None
 
 
 class LabContinueRequest(BaseModel):
@@ -65,6 +66,7 @@ class LabContinueRequest(BaseModel):
     lifecycle: bool = False
     lifecycleProfile: str = "off"
     structure: bool = True
+    topologyProfile: str | None = None
     phaseName: str | None = Field(default=None, max_length=120)
 
 
@@ -149,6 +151,7 @@ async def launch_lab_run(request: LabLaunchRequest) -> dict[str, object]:
         lifecycle=request.lifecycle,
         lifecycle_profile=request.lifecycleProfile,
         structure=request.structure,
+        topology_profile=request.topologyProfile,
     )
     try:
         return await asyncio.to_thread(laboratory.launch, spec)
@@ -183,6 +186,7 @@ async def continue_lab_run(
         lifecycle=request.lifecycle,
         lifecycle_profile=request.lifecycleProfile,
         structure=request.structure,
+        topology_profile=request.topologyProfile,
         phase_name=request.phaseName,
     )
     try:

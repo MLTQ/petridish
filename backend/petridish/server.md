@@ -50,6 +50,8 @@ runtime device is configurable independently from trainer workers.
 ### `LabContinueRequest`
 - **Does**: Bounds additional updates and selects only the next topology/lifecycle
   policy for an existing checkpointed organism.
+- **Does**: Accepts fixed, adaptive, or prune-only topology; the laboratory performs
+  categorical validation and records the resolved phase policy.
 - **Rationale**: Architecture, geometry, weights, state, and corpus position come from
   the checkpoint and are not accepted as continuation overrides.
 

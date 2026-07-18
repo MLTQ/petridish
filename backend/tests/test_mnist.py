@@ -262,6 +262,23 @@ def test_structural_cycle_kills_depleted_nonanchors_but_preserves_interfaces() -
     assert substrate.occupied[substrate.output_sites].all()
 
 
+def test_prune_only_topology_never_calls_growth(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    substrate = CellularGraphClassifier(tiny_config(), seed=31).substrate
+
+    def unexpected_growth(events: list[dict[str, object]]) -> torch.Tensor:
+        raise AssertionError("prune-only phase attempted dendrite growth")
+
+    monkeypatch.setattr(substrate, "_discover_and_grow", unexpected_growth)
+
+    update = substrate.structural_step(
+        apply_lifecycle=False, apply_topology=True, allow_growth=False
+    )
+
+    assert update.grown_edges == 0
+
+
 def test_newborn_inherits_parent_genotype_and_one_real_dendrite() -> None:
     config = replace(
         tiny_config(),

@@ -429,9 +429,10 @@ class SpatialSubstrate(nn.Module):
 
     @torch.no_grad()
     def structural_step(
-        self, *, apply_lifecycle: bool = True, apply_topology: bool = True
+        self, *, apply_lifecycle: bool = True, apply_topology: bool = True,
+        allow_growth: bool = True,
     ) -> StructuralUpdate:
-        """Run independently gated lifecycle and topology mutations."""
+        """Run independently gated lifecycle, pruning, and growth mutations."""
 
         self.generation += 1
         cfg = self.config
@@ -485,7 +486,7 @@ class SpatialSubstrate(nn.Module):
         changed |= birth_edges
         growth_edges = (
             self._discover_and_grow(events)
-            if apply_topology
+            if apply_topology and allow_growth
             else torch.zeros_like(self.dendrite_source, dtype=torch.bool)
         )
         changed |= growth_edges

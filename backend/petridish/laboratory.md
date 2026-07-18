@@ -31,6 +31,8 @@ explicitly enabled trainer processes.
   indefinite-state control.
 - **Does**: Records one to sixteen round-robin persistent state lanes independently
   from tensor batch size.
+- **Does**: Records fixed, adaptive, or prune-only topology independently from
+  lifecycle. Prune-only retains the lineage and forbids replacement growth.
 - **Does**: Derives the compatibility lifecycle boolean from the resolved profile so
   the manifest and trainer command cannot disagree.
 
@@ -82,6 +84,8 @@ explicitly enabled trainer processes.
   same run directory and on the same organism lineage.
 - **Does**: Converts additional updates to an absolute target, appends a phase-boundary
   metric, and rejects continuation while the organism is already running.
+- **Does**: Records the resolved topology profile in the manifest, phase history,
+  append-only metric, and trainer command.
 - **Rationale**: Structural warm-up, adaptive pruning, and lifecycle pressure must be
   phases of one organism rather than separately initialized comparison runs.
 

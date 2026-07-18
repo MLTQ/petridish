@@ -104,6 +104,8 @@ validated launch or stop requests.
   cell instead of labeling pre-checkpoint OOM as an ordinary stop.
 - **Does**: Launches and displays fixed/adaptive topology independently from the
   selected lifecycle profile, and accepts a measured `failed` run state.
+- **Does**: Launches and displays prune-only phases separately from adaptive
+  prune-plus-grow and fixed conducting controls.
 - **Does**: Launches a bounded common learning-rate scale so stability controls are
   recorded in the immutable manifest rather than applied out of band.
 - **Does**: Continues a checkpointed organism into a named topology/lifecycle phase

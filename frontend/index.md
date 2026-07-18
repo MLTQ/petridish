@@ -39,6 +39,8 @@ experiment laboratory above the live organism.
 - **Does**: Exposes persistent state lanes separately from tensor batch size so
   trajectory diversity does not imply multiple organisms or larger CUDA batches.
 - **Does**: Selects fixed or adaptive topology independently from lifecycle.
+- **Does**: Adds an explicit prune-only topology phase that can remove low-utility
+  dendrites but cannot replace them; fixed still conducts through the saved graph.
 - **Does**: Provides a separate continuation form for moving a stopped checkpoint
   into adaptive topology or lifecycle while explicitly retaining the same organism.
 - **Does**: Shows lineage and phase beside run status so a continuation cannot be

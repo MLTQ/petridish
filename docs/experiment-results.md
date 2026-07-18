@@ -354,3 +354,39 @@ The organism has learned speaker/line structure, punctuation, and word-like loca
 statistics, but not dependable spelling, long-range syntax, meaning, or dialogue.
 Generation currently replays the full 64-character context for every character;
 persistent incremental inference is required for conversational latency.
+
+## Persistent TinyStories graph/state audit — 2026-07-18
+
+Two ESN token organisms were trained as continuous checkpoint lineages on the
+128-token TinyStories corpus. The 2070 lineage used four microticks and a broadcast
+workspace; the 4090 lineage used sixteen local-only microticks. Neither used lifecycle.
+
+The first state-horizon evaluator began held-out evaluation from a fresh field and
+only carried electricity between evaluation windows. Its “carried” label therefore
+did not measure the checkpoint's actual persistent state. The evaluator was corrected
+to clone every saved hidden/private/workspace tensor plus absolute position for each
+counterfactual. The cold branch receives the same tokens without that state. Graph
+reference, silence, and endpoint-rotation branches now begin from identical checkpoint
+state clones as well. SHA-256 hashes of both checkpoints were identical before and
+after the corrected evaluations.
+
+| Lineage | Update | State age | Checkpoint | Cold | State delta | Graph ref | Silence delta | Rotate delta |
+|---------|-------:|----------:|-----------:|-----:|------------:|----------:|--------------:|-------------:|
+| 2070, broadcast | 2,500 | 80,000 | 36.33% | 36.33% | 0.00 pp | 29.69% | 0.00 pp | 0.00 pp |
+| 4090, local | 1,500 | 96,000 | 28.71% | 22.46% | +6.25 pp | 41.80% | 0.00 pp | −1.37 pp |
+
+The matched graph batches are distinct from the state-ablation batches, so graph
+reference accuracy must be compared only with its silence/rotation counterfactuals.
+On the 4090 graph, silencing preserved accuracy but improved loss by 0.06099; rotating
+sources reduced accuracy by 1.37 points while leaving loss essentially unchanged.
+Endpoint organization therefore has a small causal effect, but weighted graph traffic
+does not yet improve discrete prediction. The graph is weak, not catastrophically
+harmful under the organism's real electrical state.
+
+The corrected 4090 horizon curve improves with longer continuation from the actual
+checkpoint: h1 19.43%, h2 19.14%, h4 23.73%, h8 25.29%, and h16 29.39%. The 2070
+curve remains flat at 32.23%, consistent with its broadcast shortcut and zero graph
+ablation effect. The next same-lineage intervention is prune-only topology: allow
+signed-utility pruning of the 4090 organism's 5,327 eligible edges while forbidding
+replacement growth, then remeasure state and graph causality before enabling cell
+death or renewed axon growth.

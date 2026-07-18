@@ -137,7 +137,7 @@ def test_checkpoint_continuation_preserves_run_lineage_and_changes_only_phase(
     result = laboratory.continue_run(
         ContinueSpec(
             "trial", "GPU-example", additional_updates=1_000,
-            structure=True, lifecycle_profile="off",
+            structure=True, topology_profile="prune_only", lifecycle_profile="off",
         )
     )
 
@@ -152,10 +152,13 @@ def test_checkpoint_continuation_preserves_run_lineage_and_changes_only_phase(
     assert result["organismId"] == manifest["organismId"]
     assert manifest["configuration"]["updates"] == 1_500
     assert manifest["configuration"]["structure"] is True
+    assert manifest["configuration"]["topologyProfile"] == "prune_only"
+    assert manifest["phaseHistory"][-1]["topologyProfile"] == "prune_only"
     assert [phase["startUpdate"] for phase in manifest["phaseHistory"]] == [0, 500]
     assert command[command.index("--updates") + 1] == "1500"
     assert "--resume-plasticity" in command
     assert "--structure" in command
+    assert command[command.index("--topology-profile") + 1] == "prune_only"
     assert "--no-resume" not in command
     assert records[-1]["type"] == "phase"
     assert records[-1]["organismId"] == manifest["organismId"]
@@ -289,6 +292,24 @@ def test_laboratory_records_continuous_experience_or_cold_control(tmp_path: Path
     with pytest.raises(ValueError, match="state lanes"):
         laboratory._validate_spec(
             LaunchSpec("invalid", "GPU-example", state_lanes=17)
+        )
+
+
+def test_laboratory_records_prune_only_without_disabling_structure(tmp_path: Path) -> None:
+    laboratory = Laboratory(tmp_path, run_root=tmp_path / "runs", control_enabled=True)
+    spec = LaunchSpec(
+        "trial", "GPU-example", task="tiny_stories", field_size=68,
+        topology_profile="prune_only",
+    )
+
+    laboratory._validate_spec(spec)
+    command = laboratory._trainer_command(spec, tmp_path / "runs" / "trial")
+
+    assert command[command.index("--topology-profile") + 1] == "prune_only"
+    assert "--structure" in command
+    with pytest.raises(ValueError, match="topology profile"):
+        laboratory._validate_spec(
+            LaunchSpec("invalid", "GPU-example", topology_profile="regrow-everything")
         )
 
 

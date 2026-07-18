@@ -91,6 +91,7 @@ interface MetricRecord {
   organismId?: string;
   phaseIndex?: number;
   phaseName?: string;
+  topologyProfile?: string;
 }
 
 interface OrganismPhase {
@@ -127,6 +128,7 @@ interface LaboratorySnapshot {
     architectures: string[];
     ampModes: string[];
     lifecycleProfiles: string[];
+    topologyProfiles?: string[];
     checkpointEvaluation?: boolean;
   };
   gpus: GpuSnapshot[];
@@ -677,8 +679,15 @@ export class LaboratoryView {
       const lifecycle = diagnostic
         ? `${String(run.configuration.lifecycleProfile ?? (run.configuration.lifecycle ? "baseline" : "off"))} · ${diagnostic.lifecycleReason ?? (diagnostic.lifecycleActive ? "active" : "inactive")}${(diagnostic.lifecycleWarmupRemaining ?? 0) > 0 ? ` · ${diagnostic.lifecycleWarmupRemaining} warm-up updates` : ""} · ${diagnostic.stunnedCells ?? 0} stunned · +${diagnostic.cumulativeBirths ?? 0}/−${diagnostic.cumulativeDeaths ?? 0} cells · ${diagnostic.cumulativeStuns ?? 0}/${diagnostic.cumulativeRecoveries ?? 0} stun/recover`
         : "—";
+      const topologyProfile = String(
+        run.configuration.topologyProfile
+        ?? (run.configuration.structure === false ? "fixed" : "adaptive")
+      );
+      const topologyStatus = topologyProfile === "fixed"
+        ? "fixed conducting"
+        : `${topologyProfile.replace("_", "-")} ${diagnostic?.structureUnlocked ? "active" : "locked"}`;
       const structure = diagnostic
-        ? `${run.configuration.structure === false ? "fixed" : diagnostic.structureUnlocked ? "adaptive active" : "adaptive locked"} · ${diagnostic.structureUnlockReason ?? "reason unreported"}${(diagnostic.structuralWarmupRemaining ?? 0) > 0 ? ` · ${diagnostic.structuralWarmupRemaining} warm-up updates` : !diagnostic.structureUnlocked && (diagnostic.structurePlateauRemaining ?? 0) > 0 ? ` · ≤${diagnostic.structurePlateauRemaining} plateau updates` : ""} · +${diagnostic.cumulativeGrownEdges ?? 0}/−${diagnostic.cumulativePrunedEdges ?? 0} edges · ${diagnostic.pruneEligibleEdges ?? 0} eligible · gen ${diagnostic.generation ?? 0}`
+        ? `${topologyStatus} · ${diagnostic.structureUnlockReason ?? "reason unreported"}${(diagnostic.structuralWarmupRemaining ?? 0) > 0 ? ` · ${diagnostic.structuralWarmupRemaining} warm-up updates` : !diagnostic.structureUnlocked && (diagnostic.structurePlateauRemaining ?? 0) > 0 ? ` · ≤${diagnostic.structurePlateauRemaining} plateau updates` : ""} · +${diagnostic.cumulativeGrownEdges ?? 0}/−${diagnostic.cumulativePrunedEdges ?? 0} edges · ${diagnostic.pruneEligibleEdges ?? 0} eligible · gen ${diagnostic.generation ?? 0}`
         : "—";
       const sample = heldOut?.generationSample === undefined
         ? "—"
@@ -786,6 +795,7 @@ export class LaboratoryView {
     this.launchStatus.value = "launching";
     const form = new FormData(this.form);
     const lifecycleProfile = String(form.get("lifecycleProfile"));
+    const topologyProfile = String(form.get("topologyProfile"));
     const body = {
       runId: String(form.get("runId")), gpuUuid: String(form.get("gpuUuid")),
       task: String(form.get("task")),
@@ -801,7 +811,7 @@ export class LaboratoryView {
       updates: Number(form.get("updates")), seed: Number(form.get("seed")),
       learningRateScale: Number(form.get("learningRateScale")),
       amp: String(form.get("amp")), lifecycle: lifecycleProfile !== "off",
-      lifecycleProfile, structure: String(form.get("structure")) === "adaptive",
+      lifecycleProfile, topologyProfile, structure: topologyProfile !== "fixed",
     };
     try {
       const response = await fetch("/api/lab/runs", {
@@ -858,13 +868,15 @@ export class LaboratoryView {
     const form = new FormData(this.continueForm);
     const runId = String(form.get("runId"));
     const lifecycleProfile = String(form.get("lifecycleProfile"));
+    const topologyProfile = String(form.get("topologyProfile"));
     const phaseName = String(form.get("phaseName") ?? "").trim();
     const body = {
       gpuUuid: String(form.get("gpuUuid")),
       additionalUpdates: Number(form.get("additionalUpdates")),
       lifecycle: lifecycleProfile !== "off",
       lifecycleProfile,
-      structure: String(form.get("structure")) === "adaptive",
+      topologyProfile,
+      structure: topologyProfile !== "fixed",
       phaseName: phaseName || null,
     };
     try {
@@ -890,7 +902,10 @@ export class LaboratoryView {
     if (!run) return;
     if (!force && this.continueForm.dataset.runId === run.id) return;
     this.continueForm.dataset.runId = run.id;
-    this.continueStructureSelect.value = "adaptive";
+    this.continueStructureSelect.value = String(
+      run.configuration.topologyProfile
+      ?? (run.configuration.structure === false ? "fixed" : "adaptive")
+    );
     this.continueLifecycleSelect.value = String(
       run.configuration.lifecycleProfile ?? (run.configuration.lifecycle ? "baseline" : "off"),
     );

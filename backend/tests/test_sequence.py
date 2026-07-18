@@ -686,20 +686,24 @@ def test_continuous_training_state_survives_checkpoint_resume(tmp_path: Path) ->
     )
 
     phase_config = plasticity_phase_config(
-        config, structure=True, lifecycle=False, lifecycle_profile="off"
+        config, structure=True, lifecycle=False, lifecycle_profile="off",
+        topology_profile="prune_only",
     )
     restored = SequenceExperiment(
         task, phase_config, seed=45, device="cpu", stream_mode="continuous",
         state_retention=0.9,
+        topology_profile="prune_only",
     )
     payload = load_checkpoint(checkpoint, torch.device("cpu"))
     restore_checkpoint(restored, payload)
+    restored.topology_profile = "prune_only"
     reconcile_plasticity_phase_status(restored)
 
     assert payload["lineage"] == {
         "organism_id": "organism-test", "phase_index": 0, "phase_name": "warm-up",
     }
     assert restored.config.structural_enabled == 1
+    assert restored.topology_profile == "prune_only"
     assert restored.stream_mode == "continuous"
     assert restored.state_retention == pytest.approx(0.9)
     assert torch.equal(

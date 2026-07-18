@@ -47,6 +47,7 @@ giving all 49 vectorized patch features one ordered physical boundary column.
 ### Candidate-counter growth test
 - **Does**: Supplies repeated local source evidence to a target with a free
   dendrite and verifies the stored source ID becomes a directed connection.
+- **Does**: Verifies prune-only topology never invokes candidate discovery/growth.
 
 ### Hyperparameter schema tests
 - **Does**: Locks the 64×64/8-cell-radius defaults, requires a control spec for

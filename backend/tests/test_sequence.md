@@ -78,6 +78,8 @@ tokens while advancing the sampler exactly once. The
 checkpoint-state ablation must seed every held-out counterfactual from a storage-
 independent clone of the real saved hidden/private/workspace state, report its
 absolute seed age, and leave the live runtime tensors unchanged. The
+phase-continuation regression must allow prune-only topology without altering any
+checkpoint-owned electrical, graph, optimizer, or RNG state. The
 state-lane regression must alternate two independent persistent trajectories at
 batch one, retain both states, report their exact age range, and expose authoritative
 structure/lifecycle gate reasons. Pre-update process

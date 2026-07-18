@@ -79,6 +79,10 @@ carried-versus-cold pair.
 `--state-lanes 1..16` alternates independent persistent corpus trajectories at the
 same tensor batch size and records their minimum/maximum electrical ages. It is the
 memory-constant alternative to increasing CUDA batch size.
+`--topology-profile fixed|adaptive|prune_only` names the phase policy independently
+from lifecycle. Fixed continues to route through the saved graph without endpoint
+mutation; adaptive prunes and grows; prune-only removes signed-low-utility dendrites
+but cannot replace them. Phase changes retain electrical and optimizer state.
 Unhandled trainer exceptions append a bounded `failure` metric before propagating,
 so OOM and pre-checkpoint failures remain visible to the laboratory.
 
