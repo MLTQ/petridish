@@ -604,3 +604,34 @@ by 0.63901. This is robust evidence that endpoint identity and synaptic pairing 
 computation, but not evidence of useful byte prediction. The same local-only lineage
 is now on the 128-byte overfit control with its cells, 17,130-edge graph, optimizer,
 and 83,264-token electrical history preserved.
+
+### The 2,048-byte expansion exceeded the learned broadcast curriculum
+
+The 2070 organism completed its next 500-update phase at update 3,500 without any
+lineage or substrate replacement. Its organism ID remained
+`organism-b2505376398a491e8cf4150a5daf3fab`, its two electrical lanes advanced from
+96,064 to 112,000 tokens, and its fixed graph remained at 16,565 edges. Accuracy by
+100-update bin was 23.64%, 19.61%, 20.02%, 19.94%, and 21.08%; the final 160-update
+average was 20.71% / 2.92126 loss. Unlike the 512-byte phase, it never exceeded the
+active shard's 30.68% fitted-bigram accuracy baseline. The initial high bin was
+transient retention from the smaller curriculum rather than convergence on 2,048
+bytes.
+
+A corrected fixed-seed 16-batch/1,024-byte evaluation copy measured 14.84% accuracy /
+3.28422 loss on the unchanged full validation split. Generation regressed to
+`         e  o   `. Saved electrical state was slightly harmful relative to its
+zero-state ablation copy. Graph silence improved loss by 0.09109 and accuracy by 3.71
+points, whereas broadcast silence worsened loss by 0.45721 and accuracy by 6.64
+points. This confirms that the broadcast workspace still carries the useful learned
+conditional computation and the physical connectome still interferes. Endpoint
+rotation was nearly neutral; within-destination weight reassignment worsened loss by
+0.03018, a much smaller effect than broadcast removal.
+
+Recent clipping was persistent but not dominated by catastrophic spikes: over the
+final 160 updates the median global clip scale was 0.207, its tenth percentile was
+0.138, and 2.5% of updates were scaled to 0.1 or below. The failed expansion is
+therefore not explained solely by rare exploding gradients. The same organism is now
+continuing on an intermediate 1,024-byte shard through update 4,250. This is a
+curriculum-granularity recovery test: it preserves the 112,000-token recurrent state,
+all cells and edges, learned parameters, optimizer moments, and RNG streams produced
+by the failed 2,048-byte phase.
