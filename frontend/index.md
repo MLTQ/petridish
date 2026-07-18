@@ -56,6 +56,8 @@ experiment laboratory above the live organism.
   physical-routing, memory, composition, and persistent-stream overfit controls.
 - **Does**: Labels detailed held-out accuracy as binding slot or supervised stream
   position rather than conflating the two diagnostics.
+- **Does**: Shows rolling training accuracy beside held-out accuracy in the main run
+  table so repeated-shard overfit cannot be inferred from loss alone.
 
 ### `.visual-column` / `.task-panel`
 - **Does**: Keeps the dynamic task/context readout directly below the network

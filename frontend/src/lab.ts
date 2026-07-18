@@ -22,6 +22,7 @@ interface MetricRecord {
   loss?: number;
   rollingLoss?: number;
   accuracy?: number;
+  rollingAccuracy?: number;
   targetCharactersPerSecond?: number;
   targetTokensPerSecond?: number;
   generation?: number;
@@ -650,7 +651,9 @@ export class LaboratoryView {
         run.gpuUuid ? (gpuNames.get(run.gpuUuid) ?? run.gpuUuid.slice(0, 12)) : "—",
         run.latestTrain?.update?.toLocaleString() ?? "—",
         this.number(run.latestTrain?.rollingLoss ?? run.latestTrain?.loss, 3),
+        this.percent(run.latestTrain?.rollingAccuracy ?? run.latestTrain?.accuracy),
         this.number(run.latestHeldOut?.loss, 3),
+        this.percent(run.latestHeldOut?.accuracy),
         this.number(
           run.latestTrain?.targetTokensPerSecond
             ?? run.latestTrain?.targetCharactersPerSecond,
@@ -693,7 +696,7 @@ export class LaboratoryView {
     });
     if (rows.length === 0) {
       const row = document.createElement("tr");
-      row.innerHTML = '<td colspan="11">No persisted runs found.</td>';
+      row.innerHTML = '<td colspan="13">No persisted runs found.</td>';
       rows.push(row);
     }
     this.runsHost.replaceChildren(...rows);

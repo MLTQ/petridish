@@ -131,6 +131,8 @@ validated launch or stop requests.
   phase boundaries directly on the existing rolling-loss trace.
 - **Does**: Shows the current repeated-shard size or full-stream curriculum directly
   beside the lineage phase before the next held-out audit is available.
+- **Does**: Displays rolling training and held-out accuracy separately in the run
+  table, which makes in-shard memorization versus validation transfer explicit.
 - **Does**: Separates phase-local grown/pruned edge counts from lifetime totals when
   the matching phase boundary recorded its starting counters.
 - **Does**: Offers read-only evaluation on stopped checkpoints so new causal metrics
