@@ -263,6 +263,14 @@ class Laboratory:
             (record for record in reversed(records) if record.get("type") == "train"),
             None,
         )
+        latest_diagnostic = next(
+            (
+                record
+                for record in reversed(records)
+                if record.get("type") == "diagnostic"
+            ),
+            None,
+        )
         start_update = int((latest_train or {}).get("update", 0))
         target_update = start_update + spec.additional_updates
         organism_id = str(manifest.get("organismId") or f"organism-{uuid.uuid4().hex}")
@@ -325,6 +333,14 @@ class Laboratory:
             "topologyProfile": topology_profile,
             "lifecycleProfile": profile,
             "trainingShardTokens": training_shard_tokens,
+            "startGrownEdges": int(
+                (latest_diagnostic or {}).get("cumulativeGrownEdges", 0)
+            ),
+            "startPrunedEdges": int(
+                (latest_diagnostic or {}).get("cumulativePrunedEdges", 0)
+            ),
+            "startBirths": int((latest_diagnostic or {}).get("cumulativeBirths", 0)),
+            "startDeaths": int((latest_diagnostic or {}).get("cumulativeDeaths", 0)),
             "startedAt": time.time(),
         }
         history.append(phase)
@@ -362,6 +378,10 @@ class Laboratory:
                 "topologyProfile": topology_profile,
                 "lifecycleProfile": profile,
                 "trainingShardTokens": training_shard_tokens,
+                "startGrownEdges": phase["startGrownEdges"],
+                "startPrunedEdges": phase["startPrunedEdges"],
+                "startBirths": phase["startBirths"],
+                "startDeaths": phase["startDeaths"],
                 "timestamp": time.time(),
             },
         )

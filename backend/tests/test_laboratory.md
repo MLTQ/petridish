@@ -65,6 +65,8 @@ control-enable contracts without requiring NVIDIA hardware or launching trainers
   the fresh-run flag.
 - **Does**: Proves a repeated-shard curriculum is recorded in the same lineage's
   command, manifest, phase boundary, and append-only metric.
+- **Does**: Proves continuation snapshots edge and cell turnover counters for
+  phase-local consolidation diagnostics.
 - **Does**: Proves checkpoint evaluation invokes the read-only trainer path, retains
   lineage/phase metadata, and can request state horizons without a plasticity override.
 - **Does**: Requires read-only audits to use sixteen fixed-seed batches rather than

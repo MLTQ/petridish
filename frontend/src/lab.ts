@@ -118,6 +118,10 @@ interface OrganismPhase {
   structure: boolean;
   lifecycleProfile: string;
   trainingShardTokens?: number;
+  startGrownEdges?: number;
+  startPrunedEdges?: number;
+  startBirths?: number;
+  startDeaths?: number;
 }
 
 interface RunSnapshot {
@@ -724,8 +728,12 @@ export class LaboratoryView {
       const topologyStatus = topologyProfile === "fixed"
         ? "fixed conducting"
         : `${topologyProfile.replace("_", "-")} ${diagnostic?.structureUnlocked ? "active" : "locked"}`;
+      const phase = (run.phaseHistory ?? []).at(-1);
+      const phaseTurnover = diagnostic && phase?.startGrownEdges !== undefined
+        ? ` · phase +${Math.max(0, (diagnostic.cumulativeGrownEdges ?? 0) - phase.startGrownEdges)}/−${Math.max(0, (diagnostic.cumulativePrunedEdges ?? 0) - (phase.startPrunedEdges ?? 0))}`
+        : "";
       const structure = diagnostic
-        ? `${topologyStatus} · ${diagnostic.structureUnlockReason ?? "reason unreported"}${(diagnostic.structuralWarmupRemaining ?? 0) > 0 ? ` · ${diagnostic.structuralWarmupRemaining} warm-up updates` : !diagnostic.structureUnlocked && (diagnostic.structurePlateauRemaining ?? 0) > 0 ? ` · ≤${diagnostic.structurePlateauRemaining} plateau updates` : ""} · +${diagnostic.cumulativeGrownEdges ?? 0}/−${diagnostic.cumulativePrunedEdges ?? 0} edges · ${diagnostic.pruneEligibleEdges ?? 0} eligible · gen ${diagnostic.generation ?? 0}`
+        ? `${topologyStatus} · ${diagnostic.structureUnlockReason ?? "reason unreported"}${(diagnostic.structuralWarmupRemaining ?? 0) > 0 ? ` · ${diagnostic.structuralWarmupRemaining} warm-up updates` : !diagnostic.structureUnlocked && (diagnostic.structurePlateauRemaining ?? 0) > 0 ? ` · ≤${diagnostic.structurePlateauRemaining} plateau updates` : ""} · lifetime +${diagnostic.cumulativeGrownEdges ?? 0}/−${diagnostic.cumulativePrunedEdges ?? 0}${phaseTurnover} edges · ${diagnostic.pruneEligibleEdges ?? 0} eligible · gen ${diagnostic.generation ?? 0}`
         : "—";
       const sample = heldOut?.generationSample === undefined
         ? "—"

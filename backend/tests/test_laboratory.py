@@ -114,7 +114,19 @@ def test_checkpoint_continuation_preserves_run_lineage_and_changes_only_phase(
         encoding="utf-8",
     )
     (run / "metrics.jsonl").write_text(
-        json.dumps({"type": "train", "update": 500, "loss": 3.5}) + "\n",
+        "\n".join(
+            (
+                json.dumps({"type": "train", "update": 500, "loss": 3.5}),
+                json.dumps(
+                    {
+                        "type": "diagnostic", "update": 500,
+                        "cumulativeGrownEdges": 320,
+                        "cumulativePrunedEdges": 448,
+                        "cumulativeBirths": 3, "cumulativeDeaths": 5,
+                    }
+                ),
+            )
+        ) + "\n",
         encoding="utf-8",
     )
     laboratory = Laboratory(
@@ -160,6 +172,10 @@ def test_checkpoint_continuation_preserves_run_lineage_and_changes_only_phase(
     assert manifest["configuration"]["trainingShardTokens"] == 8_192
     assert manifest["phaseHistory"][-1]["topologyProfile"] == "prune_only"
     assert manifest["phaseHistory"][-1]["trainingShardTokens"] == 8_192
+    assert manifest["phaseHistory"][-1]["startGrownEdges"] == 320
+    assert manifest["phaseHistory"][-1]["startPrunedEdges"] == 448
+    assert manifest["phaseHistory"][-1]["startBirths"] == 3
+    assert manifest["phaseHistory"][-1]["startDeaths"] == 5
     assert [phase["startUpdate"] for phase in manifest["phaseHistory"]] == [0, 500]
     assert command[command.index("--updates") + 1] == "1500"
     assert "--resume-plasticity" in command
@@ -170,6 +186,8 @@ def test_checkpoint_continuation_preserves_run_lineage_and_changes_only_phase(
     assert records[-1]["type"] == "phase"
     assert records[-1]["organismId"] == manifest["organismId"]
     assert records[-1]["trainingShardTokens"] == 8_192
+    assert records[-1]["startGrownEdges"] == 320
+    assert records[-1]["startPrunedEdges"] == 448
 
 
 def test_checkpoint_evaluation_is_read_only_and_keeps_the_phase(

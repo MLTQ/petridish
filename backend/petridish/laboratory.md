@@ -93,6 +93,8 @@ explicitly enabled trainer processes.
 - **Does**: Optionally changes only the TinyStories experience distribution to a
   deterministic repeated token shard. The checkpoint organism, graph, optimizer,
   corpus cursor, RNG state, and electrical memory remain the same lineage.
+- **Does**: Captures cumulative cell and edge turnover at each phase boundary so
+  later diagnostics can report phase-local change separately from lifetime totals.
 - **Rationale**: Structural warm-up, adaptive pruning, and lifecycle pressure must be
   phases of one organism rather than separately initialized comparison runs.
 
