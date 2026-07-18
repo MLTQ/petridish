@@ -1478,6 +1478,19 @@ def test_fixed_seed_checkpoint_audit_is_repeatable_and_sampler_read_only() -> No
     assert torch.equal(training_rng_before, experiment.generator.get_state())
     assert torch.equal(before, experiment.eval_generator.get_state())
 
+    full_corpus_context = _held_out_diagnostics(
+        experiment, 3, evaluation_seed=12345,
+        evaluation_split="full_corpus_context",
+    )
+    assert full_corpus_context["evaluationSplit"] == "full_corpus_context"
+    assert full_corpus_context["stateCarry"] is False
+    assert full_corpus_context["accuracy"] == pytest.approx(
+        full_corpus_context["graphReferenceAccuracy"]
+    )
+    assert "coldStateAccuracy" not in full_corpus_context
+    assert torch.equal(training_rng_before, experiment.generator.get_state())
+    assert torch.equal(before, experiment.eval_generator.get_state())
+
     trajectory = _held_out_diagnostics(
         experiment, 3, evaluation_seed=12345, evaluation_split="trajectory",
         trajectory_lane=0,
@@ -1612,6 +1625,15 @@ def test_graph_ablation_is_causal_matched_and_restores_the_organism() -> None:
     assert torch.equal(
         experiment._training_runtime_state.hidden, checkpoint_state.hidden
     )
+
+    full_reference, full_silenced, *_ = experiment.evaluate_graph_ablation(
+        2, evaluation_split="full_corpus_context"
+    )
+    assert full_reference["evaluationSplit"] == "full_corpus_context"
+    assert full_reference["stateCarry"] is False
+    assert full_silenced["evaluationSplit"] == "full_corpus_context"
+    assert torch.equal(experiment.model.substrate.dendrite_source, sources)
+    assert torch.equal(experiment.model.substrate.synapse_weight, weights)
 
 
 def test_zero_broadcast_graph_audit_reports_identical_reference_branch() -> None:

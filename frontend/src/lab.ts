@@ -17,7 +17,7 @@ interface GpuSnapshot {
 }
 
 interface MetricRecord {
-  type: "train" | "held_out" | "training_audit" | "random_context_audit" | "trajectory_audit" | "diagnostic" | "failure" | "phase" | "retry" | "resume" | "checkpoint";
+  type: "train" | "held_out" | "training_audit" | "random_context_audit" | "full_corpus_context_audit" | "trajectory_audit" | "diagnostic" | "failure" | "phase" | "retry" | "resume" | "checkpoint";
   update: number;
   loss?: number;
   rollingLoss?: number;
@@ -143,7 +143,7 @@ interface MetricRecord {
   randomOffsetAuxiliaryScope?: "active_shard" | "full_corpus";
   randomOffsetAuxiliaryLoss?: number | null;
   randomOffsetAuxiliaryAccuracy?: number | null;
-  evaluationSplit?: "validation" | "training" | "trajectory" | "random_context";
+  evaluationSplit?: "validation" | "training" | "trajectory" | "random_context" | "full_corpus_context";
   trajectoryLane?: number | null;
   trajectoryStreamTokens?: number | null;
 }
@@ -184,6 +184,7 @@ interface RunSnapshot {
   latestHeldOut: MetricRecord | null;
   latestTrainingAudit: MetricRecord | null;
   latestRandomContextAudit?: MetricRecord | null;
+  latestFullCorpusContextAudit?: MetricRecord | null;
   latestTrajectoryAudit: MetricRecord | null;
   latestTrajectoryAudits?: MetricRecord[];
   latestDiagnostics: MetricRecord | null;
@@ -203,6 +204,7 @@ interface LaboratorySnapshot {
     checkpointEvaluation?: boolean;
     trainingShardAudit?: boolean;
     randomContextAudit?: boolean;
+    fullCorpusContextAudit?: boolean;
     trainingShardCurriculum?: boolean;
     stateLaneExpansion?: boolean;
     stateLaneDomains?: boolean;
@@ -846,6 +848,18 @@ export class LaboratoryView {
             ));
             state.append(randomContexts);
           }
+          if (
+            run.task === "tiny_stories"
+            && this.snapshot.capabilities.fullCorpusContextAudit
+          ) {
+            const fullCorpusContexts = document.createElement("button");
+            fullCorpusContexts.type = "button";
+            fullCorpusContexts.textContent = "Probe full corpus (read-only)";
+            fullCorpusContexts.addEventListener("click", () => void this.evaluateCheckpoint(
+              run, fullCorpusContexts, "full_corpus_context",
+            ));
+            state.append(fullCorpusContexts);
+          }
           const domains = run.latestDiagnostics?.laneStreamDomains ?? [];
           let legacyFirstLane = 0;
           const targets = this.snapshot.capabilities.trajectoryLaneAudit
@@ -897,6 +911,7 @@ export class LaboratoryView {
       const heldOut = run.latestHeldOut;
       const shardAudit = run.latestTrainingAudit;
       const randomContextAudit = run.latestRandomContextAudit;
+      const fullCorpusContextAudit = run.latestFullCorpusContextAudit;
       const trajectoryAudits = run.latestTrajectoryAudits?.length
         ? run.latestTrajectoryAudits
         : run.latestTrajectoryAudit ? [run.latestTrajectoryAudit] : [];
@@ -935,12 +950,15 @@ export class LaboratoryView {
       const randomContextCausality = randomContextAudit?.graphReferenceAccuracy === undefined
         ? ""
         : ` · read-only cold-context probe ref ${this.percent(randomContextAudit.graphReferenceAccuracy)} / loss ${this.number(randomContextAudit.graphReferenceLoss, 3)} · silence Δacc ${this.signedPercent(randomContextAudit.graphSilencedAccuracyDelta)} · rotate Δacc ${this.signedPercent(randomContextAudit.sourceRotatedAccuracyDelta)} · reassign Δacc ${this.signedPercent(randomContextAudit.weightReassignedAccuracyDelta)}`;
+      const fullCorpusContextCausality = fullCorpusContextAudit?.graphReferenceAccuracy === undefined
+        ? ""
+        : ` · full-corpus cold probe ref ${this.percent(fullCorpusContextAudit.graphReferenceAccuracy)} / loss ${this.number(fullCorpusContextAudit.graphReferenceLoss, 3)} · silence Δacc ${this.signedPercent(fullCorpusContextAudit.graphSilencedAccuracyDelta)} · rotate Δacc ${this.signedPercent(fullCorpusContextAudit.sourceRotatedAccuracyDelta)} · reassign Δacc ${this.signedPercent(fullCorpusContextAudit.weightReassignedAccuracyDelta)}`;
       const trajectoryCausality = trajectoryAudits
         .filter((audit) => audit.graphReferenceAccuracy !== undefined)
         .map((audit) => ` · trajectory lane ${audit.trajectoryLane ?? "—"}${audit.trajectoryStreamTokens == null ? "" : ` @ ${audit.trajectoryStreamTokens.toLocaleString()} tokens`} ref ${this.percent(audit.graphReferenceAccuracy)} · silence Δacc ${this.signedPercent(audit.graphSilencedAccuracyDelta)} / Δloss ${this.signedNumber(audit.graphSilencedLossDelta)} · rotate Δacc ${this.signedPercent(audit.sourceRotatedAccuracyDelta)} / Δloss ${this.signedNumber(audit.sourceRotatedLossDelta)} · reassign Δacc ${this.signedPercent(audit.weightReassignedAccuracyDelta)} / Δloss ${this.signedNumber(audit.weightReassignedLossDelta)}`)
         .join("");
       const routing = diagnostic
-        ? `${String(run.configuration.tokenizerProfile ?? "legacy tokenizer")} · ${String(run.configuration.streamMode ?? "windowed")} · retention ${String(run.configuration.stateRetention ?? "1 legacy")} · ${String(run.configuration.stateLanes ?? 1)} state lane${Number(run.configuration.stateLanes ?? 1) === 1 ? "" : "s"} · ${stateAge}${phaseCoverage}${streamDomains}${laneAccuracy} · ${diagnostic.minimumOutputHops ?? "—"}/${diagnostic.medianOutputHops ?? "—"} hops · ${diagnostic.tokenReachableOutputs ?? 0}/${diagnostic.contextReachableOutputs ?? 0}/${diagnostic.reachableOutputs ?? 0} token/context/graph · broadcast ${String(run.configuration.broadcastGain ?? "legacy")}${auxiliarySummary}${(diagnostic.tokenReachableOutputs ?? 0) === 0 && Number(run.configuration.messageSteps ?? 0) < Number(diagnostic.minimumOutputHops ?? 0) ? ` · insufficient ${run.configuration.messageSteps ?? "—"} < ${diagnostic.minimumOutputHops ?? "—"}` : ""}${gradientSummary}${heldOut?.graphReferenceAccuracy === undefined ? "" : ` · validation causal ref ${this.percent(heldOut.graphReferenceAccuracy)} · silence Δacc ${this.signedPercent(heldOut.graphSilencedAccuracyDelta)} / Δloss ${this.signedNumber(heldOut.graphSilencedLossDelta)} · rotate topology Δacc ${this.signedPercent(heldOut.sourceRotatedAccuracyDelta)} / Δloss ${this.signedNumber(heldOut.sourceRotatedLossDelta)}${heldOut.weightReassignedLossDelta === undefined ? "" : ` · reassign weights Δacc ${this.signedPercent(heldOut.weightReassignedAccuracyDelta)} / Δloss ${this.signedNumber(heldOut.weightReassignedLossDelta)}`}${heldOut.broadcastAblationApplicable ? ` · silence broadcast Δacc ${this.signedPercent(heldOut.broadcastSilencedAccuracyDelta)} / Δloss ${this.signedNumber(heldOut.broadcastSilencedLossDelta)}` : ""}`}${shardCausality}${randomContextCausality}${trajectoryCausality}`
+        ? `${String(run.configuration.tokenizerProfile ?? "legacy tokenizer")} · ${String(run.configuration.streamMode ?? "windowed")} · retention ${String(run.configuration.stateRetention ?? "1 legacy")} · ${String(run.configuration.stateLanes ?? 1)} state lane${Number(run.configuration.stateLanes ?? 1) === 1 ? "" : "s"} · ${stateAge}${phaseCoverage}${streamDomains}${laneAccuracy} · ${diagnostic.minimumOutputHops ?? "—"}/${diagnostic.medianOutputHops ?? "—"} hops · ${diagnostic.tokenReachableOutputs ?? 0}/${diagnostic.contextReachableOutputs ?? 0}/${diagnostic.reachableOutputs ?? 0} token/context/graph · broadcast ${String(run.configuration.broadcastGain ?? "legacy")}${auxiliarySummary}${(diagnostic.tokenReachableOutputs ?? 0) === 0 && Number(run.configuration.messageSteps ?? 0) < Number(diagnostic.minimumOutputHops ?? 0) ? ` · insufficient ${run.configuration.messageSteps ?? "—"} < ${diagnostic.minimumOutputHops ?? "—"}` : ""}${gradientSummary}${heldOut?.graphReferenceAccuracy === undefined ? "" : ` · validation causal ref ${this.percent(heldOut.graphReferenceAccuracy)} · silence Δacc ${this.signedPercent(heldOut.graphSilencedAccuracyDelta)} / Δloss ${this.signedNumber(heldOut.graphSilencedLossDelta)} · rotate topology Δacc ${this.signedPercent(heldOut.sourceRotatedAccuracyDelta)} / Δloss ${this.signedNumber(heldOut.sourceRotatedLossDelta)}${heldOut.weightReassignedLossDelta === undefined ? "" : ` · reassign weights Δacc ${this.signedPercent(heldOut.weightReassignedAccuracyDelta)} / Δloss ${this.signedNumber(heldOut.weightReassignedLossDelta)}`}${heldOut.broadcastAblationApplicable ? ` · silence broadcast Δacc ${this.signedPercent(heldOut.broadcastSilencedAccuracyDelta)} / Δloss ${this.signedNumber(heldOut.broadcastSilencedLossDelta)}` : ""}`}${shardCausality}${randomContextCausality}${fullCorpusContextCausality}${trajectoryCausality}`
         : "—";
       const lifecycle = diagnostic
         ? `${String(run.configuration.lifecycleProfile ?? (run.configuration.lifecycle ? "baseline" : "off"))} · ${diagnostic.lifecycleReason ?? (diagnostic.lifecycleActive ? "active" : "inactive")}${(diagnostic.lifecycleWarmupRemaining ?? 0) > 0 ? ` · ${diagnostic.lifecycleWarmupRemaining} warm-up updates` : ""} · ${diagnostic.stunnedCells ?? 0} stunned · +${diagnostic.cumulativeBirths ?? 0}/−${diagnostic.cumulativeDeaths ?? 0} cells · ${diagnostic.cumulativeStuns ?? 0}/${diagnostic.cumulativeRecoveries ?? 0} stun/recover`
@@ -1197,7 +1215,7 @@ export class LaboratoryView {
 
   private async evaluateCheckpoint(
     run: RunSnapshot, button: HTMLButtonElement,
-    evaluationSplit: "validation" | "training" | "trajectory" | "random_context",
+    evaluationSplit: "validation" | "training" | "trajectory" | "random_context" | "full_corpus_context",
     trajectoryLane?: number,
   ): Promise<void> {
     const gpuUuid = run.gpuUuid ?? this.snapshot?.gpus[0]?.uuid;

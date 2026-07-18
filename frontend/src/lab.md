@@ -209,6 +209,9 @@ validated launch or stop requests.
   probe activations, and never installs probe state into the checkpoint. This is a
   topology/parameter generalization diagnostic, not an organism reset and not the
   authoritative warm conversational trajectory.
+- **Does**: Offers and displays a separately capability-gated full-corpus cold probe
+  for TinyStories, including matched graph counterfactuals, without replacing the
+  active-shard probe or validation result.
 - **Does**: Offers and displays an exact next-trajectory audit separately from the
   random-offset shard audit, including the matched recurrent lane and graph
   counterfactuals plus that lane's checkpointed stream domain.

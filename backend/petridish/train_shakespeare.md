@@ -116,6 +116,10 @@ each context. The loaded cells, graph, synaptic weights, and learned rules remai
 force. Evaluate-only never writes those probe activations or counterfactual graph
 changes back to the checkpoint, so this is a cold read-only diagnostic rather than an
 organism reset.
+`--evaluation-split full_corpus_context` writes a distinct
+`full_corpus_context_audit` using independent cold contexts from the unsharded
+training corpus. It is TinyStories-only, fixed-seed, sampler-read-only, and uses the
+same matched graph/weight/broadcast counterfactual contract.
 `--evaluation-split trajectory` writes `trajectory_audit` and begins from a clone of
 the exact next saved stream position plus its matching recurrent state lane. It is
 the causal counterpart to rolling training accuracy, not a claim of random-offset or

@@ -631,7 +631,7 @@ def _held_out_diagnostics_from_current_sampler(
     matched_sampler_state = experiment.eval_generator.get_state().clone()
     if (
         experiment.stream_mode == "continuous"
-        and evaluation_split != "random_context"
+        and evaluation_split not in {"random_context", "full_corpus_context"}
     ):
         held_out, cold_state = experiment.evaluate_state_ablation(
             max(1, batches), evaluation_split=evaluation_split,
@@ -909,7 +909,10 @@ def main() -> None:
     parser.add_argument("--eval-batches", type=int, default=4)
     parser.add_argument(
         "--evaluation-split",
-        choices=("validation", "training", "trajectory", "random_context"),
+        choices=(
+            "validation", "training", "trajectory", "random_context",
+            "full_corpus_context",
+        ),
         default="validation",
         help="read-only audit split; scheduled training evaluation stays validation",
     )
@@ -1219,6 +1222,8 @@ def main() -> None:
                 else "training_audit" if args.evaluation_split == "training"
                 else "trajectory_audit" if args.evaluation_split == "trajectory"
                 else "random_context_audit"
+                if args.evaluation_split == "random_context"
+                else "full_corpus_context_audit"
             ),
             "update": experiment.training_step,
             "organismId": organism_id, "phaseIndex": phase_index,

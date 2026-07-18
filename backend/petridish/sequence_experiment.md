@@ -61,6 +61,10 @@ context is sampled. Full-corpus scope uses the unsharded training tensor while a
 checkpoint-owned warm lanes keep their existing domains, cursors, and complete
 runtime states. Unsupported tasks reject full-corpus scope rather than silently
 falling back to the shard.
+Read-only `full_corpus_context` evaluation applies the same cold independent-context
+contract to the complete training corpus with the dedicated evaluation RNG. It is
+separate from the active-shard cold probe, validation, and exact warm trajectories,
+and every graph counterfactual replays identical full-corpus tokens.
 Each continuous lane also owns a checkpointed stream-domain length. A lane wraps its
 absolute cursor inside that preserved corpus prefix even if a later curriculum exposes
 more tokens to newly appended lanes. The exact-trajectory audit clones the selected

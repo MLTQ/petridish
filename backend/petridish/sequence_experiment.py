@@ -902,17 +902,21 @@ class SequenceExperiment:
         """Measure a named read-only split without mutating the living organism."""
 
         if evaluation_split not in {
-            "validation", "training", "trajectory", "random_context"
+            "validation", "training", "trajectory", "random_context",
+            "full_corpus_context",
         }:
             raise ValueError(
                 "evaluation split must be 'validation', 'training', 'trajectory', "
-                "or 'random_context'"
+                "'random_context', or 'full_corpus_context'"
             )
         selected_trajectory_lane = self._trajectory_lane_for_evaluation(
             evaluation_split, trajectory_lane
         )
         use_validation_stream = evaluation_split == "validation"
-        random_contexts = evaluation_split == "random_context"
+        random_contexts = evaluation_split in {
+            "random_context", "full_corpus_context"
+        }
+        full_corpus_contexts = evaluation_split == "full_corpus_context"
         if carry_state is not None and self.stream_mode != "continuous":
             raise ValueError("state-carry evaluation requires a continuous corpus stream")
         if initial_runtime_state is not None and self.stream_mode != "continuous":
@@ -974,10 +978,20 @@ class SequenceExperiment:
         initial_state_tokens = runtime_state.position if runtime_state is not None else 0
         for index in range(batch_count):
             if random_contexts:
-                batch = self._batch(
-                    self.config.batch_size,
-                    evaluation=False,
-                    generator=self.eval_generator,
+                cpu_batch = (
+                    self.task.full_training_batch(
+                        self.config.batch_size, self.eval_generator
+                    )
+                    if full_corpus_contexts
+                    else self.task.batch(
+                        self.config.batch_size, self.eval_generator,
+                        evaluation=False,
+                    )
+                )
+                batch = SequenceBatch(
+                    cpu_batch.tokens.to(self.device),
+                    cpu_batch.targets.to(self.device),
+                    cpu_batch.loss_mask.to(self.device),
                 )
             elif stream_positions is None:
                 batch = self._batch(
@@ -1226,7 +1240,7 @@ class SequenceExperiment:
     ) -> SequenceRuntimeState | None:
         """Clone warm checkpoint state, except for an explicit cold-context probe."""
 
-        if evaluation_split == "random_context":
+        if evaluation_split in {"random_context", "full_corpus_context"}:
             return None
         if evaluation_split != "trajectory" or self.state_lanes == 1:
             return self._training_runtime_state

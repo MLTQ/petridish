@@ -157,6 +157,7 @@ class Laboratory:
                 "checkpointEvaluation": True,
                 "trainingShardAudit": True,
                 "randomContextAudit": True,
+                "fullCorpusContextAudit": True,
                 "trainingShardCurriculum": True,
                 "stateLaneExpansion": True,
                 "stateLaneDomains": True,
@@ -916,6 +917,13 @@ class Laboratory:
             raise ValueError("unknown GPU UUID")
         directory = self._run_directory(spec.run_id)
         manifest = self._read_json(directory / "manifest.json")
+        if (
+            spec.evaluation_split == "full_corpus_context"
+            and manifest.get("task") != "tiny_stories"
+        ):
+            raise ValueError(
+                "full-corpus context audit is available only for TinyStories"
+            )
         if not (directory / "latest.pt").is_file():
             raise ValueError("run has no checkpoint to evaluate")
         pid = int(manifest.get("pid", 0) or 0)
@@ -1119,11 +1127,12 @@ class Laboratory:
         trajectory_lane: int | None,
     ) -> list[str]:
         if evaluation_split not in {
-            "validation", "training", "trajectory", "random_context"
+            "validation", "training", "trajectory", "random_context",
+            "full_corpus_context",
         }:
             raise ValueError(
                 "evaluation split must be validation, training, trajectory, or "
-                "random_context"
+                "random_context/full_corpus_context"
             )
         if trajectory_lane is not None and evaluation_split != "trajectory":
             raise ValueError("trajectory lane requires the trajectory evaluation split")
@@ -1300,6 +1309,13 @@ class Laboratory:
                 ),
                 None,
             )
+            latest_full_corpus_context_audit = next(
+                (
+                    record for record in reversed(records)
+                    if record.get("type") == "full_corpus_context_audit"
+                ),
+                None,
+            )
             latest_trajectory_audit = next(
                 (
                     record for record in reversed(records)
@@ -1362,6 +1378,9 @@ class Laboratory:
                     "latestHeldOut": latest_held_out,
                     "latestTrainingAudit": latest_training_audit,
                     "latestRandomContextAudit": latest_random_context_audit,
+                    "latestFullCorpusContextAudit": (
+                        latest_full_corpus_context_audit
+                    ),
                     "latestTrajectoryAudit": latest_trajectory_audit,
                     "latestTrajectoryAudits": latest_trajectory_audits,
                     "latestDiagnostics": latest_diagnostics,

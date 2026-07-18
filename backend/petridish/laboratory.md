@@ -191,6 +191,8 @@ explicitly enabled trainer processes.
   audit than the four-batch scheduled training diagnostic.
 - **Does**: Accepts explicit validation, warm active-training-shard, or independent
   cold-context splits and forwards them to the same read-only checkpoint evaluator.
+- **Does**: Exposes full-corpus cold contexts as a separate TinyStories-only audit
+  and discovers its record independently from the active-shard cold probe.
 - **Does**: Also exposes the exact next saved trajectory as a separately recorded
   audit, preserving the distinction between aligned competence and random-offset
   shard competence.

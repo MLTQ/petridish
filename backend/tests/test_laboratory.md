@@ -105,6 +105,8 @@ control-enable contracts without requiring NVIDIA hardware or launching trainers
   overfit result never overwrites validation accuracy in run discovery.
 - **Does**: Keeps cold independent-context audits distinct from both warm active-shard
   trajectories and held-out records in run discovery.
+- **Does**: Keeps full-corpus cold audits distinct from active-shard cold probes and
+  advertises their TinyStories-only route independently.
 - **Does**: Keeps exact-trajectory audits distinct from both validation and
   random-offset shard records.
 - **Does**: Forwards an explicit saved trajectory lane to the read-only trainer,

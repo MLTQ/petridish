@@ -77,6 +77,8 @@ and exact-phase resume after a deliberate stop.
   evaluation of an existing checkpoint.
 - **Does**: Validates explicit `validation`, warm `training`, or cold
   `random_context` splits; none invokes continuation or an optimizer step.
+- **Does**: Accepts TinyStories `full_corpus_context` as a distinct read-only audit;
+  the laboratory rejects it for tasks without an unsharded training tensor.
 - **Does**: Accepts `trajectory` as the warm exact-next checkpoint cursor/state-lane
   audit condition.
 - **Does**: Optionally bounds an explicit trajectory lane from zero through 127;

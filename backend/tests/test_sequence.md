@@ -171,6 +171,9 @@ The independent-context audit regression draws each context separately with the
 evaluation RNG, starts only disposable probe activations cold, reproduces the exact
 seeded sample, and restores both training/evaluation RNG plus the living recurrent
 state and learned graph after every matched counterfactual.
+The full-corpus cold-audit regression uses the same sampler/RNG/graph restoration
+contract while drawing from the unsharded training tensor and publishing a distinct
+split identity.
 Same-phase metric-history reconstruction retains only the last bounded train records
 matching both phase identity fields, ignores other record types/phases and a partial
 trailing line, and preserves one phase rolling curve across a worker/GPU handoff.

@@ -99,7 +99,10 @@ class LabEvaluateRequest(BaseModel):
     stateHorizons: bool = False
     evaluationSplit: str = Field(
         default="validation",
-        pattern="^(validation|training|trajectory|random_context)$",
+        pattern=(
+            "^(validation|training|trajectory|random_context|"
+            "full_corpus_context)$"
+        ),
     )
     trajectoryLane: int | None = Field(
         default=None, ge=0, le=MAX_STATE_LANES - 1
