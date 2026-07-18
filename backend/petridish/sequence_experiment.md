@@ -56,6 +56,9 @@ sequence with current weights.
 `evaluate_metrics` reports held-out loss and accuracy together while retaining the
 historical accuracy-only `evaluate` API used by the live viewer. Both operate outside
 benchmark timing and never mutate optimizer or topology state.
+It also reports accuracy for every supervised sequence position. Persistent-stream
+controls use this to expose context decay across repeated predictions instead of
+hiding a weak final position inside aggregate accuracy.
 For associative recall, the same evaluation forward passes also report accuracy by
 queried binding slot. This distinguishes first-pair memory, recency, and mixed failure
 modes that aggregate accuracy cannot identify.

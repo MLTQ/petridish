@@ -83,6 +83,8 @@ interface BenchmarkCheckpoint {
   trainingAccuracy?: number;
   heldOutAccuracy: number;
   heldOutSlotAccuracy?: number[];
+  heldOutPositionAccuracy?: number[];
+  heldOutPositionIndices?: number[];
   heldOutPresentedValueRate?: number;
   heldOutDistractorRate?: number;
   heldOutAbsentValueRate?: number;
@@ -252,9 +254,11 @@ export class LaboratoryView {
       const peak = benchmark.checkpoints.length
         ? Math.max(...benchmark.checkpoints.map((checkpoint) => checkpoint.heldOutAccuracy))
         : undefined;
-      const tokenControl = ["token_routing", "token_memory", "token_context"].includes(benchmark.task);
+      const tokenControl = [
+        "token_routing", "token_memory", "token_context", "token_stream",
+      ].includes(benchmark.task);
       const topology = tokenControl
-        ? `min ${benchmark.minimumOutputHops ?? "—"} hops · ${benchmark.temporallyReachableOutputs ?? 0}/${benchmark.contextReachableOutputs ?? 0}/${benchmark.outputCount ?? "—"} token/context/graph · ${benchmark.messageSteps ?? "—"}×${benchmark.sequenceLength ?? "—"} ticks`
+        ? `min ${benchmark.minimumOutputHops ?? "—"} hops · dependency ${benchmark.dependencyTokens ?? 0} tokens · ${benchmark.temporallyReachableOutputs ?? 0}/${benchmark.contextReachableOutputs ?? 0}/${benchmark.outputCount ?? "—"} token/context/graph · ${benchmark.messageSteps ?? "—"}×${benchmark.sequenceLength ?? "—"} ticks`
         : final?.livingCells === undefined
           ? "—"
           : `${final.livingCells} cells · ${final.edgeCount ?? "—"} edges · +${final.cumulativeBirths ?? 0}/−${final.cumulativeDeaths ?? 0}`;
@@ -272,7 +276,11 @@ export class LaboratoryView {
         this.percent(final?.heldOutAccuracy),
         final?.heldOutSlotAccuracy?.length
           ? final.heldOutSlotAccuracy.map((accuracy) => this.percent(accuracy)).join(" / ")
-          : "—",
+          : final?.heldOutPositionAccuracy?.length
+            ? final.heldOutPositionAccuracy.map((accuracy, index) => (
+                `t${(final.heldOutPositionIndices?.[index] ?? index) + 1} ${this.percent(accuracy)}`
+              )).join(" / ")
+            : "—",
         benchmark.task !== "associative_recall" || final?.heldOutPresentedValueRate === undefined
           ? "—"
           : `${this.percent(final.heldOutPresentedValueRate)} (${this.percent(final.heldOutDistractorRate)} distractor)`,

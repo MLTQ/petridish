@@ -28,7 +28,9 @@ experiment laboratory above the live organism.
   one-token routing budget is an explicit intervention.
 - **Does**: Selects fixed or adaptive topology independently from lifecycle.
 - **Does**: Uses a task-neutral stepping-stone table and chart for recall and direct
-  physical-routing overfit controls.
+  physical-routing, memory, composition, and persistent-stream overfit controls.
+- **Does**: Labels detailed held-out accuracy as binding slot or supervised stream
+  position rather than conflating the two diagnostics.
 
 ### `.visual-column` / `.task-panel`
 - **Does**: Keeps the dynamic task/context readout directly below the network

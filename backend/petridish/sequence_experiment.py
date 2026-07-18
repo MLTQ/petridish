@@ -656,6 +656,8 @@ class SequenceExperiment:
         total = 0
         loss_sum = 0.0
         loss_items = 0
+        position_correct = [0] * self.task.sequence_length
+        position_total = [0] * self.task.sequence_length
         slot_correct = [0] * self.recall_pair_count
         slot_total = [0] * self.recall_pair_count
         presented_value_predictions = 0
@@ -680,8 +682,18 @@ class SequenceExperiment:
             if self.task.key == "tiny_language":
                 metric_mask = torch.zeros_like(batch.loss_mask)
                 metric_mask[:, 2:4] = True
-            correct += int((logits.argmax(dim=2)[metric_mask] == batch.targets[metric_mask]).sum())
+            predictions = logits.argmax(dim=2)
+            correct += int((predictions[metric_mask] == batch.targets[metric_mask]).sum())
             total += int(metric_mask.sum())
+            for position in range(self.task.sequence_length):
+                selected_rows = metric_mask[:, position]
+                position_total[position] += int(selected_rows.sum())
+                position_correct[position] += int(
+                    (
+                        predictions[selected_rows, position]
+                        == batch.targets[selected_rows, position]
+                    ).sum()
+                )
             if self.task.key == "associative_recall":
                 keys = batch.tokens[:, : self.recall_pair_count * 2 : 2]
                 query_slots = (keys == batch.tokens[:, -1].unsqueeze(1)).long().argmax(dim=1)
@@ -706,6 +718,16 @@ class SequenceExperiment:
         metrics: dict[str, Any] = {
             "loss": loss_sum / max(1, loss_items),
             "accuracy": self.test_accuracy,
+            "positionIndices": [
+                position
+                for position, count in enumerate(position_total)
+                if count > 0
+            ],
+            "positionAccuracy": [
+                position_correct[position] / position_total[position]
+                for position in range(self.task.sequence_length)
+                if position_total[position] > 0
+            ],
         }
         if self.task.key == "associative_recall":
             metrics["slotAccuracy"] = [

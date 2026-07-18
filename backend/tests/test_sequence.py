@@ -34,6 +34,7 @@ from petridish.token_corpus_task import build_token_task
 from petridish.token_context_task import token_context_task
 from petridish.token_memory_task import token_memory_task
 from petridish.token_routing_task import token_routing_task
+from petridish.token_stream_task import token_stream_task
 from petridish.train_shakespeare import (
     _fresh_config,
     _migrate_model_state,
@@ -262,6 +263,8 @@ def test_associative_recall_evaluation_reports_each_query_slot() -> None:
 
     assert len(metrics["slotAccuracy"]) == 2
     assert all(0.0 <= accuracy <= 1.0 for accuracy in metrics["slotAccuracy"])
+    assert metrics["positionIndices"] == [7]
+    assert len(metrics["positionAccuracy"]) == 1
     assert metrics["presentedValueRate"] == pytest.approx(
         metrics["accuracy"] + metrics["distractorRate"]
     )
@@ -565,6 +568,26 @@ def test_token_memory_control_requires_delayed_context() -> None:
     assert batch.targets[:, 1].tolist() == [3, 4, 3, 4, 3, 4, 3, 4]
     assert not bool(batch.loss_mask[:, 0].any())
     assert bool(batch.loss_mask[:, 1].all())
+
+
+def test_token_stream_requires_persistent_context_at_every_prediction() -> None:
+    task = token_stream_task()
+    batch = task.batch(8, torch.Generator().manual_seed(11))
+
+    assert task.key == "tiny_stories"
+    assert batch.tokens.shape == batch.targets.shape == (8, 5)
+    assert batch.tokens[:, 0].tolist() == [0, 0, 0, 0, 1, 1, 1, 1]
+    assert not bool(batch.loss_mask[:, 0].any())
+    assert bool(batch.loss_mask[:, 1:].all())
+    for position in range(1, task.sequence_length):
+        assert batch.targets[:, position].tolist().count(4) == 4
+        assert batch.targets[:, position].tolist().count(5) == 4
+        for rule in (0, 1):
+            selected = batch.targets[batch.tokens[:, 0] == rule, position]
+            assert sorted(selected.unique().tolist()) == [4, 5]
+        for bit_token in (2, 3):
+            selected = batch.targets[batch.tokens[:, position] == bit_token, position]
+            assert sorted(selected.unique().tolist()) == [4, 5]
 
 
 def test_zero_broadcast_gain_is_a_hard_workspace_ablation() -> None:

@@ -44,6 +44,8 @@ validated launch or stop requests.
   peak CUDA allocation when the benchmark publisher provides them.
 - **Does**: Shows final held-out accuracy for each queried binding slot so a
   one-memory solution is visible without inferring it from the aggregate curve.
+- **Does**: Shows final accuracy at each supervised stream position so persistent
+  context decay is visible instead of averaged away.
 - **Does**: Shows presented-value coverage and distractor errors when available,
   separating value storage from correct key/value association.
 - **Does**: Shows owner-address distinctness, entropy, and overlap only for artifacts
@@ -75,6 +77,8 @@ validated launch or stop requests.
   horizon, and token/context/graph reach on the same measured accuracy surface.
 - **Does**: Places delayed-copy memory between direct routing and XOR composition
   without changing the chart or topology semantics.
+- **Does**: Places repeated copy/invert token streams after XOR composition and
+  preserves their dependency horizon plus per-position accuracy.
 - **Does**: Keeps broadcast-on/off identity in the persisted intervention label so
   global-workspace shortcuts are not conflated with physical dendritic routing.
 

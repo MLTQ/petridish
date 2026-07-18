@@ -18,6 +18,7 @@ from .sequence_experiment import SequenceExperiment
 from .token_context_task import token_context_task
 from .token_memory_task import token_memory_task
 from .token_routing_task import token_routing_task
+from .token_stream_task import token_stream_task
 
 
 PROFILES: dict[str, dict[str, Any]] = {
@@ -65,6 +66,7 @@ PROFILES: dict[str, dict[str, Any]] = {
     "token_route68": {},
     "token_context68": {},
     "token_memory68": {},
+    "token_stream68": {},
 }
 
 
@@ -72,6 +74,7 @@ TOKEN_CONTROL_PROFILES = {
     "token_routing": "token_route68",
     "token_context": "token_context68",
     "token_memory": "token_memory68",
+    "token_stream": "token_stream68",
 }
 
 
@@ -130,6 +133,7 @@ def run_benchmark(
         token_routing_task() if task == "token_routing"
         else token_context_task() if task == "token_context"
         else token_memory_task() if task == "token_memory"
+        else token_stream_task() if task == "token_stream"
         else task
     )
     experiment = SequenceExperiment(
@@ -164,15 +168,21 @@ def run_benchmark(
             "broadcastGain": config.broadcast_gain,
             "outputCount": experiment.model.substrate.output_count,
             "sequenceLength": experiment.task.sequence_length,
-            "dependencyTokens": 1 if task in {"token_context", "token_memory"} else 0,
+            "dependencyTokens": (
+                experiment.task.sequence_length - 1 if task == "token_stream"
+                else 1 if task in {"token_context", "token_memory"} else 0
+            ),
             "chanceAccuracy": (
                 1 / 8 if task == "token_routing"
-                else 0.5 if task in {"token_context", "token_memory"} else None
+                else 0.5
+                if task in {"token_context", "token_memory", "token_stream"}
+                else None
             ),
             "recallMode": (
                 "direct_mapping" if task == "token_routing" else
                 "delayed_copy" if task == "token_memory" else
                 "context_xor" if task == "token_context" else
+                "context_stream" if task == "token_stream" else
                 f"fixed_{fixed_recall_pairs}"
                 if fixed_recall_pairs is not None else "adaptive"
             ),
@@ -215,6 +225,13 @@ def run_benchmark(
                         round(float(accuracy), 4)
                         for accuracy in held_out.get("slotAccuracy", [])
                     ],
+                    "heldOutPositionAccuracy": [
+                        round(float(accuracy), 4)
+                        for accuracy in held_out.get("positionAccuracy", [])
+                    ],
+                    "heldOutPositionIndices": list(
+                        held_out.get("positionIndices", [])
+                    ),
                     "heldOutPresentedValueRate": round(
                         float(held_out.get("presentedValueRate", 0.0)), 4
                     ),
@@ -267,7 +284,7 @@ def main() -> None:
     parser.add_argument(
         "--task", choices=(
             "associative_recall", "tiny_language", "token_routing", "token_memory",
-            "token_context",
+            "token_context", "token_stream",
         ),
         required=True,
     )

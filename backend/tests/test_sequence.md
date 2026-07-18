@@ -53,6 +53,9 @@ The context fixture enumerates every two-token XOR pair, masks the first positio
 and verifies that holding either context or query constant still produces both targets.
 The delayed-copy fixture holds the recall token and position constant while alternating
 balanced targets, isolating persistence before contextual composition.
+The persistent-stream fixture reuses one copy/invert rule across four supervised
+queries and requires every position to remain balanced against rule-only, input-only,
+position, and frequency shortcuts.
 The zero-broadcast regression requires a hard workspace bypass with no gradients into
 its gain or projections, preventing a nominal ablation from learning to reactivate.
 Headless diagnostics separately verify physical/conducting edges, one-token/context/
@@ -63,6 +66,8 @@ Benchmark artifact replacement is required to be atomic so the polling laborator
 sees either the previous complete JSON document or the next one, never a partial write.
 Recall evaluation also reports one accuracy per queried binding slot so aggregate
 plateaus can be assigned to primacy, recency, or mixed retrieval failure.
+All sequence evaluation reports supervised-position accuracy so repeated contextual
+prediction can expose temporal decay directly.
 Presented-value, distractor, and absent-value rates further distinguish lost content
 from lost key/value association.
 The neuron-owned binding-memory regression verifies that owner addresses receive task
