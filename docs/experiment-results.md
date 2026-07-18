@@ -579,3 +579,18 @@ than a return to the frequency-only starting point. Pre-clipping gradient norms 
 update 2,514 were bias 0.151, decoder 0.353, token encoder 0.906, cell rule 1.512, and
 synapses 2.606. Conditional machinery is receiving substantial credit; the earlier
 collapse cannot be explained by a missing gradient path alone.
+
+The 512-byte phase subsequently converged. Average training accuracy rose from 22.13%
+in updates 2,501–2,600 to 37.98% in 2,701–2,800 and 60.73% in 2,901–3,000; the final
+160-update average was 58.32%. This is well above the 512-byte shard's 20.16% unigram
+and 35.03% fitted-bigram baselines, demonstrating retained longer-context learning as
+the curriculum expanded fourfold. Generation changed again to `tue l utddlmolla`.
+Full-validation accuracy remained only 8.59%, so the result is still curriculum
+memorization rather than transferable language.
+
+The causal split stayed consistent: broadcast silence worsened loss by 1.39569 while
+graph silence improved it by 0.58693. The final pre-clipping gradients were bias 0.084,
+decoder 0.611, token encoder 1.467, cell rule 9.108, and synapses 5.761. Conditional
+credit dominates the unigram-bias gradient, but the physical graph receives large
+gradients despite contributing harmful traffic. The same lineage is now expanding to
+2,048 bytes with its fixed 16,565-edge graph and 96,000-token electrical age intact.
