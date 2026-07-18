@@ -969,3 +969,83 @@ phases while leaving all 32 existing lanes, cells, graph, weights, optimizer mom
 RNG state, and electrical histories untouched. This tests whether phase-complete
 experience converts the new 4K trajectory solution into random-offset competence
 before changing cellular structure again.
+
+### Phase-diverse replay produced graph-routed random-offset competence
+
+Phase 14 appended 64 cold trajectories to each stopped update-8,750 organism without
+moving or replacing any of its 32 existing lanes. The control therefore carried 96
+2K-domain lanes. The treatment carried its original sixteen 2K replay lanes, sixteen
+older 4K lanes, and 64 new 4K lanes. Both retained organism ID
+`organism-b2505376398a491e8cf4150a5daf3fab`, 2,224 cells, 13,737 directed edges,
+fixed topology, disabled lifecycle, learned weights and rules, optimizer moments,
+random streams, and every saved electrical/private/workspace tensor.
+
+The long phase survived two deliberate worker boundaries without an organism
+boundary. Read-only interim auditing stopped and resumed control at update 10,044
+from SHA-256
+`612aa630aecfc595a396d22e0c32a77629fc66652fdc77f1d32d14b3347bd629`
+and treatment at 10,020 from
+`524ab43d1762135e1d3015fd691b13681d8f70ab2d628e4f126d61d36c7f4d7c`.
+A later laboratory-service restart terminated only the worker processes; their signal
+handlers atomically saved control update 10,558 as
+`f5a873468f9b219c2d85e54dd9f2798f49a5730eb544f83be146ce816196a763`
+and treatment update 10,523 as
+`1afa2a340cacfe515c73bc64931bd64aabb981e2c256ccf27e186d4151cb86d7`.
+The fail-closed same-phase route fingerprinted and resumed those exact checkpoints to
+the original target. Neither event added a phase, reconstructed an organism, remapped
+a cursor, or reset state.
+
+At update 11,750, the 2K control's final 160 updates reached 90.53% / 0.36694.
+The mixed organism reached 70.90% / 1.05804 overall, separating into 84.57% /
+0.61402 on 2K replay and 67.48% / 1.16904 on 4K experience. All 96 lanes were active;
+cells and edges remained exactly 2,224 and 13,737 with no phase-local birth, death,
+growth, or pruning.
+
+The phase-balancing diagnostic exposed an important experimental correction. The
+control covered all 64 corpus cursor phases with one or two lanes per phase. The
+mixed organism also covered 64/64 globally, but its domains did not: sixteen 2K lanes
+covered 14 phases and eighty 4K lanes covered only 55. The original append algorithm
+balanced against every preserved cursor, so unrelated 2K offsets could make the 4K
+allocation appear complete. Future expansion now balances only against preserved
+lanes in the destination domain, and the laboratory reports phase coverage inside
+each domain. No existing lane was changed by that implementation repair.
+
+Despite that nine-phase deficit, phase diversity changed the scientific result. On
+the fixed random-offset 4K audit, treatment accuracy rose from 15.92% before the
+64-lane append and 30.18% near update 10,000 to 61.13% terminally. Its separately
+matched intact-graph slice reached 63.38%, more than twice the 31.01% bigram accuracy
+baseline. Graph silence removed 61.62 points, endpoint rotation 56.05, and within-
+target source/weight reassignment 57.62; saved electrical state added 16.31 points.
+The control reached 90.63% random-offset accuracy and 91.80% on its graph-reference
+slice, losing 86.91/88.18/85.94 points under those graph counterfactuals while state
+carry added 25.59 points. The broad result is therefore learned through the physical
+connectome rather than a frequency-only output bypass.
+
+Exact lane audits separated replay, old breadth, and new breadth. Inherited lane zero
+had 153,984 state tokens and reached 93.07% control versus 87.01% mixed; graph silence
+removed 87.70 and 85.25 points, while state carry added 28.52 and 25.29. Lane sixteen
+had 4,032 tokens and reached 87.50% on control 2K versus 58.50% on treatment 4K;
+silence removed 82.13 and 55.76 points, while state added 24.41 and 13.38. Newly
+appended lane 64 had 1,984 tokens and reached 91.80% control versus 70.31% treatment;
+silence removed 86.43 and 68.36 points, while state added 28.13 and 18.26. The older
+single 4K trajectory barely changed while random-offset competence doubled, evidence
+that the appended bank taught a shared conditional rule rather than merely refining
+one path.
+
+Held-out language remains unsolved. The fixed 16-batch validation audit measured
+6.93% / 5.93527 (perplexity 378.1) for control and 9.57% / 4.88900 (perplexity 132.8)
+for mixed, below 19.09% unigram and roughly 31% bigram accuracy. Fixed-prompt samples
+remained unreadable (` ndl a parm and ` and `  oher pnmm andt`). Final checkpoint
+SHA-256 values remained exactly
+`8537ae4cf95271237976e67d320b59f45ce36dbfa6a24bc246e56742629047d6`
+for control and
+`dc030915cd14734f49191a1cd3d91cf15ce7a5d9ebf9de9d4fd068b8c0e7a6f6`
+for mixed through every random-offset, trajectory, graph/state-counterfactual,
+validation, and generation audit.
+
+The next same-lineage intervention appends exactly nine cold lanes to both organisms.
+The treatment's new 4K lanes will occupy its nine missing phases; the control receives
+the same lane count and update budget on 2K. This completes the domain-specific phase
+test before appending a full 64-phase 8K bank or altering gradient clipping. Topology
+and lifecycle remain fixed because the present bottleneck is experience breadth, not
+excess capacity.
