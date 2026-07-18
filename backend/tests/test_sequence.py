@@ -682,6 +682,14 @@ def test_continuous_training_carries_detached_neuron_state_between_updates() -> 
     assert first_state is not None
     assert experiment._training_runtime_state is not None
     assert first_state.hidden.grad_fn is None
+    assert set(experiment.last_gradient_norms) == {
+        "classBiasGradientNorm", "outputReadoutGradientNorm",
+        "tokenEncoderGradientNorm", "cellRuleGradientNorm", "synapseGradientNorm",
+    }
+    assert all(
+        math.isfinite(value) and value >= 0
+        for value in experiment.last_gradient_norms.values()
+    )
     assert experiment._training_runtime_state.position == task.sequence_length * 2
     assert torch.equal(
         experiment._training_stream_positions,

@@ -61,6 +61,10 @@ genotypes, readout, and active synaptic weights jointly. Gradient×state and
 gradient×weight credit are also recorded as slow local utility. After warm-up, the
 same energy homeostasis, birth/death, dendrite growth/pruning, forced lifecycle, and
 lesion pathways used by MNIST become active.
+Pre-clipping L2 gradient norms are measured separately for vocabulary bias, output
+decoder, token encoder, recurrent cell rule, and synapses. This distinguishes a
+frequency-only shortcut from missing or vanishing conditional credit without changing
+the organism's optimizer step.
 Non-finite loss is rejected before backward, and a non-finite total gradient norm
 is rejected before the optimizer or homeostatic state can mutate. Failed long runs
 therefore preserve their last finite checkpoint instead of applying NaN gradients

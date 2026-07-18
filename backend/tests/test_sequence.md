@@ -67,7 +67,9 @@ organism-owned electrical and structural state. The
 continuous-experience regressions prove adjacent windows share the boundary token,
 optimizer updates carry detached neuron state, checkpoints resume the exact lane and
 runtime state, and cell death preserves each surviving neuron's state by physical
-site. The same checkpoint regression enables structural plasticity as a new phase
+site. They also require finite non-negative pre-clipping gradient norms for bias,
+readout, token encoding, recurrent rules, and synapses. The same checkpoint regression
+enables structural plasticity as a new phase
 without losing the population mask, dendrite sources, synaptic weights, edge ages,
 edge utilities, genotypes, generation, competence history, turnover counters, lineage
 metadata, or continuous runtime state. Scientific diagnostics report zero electrical age before the first carried

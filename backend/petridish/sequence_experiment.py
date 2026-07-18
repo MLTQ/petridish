@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import deque
 import math
-from typing import Any, Callable
+from typing import Any, Callable, Iterable
 
 import torch
 from torch.nn import functional as F
@@ -168,6 +168,13 @@ class SequenceExperiment:
         }
         self.last_synapse_update_ratio = 0.0
         self.last_mean_attention_entropy = 0.0
+        self.last_gradient_norms = {
+            "classBiasGradientNorm": 0.0,
+            "outputReadoutGradientNorm": 0.0,
+            "tokenEncoderGradientNorm": 0.0,
+            "cellRuleGradientNorm": 0.0,
+            "synapseGradientNorm": 0.0,
+        }
         self.lifecycle_active = False
         self.lifecycle_reason = (
             "waiting for lifecycle warm-up"
@@ -360,6 +367,21 @@ class SequenceExperiment:
         )
         active = self.model.substrate.active_edge_mask
         before = self.model.substrate.synapse_weight.detach().clone()
+        self.last_gradient_norms = {
+            "classBiasGradientNorm": self._gradient_norm((self.model.class_bias,)),
+            "outputReadoutGradientNorm": self._gradient_norm(
+                self.model.output_bank_readout.parameters()
+            ),
+            "tokenEncoderGradientNorm": self._gradient_norm(
+                self.model.token_identity.parameters()
+            ),
+            "cellRuleGradientNorm": self._gradient_norm(
+                self.model.cell_rule.parameters()
+            ),
+            "synapseGradientNorm": self._gradient_norm(
+                (self.model.substrate.synapse_weight,)
+            ),
+        }
         if progress_callback is not None:
             progress_callback("optimizer", 0, 1)
         clip_grad_norm_(
@@ -490,6 +512,16 @@ class SequenceExperiment:
                 self.config.evaluation_batches,
                 progress_callback=progress_callback,
             )
+
+    @staticmethod
+    def _gradient_norm(parameters: Iterable[torch.nn.Parameter]) -> float:
+        """Return one pre-clipping L2 gradient norm for a parameter group."""
+
+        squared = torch.zeros((), dtype=torch.float64)
+        for parameter in parameters:
+            if parameter.grad is not None:
+                squared += parameter.grad.detach().double().square().sum().cpu()
+        return float(squared.sqrt())
 
     def train_visual_update(
         self, progress_callback: Callable[[str, int, int], None]

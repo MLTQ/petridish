@@ -44,6 +44,7 @@ def _experiment_state(experiment: SequenceExperiment) -> dict[str, Any]:
         "tick", "training_step", "seen_examples", "last_loss", "last_reward",
         "last_batch_accuracy", "test_accuracy", "recall_pair_count",
         "last_synapse_update_ratio", "last_mean_attention_entropy",
+        "last_gradient_norms",
         "lifecycle_active", "lifecycle_reason", "structure_unlocked",
         "structure_unlock_reason", "best_rolling_accuracy",
         "last_accuracy_improvement_step", "last_births", "last_deaths",
@@ -764,6 +765,7 @@ def main() -> None:
             "trainingStreamTokens": experiment.task.training_stream_tokens,
             "fullTrainingStreamTokens": experiment.task.full_training_stream_tokens,
             "trainingShardTokens": experiment.task.training_shard_tokens,
+            **experiment.last_gradient_norms,
             "electricalStateTokens": (
                 experiment._training_runtime_state.position
                 if experiment._training_runtime_state is not None else 0
