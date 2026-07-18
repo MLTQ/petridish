@@ -91,6 +91,10 @@ validated launch or stop requests.
   indefinite persistence and homeostatic relaxation remain distinguishable.
 - **Does**: Shows optional h1/h2/h4/h8/h16 held-out accuracy from the identical-token
   electrical-memory horizon evaluation.
+- **Does**: Launches and displays persistent state-lane count and their measured age
+  range independently from tensor batch size.
+- **Does**: Shows bounded explicit trainer failures in the authoritative run-status
+  cell instead of labeling pre-checkpoint OOM as an ordinary stop.
 - **Does**: Launches and displays fixed/adaptive topology independently from the
   selected lifecycle profile, and accepts a measured `failed` run state.
 - **Does**: Launches a bounded common learning-rate scale so stability controls are

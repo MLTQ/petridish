@@ -45,6 +45,7 @@ class LabLaunchRequest(BaseModel):
     vocabularySize: int = Field(default=2_048, ge=64, le=2_048)
     streamMode: str = "continuous"
     stateRetention: float = Field(default=0.9, ge=0, le=1)
+    stateLanes: int = Field(default=1, ge=1, le=16)
     messageSteps: int = Field(default=2, ge=1, le=16)
     broadcastGain: float = Field(default=0.3, ge=0, le=2)
     updates: int = Field(default=100_000, ge=1)
@@ -120,6 +121,7 @@ async def launch_lab_run(request: LabLaunchRequest) -> dict[str, object]:
         vocabulary_size=request.vocabularySize,
         stream_mode=request.streamMode,
         state_retention=request.stateRetention,
+        state_lanes=request.stateLanes,
         message_steps=request.messageSteps,
         broadcast_gain=request.broadcastGain,
         updates=request.updates,

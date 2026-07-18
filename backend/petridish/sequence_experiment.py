@@ -41,6 +41,7 @@ class SequenceExperiment:
         recall_pair_max: int = 3,
         stream_mode: str = "windowed",
         state_retention: float = 1.0,
+        state_lanes: int = 1,
     ) -> None:
         self.task = resolve_sequence_task(task)
         self.experiment_name = self.task.key
@@ -52,8 +53,11 @@ class SequenceExperiment:
             raise ValueError(f"task {self.task.key} has no contiguous training stream")
         if not 0 <= state_retention <= 1:
             raise ValueError("state retention must be between zero and one")
+        if not 1 <= state_lanes <= 16:
+            raise ValueError("state lanes must be between one and sixteen")
         self.stream_mode = stream_mode
         self.state_retention = state_retention
+        self.state_lanes = state_lanes
         self.device = resolve_device(device)
         if amp_mode not in {"off", "bfloat16"}:
             raise ValueError("amp_mode must be 'off' or 'bfloat16'")
@@ -63,11 +67,20 @@ class SequenceExperiment:
         self.amp_dtype = torch.bfloat16 if amp_mode == "bfloat16" else None
         self.generator = torch.Generator().manual_seed(seed)
         self.eval_generator = torch.Generator().manual_seed(seed + 10_000)
-        self._training_stream_positions = (
-            self.task.initial_stream_positions(self.config.batch_size, self.generator)
+        stream_positions = (
+            self.task.initial_stream_positions(
+                self.config.batch_size * state_lanes, self.generator
+            ).reshape(state_lanes, self.config.batch_size)
             if stream_mode == "continuous" else None
         )
+        self._training_stream_positions = (
+            stream_positions[0] if stream_positions is not None and state_lanes == 1
+            else stream_positions
+        )
         self._training_runtime_state: SequenceRuntimeState | None = None
+        self._training_runtime_bank: list[SequenceRuntimeState | None] = [
+            None for _ in range(state_lanes)
+        ]
         if self.task.key == "associative_recall":
             initial_pairs = 1 if recall_pair_count is None else recall_pair_count
             if initial_pairs not in {1, 2, 3} or recall_pair_max not in {1, 2, 3}:
@@ -178,18 +191,27 @@ class SequenceExperiment:
             batch.tokens.to(self.device), batch.targets.to(self.device), batch.loss_mask.to(self.device)
         )
 
-    def _continuous_batch(self) -> tuple[SequenceBatch, torch.Tensor]:
+    def _continuous_batch(
+        self,
+    ) -> tuple[SequenceBatch, torch.Tensor, int, SequenceRuntimeState | None]:
         """Read the next corpus window without advancing state until update success."""
 
         if self._training_stream_positions is None:
             raise RuntimeError("continuous stream positions were not initialized")
-        batch, next_positions = self.task.stream_batch(
+        lane = self.training_step % self.state_lanes
+        positions = (
             self._training_stream_positions
+            if self.state_lanes == 1 else self._training_stream_positions[lane]
+        )
+        batch, next_positions = self.task.stream_batch(positions)
+        runtime_state = (
+            self._training_runtime_state
+            if self.state_lanes == 1 else self._training_runtime_bank[lane]
         )
         return SequenceBatch(
             batch.tokens.to(self.device), batch.targets.to(self.device),
             batch.loss_mask.to(self.device),
-        ), next_positions
+        ), next_positions, lane, runtime_state
 
     def _masked_loss_accuracy(
         self, logits: torch.Tensor, batch: SequenceBatch
@@ -235,11 +257,13 @@ class SequenceExperiment:
     ) -> None:
         self.model.train()
         if self.stream_mode == "continuous":
-            batch, next_stream_positions = self._continuous_batch()
-            runtime_state = self._training_runtime_state
+            batch, next_stream_positions, state_lane, runtime_state = (
+                self._continuous_batch()
+            )
         else:
             batch = self._batch(self.config.batch_size)
             next_stream_positions = None
+            state_lane = 0
             runtime_state = None
         if progress_callback is not None:
             self._begin_visible_trial(batch)
@@ -405,10 +429,15 @@ class SequenceExperiment:
                 self.cumulative_death_causes[cause] += count
         if self.stream_mode == "continuous":
             assert next_stream_positions is not None
-            self._training_stream_positions = next_stream_positions
-            self._training_runtime_state = self.model.relax_runtime_state(
+            if self.state_lanes == 1:
+                self._training_stream_positions = next_stream_positions
+            else:
+                self._training_stream_positions[state_lane] = next_stream_positions
+            carried_state = self.model.relax_runtime_state(
                 result.runtime_state, self.state_retention
             )
+            self._training_runtime_state = carried_state
+            self._training_runtime_bank[state_lane] = carried_state
         if capture_trace:
             current_sites = self.model.substrate.living_sites
             state_by_site = torch.zeros(
@@ -812,6 +841,7 @@ class SequenceExperiment:
             "accuracy": self.test_accuracy,
             "streamMode": self.stream_mode,
             "stateRetention": self.state_retention,
+            "stateLanes": self.state_lanes,
             "stateCarry": state_carry,
             "stateHorizonWindows": state_horizon_windows,
             "positionIndices": [

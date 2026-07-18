@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 import random
 import signal
+import sys
 import time
 from typing import Any
 
@@ -57,8 +58,10 @@ def _experiment_state(experiment: SequenceExperiment) -> dict[str, Any]:
             "substrate_lifecycle_rng": experiment.model.substrate._lifecycle_generator.get_state(),
             "stream_mode": experiment.stream_mode,
             "state_retention": experiment.state_retention,
+            "state_lanes": experiment.state_lanes,
             "_training_stream_positions": experiment._training_stream_positions,
             "_training_runtime_state": experiment._training_runtime_state,
+            "_training_runtime_bank": experiment._training_runtime_bank,
         }
     )
     return state
@@ -104,6 +107,7 @@ def save_checkpoint(
             "seed": experiment.seed,
             "stream_mode": experiment.stream_mode,
             "state_retention": experiment.state_retention,
+            "state_lanes": experiment.state_lanes,
         },
         "model": experiment.model.state_dict(),
         "optimizer": experiment.optimizer.state_dict(),
@@ -188,12 +192,20 @@ def _scientific_metrics(experiment: SequenceExperiment) -> dict[str, Any]:
     )
     diagnostics = substrate.graph_diagnostics()
     context_budget = config.message_steps * experiment.task.sequence_length
+    lane_states = (
+        experiment._training_runtime_bank
+        if experiment.state_lanes > 1 else [experiment._training_runtime_state]
+    )
+    lane_ages = [state.position for state in lane_states if state is not None]
     return {
         "electricalStateTokens": (
             experiment._training_runtime_state.position
             if experiment._training_runtime_state is not None else 0
         ),
         "stateRetention": experiment.state_retention,
+        "stateLanes": experiment.state_lanes,
+        "minimumElectricalStateTokens": min(lane_ages, default=0),
+        "maximumElectricalStateTokens": max(lane_ages, default=0),
         "generation": substrate.generation,
         "livingCells": int(living.numel()),
         "stunnedCells": int(substrate.stunned[living].sum()),
@@ -337,6 +349,26 @@ def _append_metric(path: Path, record: dict[str, Any]) -> None:
         os.fsync(stream.fileno())
 
 
+def _record_process_failure(arguments: list[str], error: BaseException) -> None:
+    """Persist a bounded terminal failure even when training never reaches update one."""
+
+    checkpoint_dir = Path("runs/shakespeare")
+    if "--checkpoint-dir" in arguments:
+        index = arguments.index("--checkpoint-dir") + 1
+        if index < len(arguments):
+            checkpoint_dir = Path(arguments[index])
+    message = str(error).replace("\n", " ").strip()[:1_000]
+    _append_metric(
+        checkpoint_dir / "metrics.jsonl",
+        {
+            "type": "failure",
+            "failureType": type(error).__name__,
+            "failureMessage": message,
+            "timestamp": time.time(),
+        },
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -354,6 +386,7 @@ def main() -> None:
     parser.add_argument("--message-steps", type=int)
     parser.add_argument("--stream-mode", choices=STREAM_MODES, default="continuous")
     parser.add_argument("--state-retention", type=float, default=1.0)
+    parser.add_argument("--state-lanes", type=int, default=1)
     parser.add_argument("--broadcast-gain", type=float)
     parser.add_argument("--architecture", choices=CELL_ARCHITECTURES, default="gru")
     parser.add_argument("--updates", type=int, default=100_000)
@@ -384,6 +417,8 @@ def main() -> None:
         parser.error("--broadcast-gain must be between 0 and 2")
     if not 0 <= args.state_retention <= 1:
         parser.error("--state-retention must be between 0 and 1")
+    if not 1 <= args.state_lanes <= 16:
+        parser.error("--state-lanes must be between 1 and 16")
 
     latest = args.checkpoint_dir / "latest.pt"
     payload: dict[str, Any] | None = None
@@ -397,6 +432,7 @@ def main() -> None:
         args.task = str(saved_task.get("key", "tiny_shakespeare"))
         args.stream_mode = str(saved_task.get("stream_mode", "windowed"))
         args.state_retention = float(saved_task.get("state_retention", 1.0))
+        args.state_lanes = int(saved_task.get("state_lanes", 1))
         args.vocabulary_size = len(tuple(saved_task.get("vocabulary", ())))
         config = MnistModelConfig(**payload["configuration"])
     else:
@@ -425,6 +461,7 @@ def main() -> None:
     experiment = SequenceExperiment(
         task, config, seed=args.seed, device=args.device, amp_mode=args.amp,
         stream_mode=args.stream_mode, state_retention=args.state_retention,
+        state_lanes=args.state_lanes,
     )
     if payload is not None:
         restore_checkpoint(experiment, payload)
@@ -448,6 +485,7 @@ def main() -> None:
         f"starting at update {experiment.training_step} on {experiment.device}; "
         f"architecture={config.cell_architecture} batch={config.batch_size} "
         f"stream={args.stream_mode} retention={args.state_retention:.3f} "
+        f"lanes={args.state_lanes} "
         f"amp={args.amp} compile={args.compile_mode}",
         flush=True,
     )
@@ -483,6 +521,7 @@ def main() -> None:
             "rollingAccuracy": experiment.rolling_accuracy,
             "streamMode": experiment.stream_mode,
             "stateRetention": experiment.state_retention,
+            "stateLanes": experiment.state_lanes,
             "electricalStateTokens": (
                 experiment._training_runtime_state.position
                 if experiment._training_runtime_state is not None else 0
@@ -548,4 +587,8 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as error:
+        _record_process_failure(sys.argv[1:], error)
+        raise

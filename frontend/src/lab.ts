@@ -17,7 +17,7 @@ interface GpuSnapshot {
 }
 
 interface MetricRecord {
-  type: "train" | "held_out" | "diagnostic";
+  type: "train" | "held_out" | "diagnostic" | "failure";
   update: number;
   loss?: number;
   rollingLoss?: number;
@@ -62,6 +62,11 @@ interface MetricRecord {
     loss: number;
     accuracy: number;
   }>;
+  stateLanes?: number;
+  minimumElectricalStateTokens?: number;
+  maximumElectricalStateTokens?: number;
+  failureType?: string;
+  failureMessage?: string;
 }
 
 interface RunSnapshot {
@@ -76,6 +81,7 @@ interface RunSnapshot {
   latestTrain: MetricRecord | null;
   latestHeldOut: MetricRecord | null;
   latestDiagnostics: MetricRecord | null;
+  latestFailure: MetricRecord | null;
   hasCheckpoint: boolean;
 }
 
@@ -546,6 +552,10 @@ export class LaboratoryView {
         stop.textContent = "Stop";
         stop.addEventListener("click", () => void this.stop(run.id, stop));
         state.append(stop);
+      } else if (run.status === "failed" && run.latestFailure) {
+        const failure = document.createElement("small");
+        failure.textContent = `${run.latestFailure.failureType ?? "failure"}: ${run.latestFailure.failureMessage ?? "no detail"}`;
+        state.append(failure);
       }
       row.append(state);
       return row;
@@ -567,11 +577,15 @@ export class LaboratoryView {
       const graph = diagnostic
         ? `${diagnostic.livingCells ?? "—"} cells · ${diagnostic.edgeCount ?? "—"} physical · ${diagnostic.conductingEdgeCount ?? "—"} conducting`
         : "—";
-      const stateAge = diagnostic?.electricalStateTokens === undefined
-        ? "state age unreported"
-        : `state age ${diagnostic.electricalStateTokens.toLocaleString()} tokens`;
+      const minimumStateAge = diagnostic?.minimumElectricalStateTokens;
+      const maximumStateAge = diagnostic?.maximumElectricalStateTokens;
+      const stateAge = minimumStateAge !== undefined && maximumStateAge !== undefined
+        ? `state age ${minimumStateAge.toLocaleString()}–${maximumStateAge.toLocaleString()} tokens`
+        : diagnostic?.electricalStateTokens === undefined
+          ? "state age unreported"
+          : `state age ${diagnostic.electricalStateTokens.toLocaleString()} tokens`;
       const routing = diagnostic
-        ? `${String(run.configuration.streamMode ?? "windowed")} · retention ${String(run.configuration.stateRetention ?? "1 legacy")} · ${stateAge} · ${diagnostic.minimumOutputHops ?? "—"}/${diagnostic.medianOutputHops ?? "—"} hops · ${diagnostic.tokenReachableOutputs ?? 0}/${diagnostic.contextReachableOutputs ?? 0}/${diagnostic.reachableOutputs ?? 0} token/context/graph · broadcast ${String(run.configuration.broadcastGain ?? "legacy")}${(diagnostic.tokenReachableOutputs ?? 0) === 0 && Number(run.configuration.messageSteps ?? 0) < Number(diagnostic.minimumOutputHops ?? 0) ? ` · insufficient ${run.configuration.messageSteps ?? "—"} < ${diagnostic.minimumOutputHops ?? "—"}` : ""}`
+        ? `${String(run.configuration.streamMode ?? "windowed")} · retention ${String(run.configuration.stateRetention ?? "1 legacy")} · ${String(run.configuration.stateLanes ?? 1)} state lane${Number(run.configuration.stateLanes ?? 1) === 1 ? "" : "s"} · ${stateAge} · ${diagnostic.minimumOutputHops ?? "—"}/${diagnostic.medianOutputHops ?? "—"} hops · ${diagnostic.tokenReachableOutputs ?? 0}/${diagnostic.contextReachableOutputs ?? 0}/${diagnostic.reachableOutputs ?? 0} token/context/graph · broadcast ${String(run.configuration.broadcastGain ?? "legacy")}${(diagnostic.tokenReachableOutputs ?? 0) === 0 && Number(run.configuration.messageSteps ?? 0) < Number(diagnostic.minimumOutputHops ?? 0) ? ` · insufficient ${run.configuration.messageSteps ?? "—"} < ${diagnostic.minimumOutputHops ?? "—"}` : ""}`
         : "—";
       const lifecycle = diagnostic
         ? `${String(run.configuration.lifecycleProfile ?? (run.configuration.lifecycle ? "baseline" : "off"))} · ${diagnostic.stunnedCells ?? 0} stunned · +${diagnostic.cumulativeBirths ?? 0}/−${diagnostic.cumulativeDeaths ?? 0} cells · ${diagnostic.cumulativeStuns ?? 0}/${diagnostic.cumulativeRecoveries ?? 0} stun/recover`
@@ -680,6 +694,7 @@ export class LaboratoryView {
       vocabularySize: Number(form.get("vocabularySize")),
       streamMode: String(form.get("streamMode")),
       stateRetention: Number(form.get("stateRetention")),
+      stateLanes: Number(form.get("stateLanes")),
       messageSteps: Number(form.get("messageSteps")),
       broadcastGain: Number(form.get("broadcastGain")),
       updates: Number(form.get("updates")), seed: Number(form.get("seed")),

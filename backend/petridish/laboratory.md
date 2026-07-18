@@ -29,6 +29,8 @@ explicitly enabled trainer processes.
 - **Does**: Records and bounds electrical retention independently from structure;
   the default 0.9 is a homeostatic-relaxation intervention, while 1.0 is the exact
   indefinite-state control.
+- **Does**: Records one to sixteen round-robin persistent state lanes independently
+  from tensor batch size.
 - **Does**: Derives the compatibility lifecycle boolean from the resolved profile so
   the manifest and trainer command cannot disagree.
 
@@ -78,6 +80,8 @@ explicitly enabled trainer processes.
 ### Run status
 - **Does**: Marks an ended run `failed` when its latest loss or rolling loss is
   non-finite instead of presenting the last checkpoint as ordinary completion.
+- **Does**: Marks a run failed when the trainer persisted an explicit failure record,
+  including failures before update one, and returns that bounded diagnostic.
 
 ### `Laboratory._pid_alive`
 - **Does**: Treats Linux zombie processes as stopped before falling back to a

@@ -23,6 +23,11 @@ This models homeostatic electrical relaxation, not organism reset: current state
 mixed with the same physical cells' resting field while topology, synapses, genotype,
 parameters, stream position, and survivor identity remain intact. Evaluation applies
 the identical retention schedule.
+`state_lanes` adds round-robin persistent electrical trajectories without increasing
+the tensor batch. Every lane advances through its own contiguous corpus position and
+retains its own complete runtime state; all lanes share one physical substrate,
+parameters, synapses, genotype, optimizer, and lifecycle. This tests trajectory
+diversity on memory-limited GPUs without creating an ensemble or resetting a lane.
 `evaluate_state_horizons` replays one held-out stream while bounding electrical carry
 to 1, 2, 4, 8, or 16 context windows. Every horizon receives identical tokens and
 the sampler advances only once, producing a measured memory-lifetime response curve.

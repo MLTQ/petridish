@@ -42,6 +42,8 @@ runtime device is configurable independently from trainer workers.
   laboratory performs exact validation before process launch.
 - **Does**: Bounds state retention from zero through one for recorded electrical
   relaxation experiments.
+- **Does**: Bounds persistent trajectory lanes from one through sixteen separately
+  from CUDA tensor batch size.
 - **Rationale**: The API never accepts a shell command or arbitrary path.
 
 ### `websocket_endpoint`

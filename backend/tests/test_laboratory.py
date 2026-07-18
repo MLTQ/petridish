@@ -134,13 +134,14 @@ def test_laboratory_records_continuous_experience_or_cold_control(tmp_path: Path
     laboratory = Laboratory(tmp_path, run_root=tmp_path / "runs", control_enabled=True)
     spec = LaunchSpec(
         "trial", "GPU-example", task="tiny_stories", field_size=68,
-        stream_mode="continuous", state_retention=0.9,
+        stream_mode="continuous", state_retention=0.9, state_lanes=2,
     )
 
     command = laboratory._trainer_command(spec, tmp_path / "runs" / "trial")
 
     assert command[command.index("--stream-mode") + 1] == "continuous"
     assert command[command.index("--state-retention") + 1] == "0.9"
+    assert command[command.index("--state-lanes") + 1] == "2"
     with pytest.raises(ValueError, match="stream mode"):
         laboratory._validate_spec(
             LaunchSpec("invalid", "GPU-example", stream_mode="reset-everything")
@@ -148,6 +149,10 @@ def test_laboratory_records_continuous_experience_or_cold_control(tmp_path: Path
     with pytest.raises(ValueError, match="state retention"):
         laboratory._validate_spec(
             LaunchSpec("invalid", "GPU-example", state_retention=1.1)
+        )
+    with pytest.raises(ValueError, match="state lanes"):
+        laboratory._validate_spec(
+            LaunchSpec("invalid", "GPU-example", state_lanes=17)
         )
 
 
@@ -235,6 +240,21 @@ def test_nonfinite_ended_run_is_reported_as_failed(tmp_path: Path) -> None:
     summary = Laboratory(tmp_path, run_root=tmp_path / "runs")._discover_runs({})[0]
 
     assert summary["status"] == "failed"
+
+
+def test_explicit_trainer_failure_is_reported_before_a_checkpoint(tmp_path: Path) -> None:
+    run = tmp_path / "runs" / "oom"
+    run.mkdir(parents=True)
+    failure = {
+        "type": "failure", "failureType": "OutOfMemoryError",
+        "failureMessage": "CUDA out of memory",
+    }
+    (run / "metrics.jsonl").write_text(json.dumps(failure) + "\n", encoding="utf-8")
+
+    summary = Laboratory(tmp_path, run_root=tmp_path / "runs")._discover_runs({})[0]
+
+    assert summary["status"] == "failed"
+    assert summary["latestFailure"] == failure
 
 
 def test_snapshot_discovers_bounded_benchmark_artifacts(

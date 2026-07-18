@@ -44,6 +44,7 @@ from petridish.train_shakespeare import (
     _held_out_diagnostics,
     _migrate_model_state,
     _scientific_metrics,
+    _record_process_failure,
     load_checkpoint,
     restore_checkpoint,
     save_checkpoint,
@@ -635,6 +636,28 @@ def test_continuous_training_carries_detached_neuron_state_between_updates() -> 
     )
 
 
+def test_round_robin_state_lanes_add_trajectory_diversity_at_batch_one() -> None:
+    text = "One fox ran. Two birds flew. Three cats slept. " * 30
+    task = build_token_task(text, context_length=8, vocabulary_size=32)
+    config = replace(
+        corpus_config(), batch_size=1, structural_enabled=0, lifecycle_enabled=0
+    )
+    experiment = SequenceExperiment(
+        task, config, seed=49, device="cpu", stream_mode="continuous",
+        state_retention=0.9, state_lanes=2,
+    )
+
+    experiment.train_updates(3)
+    metrics = _scientific_metrics(experiment)
+
+    assert experiment._training_stream_positions.shape == (2, 1)
+    assert [state.position for state in experiment._training_runtime_bank] == [16, 8]
+    assert experiment._training_runtime_state is experiment._training_runtime_bank[0]
+    assert metrics["stateLanes"] == 2
+    assert metrics["minimumElectricalStateTokens"] == 8
+    assert metrics["maximumElectricalStateTokens"] == 16
+
+
 def test_continuous_training_state_survives_checkpoint_resume(tmp_path: Path) -> None:
     text = "One fox ran. Two birds flew. Three cats slept. " * 30
     task = build_token_task(text, context_length=8, vocabulary_size=32)
@@ -746,6 +769,21 @@ def test_state_ablation_reuses_identical_validation_stream_and_one_rng_advance()
     assert [point["windows"] for point in curve] == [1, 2, 4]
     assert [point["tokens"] for point in curve] == [8, 16, 32]
     assert torch.equal(horizon_after, experiment.eval_generator.get_state())
+
+
+def test_process_failure_is_bounded_and_persisted_before_first_update(tmp_path: Path) -> None:
+    checkpoint = tmp_path / "failed"
+
+    _record_process_failure(
+        ["--checkpoint-dir", str(checkpoint)],
+        RuntimeError("out of memory\n" + "x" * 2_000),
+    )
+
+    record = json.loads((checkpoint / "metrics.jsonl").read_text().strip())
+    assert record["type"] == "failure"
+    assert record["failureType"] == "RuntimeError"
+    assert "\n" not in record["failureMessage"]
+    assert len(record["failureMessage"]) == 1_000
 
 
 def test_token_corpus_uses_one_64_port_column_per_boundary() -> None:

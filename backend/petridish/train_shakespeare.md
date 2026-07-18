@@ -67,6 +67,11 @@ showed harmful accumulated state.
 `--evaluate-only --state-horizon-eval` appends the five-point identical-token state
 horizon curve without training. Scheduled validation remains bounded to the cheaper
 carried-versus-cold pair.
+`--state-lanes 1..16` alternates independent persistent corpus trajectories at the
+same tensor batch size and records their minimum/maximum electrical ages. It is the
+memory-constant alternative to increasing CUDA batch size.
+Unhandled trainer exceptions append a bounded `failure` metric before propagating,
+so OOM and pre-checkpoint failures remain visible to the laboratory.
 
 By default a fresh invocation resumes `latest.pt` when present. Resume restores the
 saved configuration, context, seed, vocabulary contract, AMP mode, organism, and

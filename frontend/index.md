@@ -36,6 +36,8 @@ experiment laboratory above the live organism.
   random-window electrical reset as a cold-window control.
 - **Does**: Exposes electrical retention separately from experience mode; 0.9 means
   gradual relaxation toward each cell's physical resting state, not a reset.
+- **Does**: Exposes persistent state lanes separately from tensor batch size so
+  trajectory diversity does not imply multiple organisms or larger CUDA batches.
 - **Does**: Selects fixed or adaptive topology independently from lifecycle.
 - **Does**: Exposes a bounded common learning-rate scale for controlled long-run
   stability experiments.

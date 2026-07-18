@@ -40,6 +40,7 @@ class LaunchSpec:
     vocabulary_size: int = 2_048
     stream_mode: str = "continuous"
     state_retention: float = 0.9
+    state_lanes: int = 1
     message_steps: int = 2
     broadcast_gain: float = 0.3
     updates: int = 100_000
@@ -140,6 +141,7 @@ class Laboratory:
                 "vocabularySize": spec.vocabulary_size,
                 "streamMode": spec.stream_mode,
                 "stateRetention": spec.state_retention,
+                "stateLanes": spec.state_lanes,
                 "messageSteps": spec.message_steps,
                 "broadcastGain": spec.broadcast_gain,
                 "updates": spec.updates,
@@ -213,6 +215,8 @@ class Laboratory:
             raise ValueError("unknown corpus stream mode")
         if not 0 <= spec.state_retention <= 1:
             raise ValueError("state retention must be between zero and one")
+        if not 1 <= spec.state_lanes <= 16:
+            raise ValueError("state lanes must be between one and sixteen")
         if spec.batch_size < 1 or spec.batch_size > 256:
             raise ValueError("batch size must be between 1 and 256")
         if spec.message_steps < 1 or spec.message_steps > 16:
@@ -238,6 +242,7 @@ class Laboratory:
             "--vocabulary-size", str(spec.vocabulary_size),
             "--stream-mode", spec.stream_mode,
             "--state-retention", str(spec.state_retention),
+            "--state-lanes", str(spec.state_lanes),
             "--message-steps", str(spec.message_steps),
             "--broadcast-gain", str(spec.broadcast_gain),
             "--architecture", spec.architecture,
@@ -277,6 +282,9 @@ class Laboratory:
             latest_diagnostics = next(
                 (record for record in reversed(records) if record.get("type") == "diagnostic"), None
             )
+            latest_failure = next(
+                (record for record in reversed(records) if record.get("type") == "failure"), None
+            )
             running = active.get(directory.name)
             manifest_pid = int(manifest.get("pid", 0) or 0)
             if running is None and manifest_pid > 0 and self._pid_alive(manifest_pid):
@@ -294,7 +302,7 @@ class Laboratory:
                     "gpuUuid": (running or {}).get("gpuUuid", manifest.get("gpuUuid")),
                     "pid": (running or {}).get("pid", manifest_pid or None),
                     "status": (
-                        "running" if running else "failed" if not finite
+                        "running" if running else "failed" if latest_failure or not finite
                         else "checkpointed" if has_checkpoint else "stopped"
                     ),
                     "configuration": manifest.get("configuration", {}),
@@ -302,6 +310,7 @@ class Laboratory:
                     "latestTrain": latest_train,
                     "latestHeldOut": latest_held_out,
                     "latestDiagnostics": latest_diagnostics,
+                    "latestFailure": latest_failure,
                     "hasCheckpoint": has_checkpoint,
                 }
             )
