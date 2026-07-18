@@ -79,6 +79,7 @@ class ContinueSpec:
     topology_profile: str | None = None
     phase_name: str | None = None
     training_shard_tokens: int | None = None
+    expand_existing_lane_domains: bool = False
     state_lanes: int | None = None
     gradient_clip: float | None = None
     random_offset_auxiliary_weight: float | None = None
@@ -159,6 +160,7 @@ class Laboratory:
                 "randomContextAudit": True,
                 "fullCorpusContextAudit": True,
                 "trainingShardCurriculum": True,
+                "persistentDomainExpansion": True,
                 "stateLaneExpansion": True,
                 "stateLaneDomains": True,
                 "maximumStateLanes": MAX_STATE_LANES,
@@ -344,6 +346,10 @@ class Laboratory:
                 and spec.training_shard_tokens <= context_length + 1
             ):
                 raise ValueError("training shard must exceed one complete context window")
+        elif spec.expand_existing_lane_domains:
+            raise ValueError(
+                "persistent domain expansion requires an explicit broader curriculum"
+            )
         if not (directory / "latest.pt").is_file():
             raise ValueError("run has no checkpoint to continue")
         pid = int(manifest.get("pid", 0) or 0)
@@ -474,9 +480,18 @@ class Laboratory:
                     or training_shard_tokens > previous_shard_tokens
                 )
             )
-            if breadth_expands and state_lanes == previous_state_lanes:
+            if (
+                breadth_expands
+                and state_lanes == previous_state_lanes
+                and not spec.expand_existing_lane_domains
+            ):
                 raise ValueError(
-                    "curriculum breadth expansion requires appending state lanes"
+                    "curriculum breadth expansion requires appended lanes or an "
+                    "explicit carried-stream domain expansion"
+                )
+            if spec.expand_existing_lane_domains and not breadth_expands:
+                raise ValueError(
+                    "carried-stream domain expansion requires a broader curriculum"
                 )
         phase_name = spec.phase_name or self._phase_name(topology_profile, profile)
         if spec.training_shard_tokens is not None and spec.phase_name is None:
@@ -502,6 +517,7 @@ class Laboratory:
             topology_profile=topology_profile,
             lifecycle_profile=profile,
             training_shard_tokens=spec.training_shard_tokens,
+            expand_existing_lane_domains=spec.expand_existing_lane_domains,
             state_lanes=spec.state_lanes,
             gradient_clip=spec.gradient_clip,
             random_offset_auxiliary_weight=(
@@ -520,6 +536,7 @@ class Laboratory:
             "topologyProfile": topology_profile,
             "lifecycleProfile": profile,
             "trainingShardTokens": training_shard_tokens,
+            "expandedExistingLaneDomains": spec.expand_existing_lane_domains,
             "stateLanes": state_lanes,
             "gradientClip": gradient_clip,
             "randomOffsetAuxiliaryWeight": random_offset_auxiliary_weight,
@@ -543,6 +560,7 @@ class Laboratory:
                 "structure": structure_enabled,
                 "topologyProfile": topology_profile,
                 "trainingShardTokens": training_shard_tokens,
+                "expandedExistingLaneDomains": spec.expand_existing_lane_domains,
                 "stateLanes": state_lanes,
                 "gradientClip": gradient_clip,
                 "randomOffsetAuxiliaryWeight": random_offset_auxiliary_weight,
@@ -573,6 +591,7 @@ class Laboratory:
                 "topologyProfile": topology_profile,
                 "lifecycleProfile": profile,
                 "trainingShardTokens": training_shard_tokens,
+                "expandedExistingLaneDomains": spec.expand_existing_lane_domains,
                 "stateLanes": state_lanes,
                 "gradientClip": gradient_clip,
                 "randomOffsetAuxiliaryWeight": random_offset_auxiliary_weight,
@@ -846,7 +865,15 @@ class Laboratory:
             structure=topology_mutates(topology_profile),
             topology_profile=topology_profile,
             lifecycle_profile=lifecycle_profile,
-            training_shard_tokens=None,
+            training_shard_tokens=(
+                int(phase["trainingShardTokens"])
+                if phase.get("expandedExistingLaneDomains", False)
+                and phase.get("trainingShardTokens") is not None
+                else None
+            ),
+            expand_existing_lane_domains=bool(
+                phase.get("expandedExistingLaneDomains", False)
+            ),
             state_lanes=None,
             gradient_clip=None,
             random_offset_auxiliary_weight=None,
@@ -1076,6 +1103,7 @@ class Laboratory:
         topology_profile: str,
         lifecycle_profile: str,
         training_shard_tokens: int | None,
+        expand_existing_lane_domains: bool,
         state_lanes: int | None,
         gradient_clip: float | None,
         random_offset_auxiliary_weight: float | None,
@@ -1096,6 +1124,8 @@ class Laboratory:
         command.append("--structure" if structure else "--no-structure")
         if training_shard_tokens is not None:
             command.extend(("--training-shard-tokens", str(training_shard_tokens)))
+        if expand_existing_lane_domains:
+            command.append("--expand-existing-lane-domains")
         if state_lanes is not None:
             command.extend(("--state-lanes", str(state_lanes)))
         if gradient_clip is not None:

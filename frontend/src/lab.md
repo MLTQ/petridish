@@ -151,6 +151,9 @@ validated launch or stop requests.
   checkpoint update remain visible beside the immutable organism lineage.
 - **Does**: Can change a continued TinyStories organism to a deterministic repeated
   experience shard without resetting or replacing any organism-owned state.
+- **Does**: Can explicitly expand existing carried stream domains without appending
+  trajectories. Phase labels distinguish this from cold-lane allocation, and the
+  checkbox is capability-gated against older servers.
 - **Does**: Can expand a continued organism's persistent experience lanes without
   exposing a shrink operation; existing lane positions and electrical histories stay
   organism-owned while newly allocated lanes begin cold at independent phases.

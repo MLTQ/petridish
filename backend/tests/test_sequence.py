@@ -42,6 +42,7 @@ from petridish.token_settling_task import token_settling_task
 from petridish.token_settled_pipeline_task import token_settled_pipeline_task
 from petridish.token_stream_task import token_stream_task
 from petridish.train_shakespeare import (
+    expand_persistent_stream_domains,
     expand_persistent_state_lanes,
     _fresh_config,
     _held_out_diagnostics,
@@ -987,6 +988,57 @@ def test_state_lane_expansion_preserves_every_existing_trajectory(
     )
     with pytest.raises(ValueError, match="cannot discard"):
         expand_persistent_state_lanes(experiment, 2)
+
+
+def test_stream_domain_expansion_preserves_organism_state_and_next_cursor() -> None:
+    text = "a" * 128 + "z" * 384
+    old_task = build_token_task(
+        text, context_length=8, vocabulary_size=256,
+        tokenizer_profile="byte", training_shard_tokens=128,
+    )
+    broader_task = build_token_task(
+        text, context_length=8, vocabulary_size=256,
+        tokenizer_profile="byte", training_shard_tokens=256,
+    )
+    experiment = SequenceExperiment(
+        old_task, replace(corpus_config(), batch_size=1), seed=159,
+        device="cpu", stream_mode="continuous", state_lanes=2,
+    )
+    experiment.train_updates(2)
+    positions = experiment._training_stream_positions.clone()
+    runtime_bank = list(experiment._training_runtime_bank)
+    model = {
+        name: value.detach().clone()
+        for name, value in experiment.model.state_dict().items()
+    }
+    optimizer = copy.deepcopy(experiment.optimizer.state_dict())
+    generator = experiment.generator.get_state().clone()
+    experiment.task = broader_task
+
+    expand_persistent_stream_domains(experiment, 256)
+
+    assert torch.equal(experiment._training_stream_positions, positions)
+    assert torch.equal(
+        experiment._training_stream_lengths, torch.full_like(positions, 256)
+    )
+    assert all(
+        current is original
+        for current, original in zip(experiment._training_runtime_bank, runtime_bank)
+    )
+    assert torch.equal(experiment.generator.get_state(), generator)
+    assert experiment.optimizer.state_dict()["param_groups"] == optimizer["param_groups"]
+    for name, value in experiment.model.state_dict().items():
+        assert torch.equal(value, model[name])
+
+    boundary = torch.tensor([124])
+    old_window, _ = broader_task.stream_batch(
+        boundary, stream_lengths=torch.tensor([128])
+    )
+    expanded_window, _ = broader_task.stream_batch(
+        boundary, stream_lengths=torch.tensor([256])
+    )
+    assert torch.equal(old_window.tokens[:, :4], expanded_window.tokens[:, :4])
+    assert old_window.targets[0, 3] != expanded_window.targets[0, 3]
 
 
 def test_large_lane_expansion_fills_every_cursor_phase_without_moving_old_lanes() -> None:

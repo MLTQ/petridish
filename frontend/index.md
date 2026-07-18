@@ -49,6 +49,9 @@ experiment laboratory above the live organism.
 - **Does**: Lets that same-organism continuation optionally repeat a deterministic
   TinyStories shard; the default preserves the current stream and zero explicitly
   returns to the full corpus.
+- **Does**: Offers a separate explicit checkbox to expand carried streams in place.
+  Their saved state and next-token cursor persist; only the future wrap boundary moves
+  to the selected broader corpus domain.
 - **Does**: Includes 4,096- and 16,384-token intermediate shard choices so corpus
   breadth can double without forcing a fourfold curriculum jump. Selecting one still
   changes only the experience stream of the checkpointed organism.
@@ -56,8 +59,9 @@ experiment laboratory above the live organism.
   lanes while rejecting values below the organism's current count. Blank preserves
   the current bank, so measured gaps such as nine missing domain phases do not require
   arbitrary preset totals.
-- **Does**: Treats every larger numeric target as append-only: existing lane
-  domains/cursors stay fixed while new cold lanes receive the selected broader corpus
+- **Does**: Treats larger targets as append-only unless the carried-domain checkbox is
+  explicit: existing domains then widen while cursors and runtime state stay fixed;
+  otherwise new cold lanes alone receive the selected broader corpus
   domain and are balanced within it before any phase duplicate.
 - **Does**: Calls held-out zero-state comparisons disposable ablation copies so the
   interface never implies that the live organism was reset.

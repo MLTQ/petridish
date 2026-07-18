@@ -48,6 +48,8 @@ explicitly enabled trainer processes.
   the matching server restart cannot expose a nonfunctional mutation control.
 - **Does**: Advertises repeated-shard continuation explicitly so a frontend/backend
   version mismatch cannot silently discard a curriculum request.
+- **Does**: Advertises explicit carried-stream domain expansion independently from
+  append-only cold-lane expansion.
 - **Does**: Advertises append-only state-lane expansion explicitly so an older
   backend can never misinterpret phase-diversity controls as ordinary continuation.
 - **Does**: Publishes the 512-lane bound and phase-balancing capability so older
@@ -123,9 +125,9 @@ explicitly enabled trainer processes.
 - **Does**: When shard breadth and lane count grow together, preserves each old
   lane's checkpointed stream domain and gives only appended lanes the new domain.
   Shrinking below any preserved domain is rejected.
-- **Does**: Rejects a broader shard unless the same continuation appends lanes; a
-  global shard change without new lanes would silently remap or fail to expose every
-  saved trajectory. Full-stream domains likewise cannot contract to a prefix.
+- **Does**: Rejects a broader shard unless the same continuation appends lanes or
+  explicitly opts into carried-stream expansion. That operation preserves cursors and
+  state and changes only future wrap boundaries; full-stream domains cannot contract.
 - **Does**: Recovers the authoritative phase index, repeated-shard size, current
   lane count, and gradient ceiling from the latest training metric when an older
   manifest lags a valid checkpoint, preventing stale orchestration metadata from
@@ -139,6 +141,9 @@ explicitly enabled trainer processes.
   checkpoint with a nonzero value is continued with an explicit zero override,
   recorded in the command, manifest, phase history, and append-only metric before
   persistent training begins.
+- **Does**: Records `expandedExistingLaneDomains` in phase history, manifest
+  configuration, phase metrics, and trainer command so in-place sensory breadth can
+  never be confused with appended cold trajectories or a reset.
 - **Rationale**: Structural warm-up, adaptive pruning, and lifecycle pressure must be
   phases of one organism rather than separately initialized comparison runs.
 
@@ -170,6 +175,8 @@ explicitly enabled trainer processes.
   and recorded remaining target without appending or modifying a phase.
 - **Does**: Reconstructs the training command from immutable lineage and phase
   metadata even when a read-only audit was the most recent process command.
+- **Does**: Replays a recorded carried-domain flag and curriculum idempotently, so a
+  worker boundary cannot omit an incomplete phase transition or apply it twice.
 - **Does**: Rejects completed phases, active workers, missing lineage/checkpoints,
   unknown GPUs, and unrecovered failures; failures remain restricted to retry.
 - **Rationale**: Interim causal audits must pause only the worker, never transform

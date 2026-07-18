@@ -78,6 +78,7 @@ class LabContinueRequest(BaseModel):
     topologyProfile: str | None = None
     phaseName: str | None = Field(default=None, max_length=120)
     trainingShardTokens: int | None = Field(default=None, ge=0)
+    expandExistingLaneDomains: bool = False
     stateLanes: int | None = Field(default=None, ge=1, le=MAX_STATE_LANES)
     gradientClip: float | None = Field(default=None, ge=0.01, le=100)
     randomOffsetAuxiliaryWeight: float | None = Field(default=None, ge=0, le=10)
@@ -236,6 +237,7 @@ async def continue_lab_run(
         topology_profile=request.topologyProfile,
         phase_name=request.phaseName,
         training_shard_tokens=request.trainingShardTokens,
+        expand_existing_lane_domains=request.expandExistingLaneDomains,
         state_lanes=request.stateLanes,
         gradient_clip=request.gradientClip,
         random_offset_auxiliary_weight=request.randomOffsetAuxiliaryWeight,

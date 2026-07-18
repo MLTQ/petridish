@@ -156,6 +156,7 @@ interface OrganismPhase {
   structure: boolean;
   lifecycleProfile: string;
   trainingShardTokens?: number;
+  expandedExistingLaneDomains?: boolean;
   stateLanes?: number;
   gradientClip?: number;
   randomOffsetAuxiliaryWeight?: number;
@@ -206,6 +207,7 @@ interface LaboratorySnapshot {
     randomContextAudit?: boolean;
     fullCorpusContextAudit?: boolean;
     trainingShardCurriculum?: boolean;
+    persistentDomainExpansion?: boolean;
     stateLaneExpansion?: boolean;
     stateLaneDomains?: boolean;
     maximumStateLanes?: number;
@@ -326,6 +328,7 @@ export class LaboratoryView {
   private readonly continueLifecycleSelect = required<HTMLSelectElement>("#lab-continue-lifecycle-profile");
   private readonly continueStructureSelect = required<HTMLSelectElement>("#lab-continue-structure");
   private readonly continueTrainingShardSelect = required<HTMLSelectElement>("#lab-continue-training-shard");
+  private readonly continueExpandExistingDomainsInput = required<HTMLInputElement>("#lab-continue-expand-existing-domains");
   private readonly continueStateLanesInput = required<HTMLInputElement>("#lab-continue-state-lanes");
   private readonly continueGradientClipInput = required<HTMLInputElement>("#lab-continue-gradient-clip");
   private readonly continueRandomOffsetAuxiliaryInput = required<HTMLInputElement>("#lab-continue-random-offset-auxiliary");
@@ -458,6 +461,12 @@ export class LaboratoryView {
     );
     if (!snapshot.capabilities.trainingShardCurriculum) {
       this.continueTrainingShardSelect.value = "preserve";
+    }
+    this.continueExpandExistingDomainsInput.disabled = !(
+      canContinue && snapshot.capabilities.persistentDomainExpansion
+    );
+    if (!snapshot.capabilities.persistentDomainExpansion) {
+      this.continueExpandExistingDomainsInput.checked = false;
     }
     this.continueStateLanesInput.disabled = !(
       canContinue && snapshot.capabilities.stateLaneExpansion
@@ -1325,6 +1334,7 @@ export class LaboratoryView {
       structure: topologyProfile !== "fixed",
       phaseName: phaseName || null,
       trainingShardTokens: shardSelection === "preserve" ? null : Number(shardSelection),
+      expandExistingLaneDomains: form.get("expandExistingLaneDomains") === "on",
       stateLanes: laneSelection === "" ? null : Number(laneSelection),
       gradientClip: gradientClipSelection === "" ? null : Number(gradientClipSelection),
       randomOffsetAuxiliaryWeight: randomOffsetAuxiliarySelection === ""
@@ -1384,6 +1394,7 @@ export class LaboratoryView {
         run.configuration.lifecycleProfile ?? (run.configuration.lifecycle ? "baseline" : "off"),
       );
       this.continueTrainingShardSelect.value = "preserve";
+      this.continueExpandExistingDomainsInput.checked = false;
       this.continueStateLanesInput.value = "";
       this.continueGradientClipInput.value = "";
       this.continueRandomOffsetAuxiliaryInput.value = "";
@@ -1413,6 +1424,9 @@ export class LaboratoryView {
     const curriculum = phase?.trainingShardTokens
       ? ` · repeat ${phase.trainingShardTokens.toLocaleString()}`
       : phase?.trainingShardTokens === 0 ? " · full stream" : "";
+    const carriedExpansion = phase?.expandedExistingLaneDomains
+      ? " · carried streams expanded"
+      : "";
     const auxiliary = Number(
       phase?.randomOffsetAuxiliaryWeight
       ?? run.configuration.randomOffsetAuxiliaryWeight
@@ -1430,7 +1444,7 @@ export class LaboratoryView {
     const branch = run.parentCheckpoint
       ? ` · exact fork d${run.branchDepth ?? "?"} ← ${run.parentCheckpoint.runId}@${run.parentCheckpoint.update.toLocaleString()} sha ${run.parentCheckpoint.sha256.slice(0, 12)}`
       : "";
-    return `organism ${lineage} · p${phase?.index ?? 0} ${phase?.name ?? "training"}${curriculum}${auxiliaryLabel} · ${lanes} lane${lanes === 1 ? "" : "s"}${branch}`;
+    return `organism ${lineage} · p${phase?.index ?? 0} ${phase?.name ?? "training"}${curriculum}${carriedExpansion}${auxiliaryLabel} · ${lanes} lane${lanes === 1 ? "" : "s"}${branch}`;
   }
 
   private populateSelect(select: HTMLSelectElement, choices: { value: string; label: string }[]): void {

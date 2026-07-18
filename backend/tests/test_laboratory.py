@@ -258,6 +258,7 @@ def test_snapshot_advertises_checkpoint_evaluation_route(
     assert capabilities["randomContextAudit"] is True
     assert capabilities["fullCorpusContextAudit"] is True
     assert capabilities["trainingShardCurriculum"] is True
+    assert capabilities["persistentDomainExpansion"] is True
     assert capabilities["stateLaneExpansion"] is True
     assert capabilities["stateLaneDomains"] is True
     assert capabilities["maximumStateLanes"] == 512
@@ -684,7 +685,7 @@ def test_curriculum_breadth_requires_append_only_lanes_and_never_shrinks(
             )
         )
 
-    with pytest.raises(ValueError, match="requires appending"):
+    with pytest.raises(ValueError, match="requires appended lanes"):
         laboratory.continue_run(
             ContinueSpec(
                 "trial", "GPU-example", training_shard_tokens=4_096,
@@ -698,6 +699,30 @@ def test_curriculum_breadth_requires_append_only_lanes_and_never_shrinks(
                 state_lanes=32, structure=False, topology_profile="fixed",
             )
         )
+
+    launched: dict[str, object] = {}
+
+    def fake_start(
+        run_id: str, gpu_uuid: str, command: list[str], directory: Path
+    ) -> SimpleNamespace:
+        launched.update(command=command)
+        return SimpleNamespace(pid=1234)
+
+    monkeypatch.setattr(laboratory, "_start_process", fake_start)
+    monkeypatch.setattr(laboratory, "_git_commit", lambda: "domain-expansion")
+    laboratory.continue_run(
+        ContinueSpec(
+            "trial", "GPU-example", training_shard_tokens=4_096,
+            expand_existing_lane_domains=True, state_lanes=16,
+            structure=False, topology_profile="fixed",
+        )
+    )
+    manifest = json.loads((run / "manifest.json").read_text(encoding="utf-8"))
+    command = launched["command"]
+    assert isinstance(command, list)
+    assert "--expand-existing-lane-domains" in command
+    assert manifest["phaseHistory"][-1]["expandedExistingLaneDomains"] is True
+    assert manifest["configuration"]["expandedExistingLaneDomains"] is True
 
 
 def test_continuation_recovers_phase_and_curriculum_from_latest_checkpoint_metric(

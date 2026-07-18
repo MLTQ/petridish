@@ -78,8 +78,9 @@ control-enable contracts without requiring NVIDIA hardware or launching trainers
   command, manifest, phase boundary, and append-only metric.
 - **Does**: Proves append-only lane expansion reaches the command, manifest, phase
   boundary, and metric while shrink requests remain invalid.
-- **Does**: Requires every corpus-breadth increase to append lanes in the same phase
-  and rejects bounded or full-stream domain shrinkage before launching a trainer.
+- **Does**: Requires every corpus-breadth increase either to append lanes or explicitly
+  expand carried domains, records that distinction through command/phase/manifest,
+  and rejects bounded or full-stream shrinkage before launching a trainer.
 - **Does**: Proves continuation repairs a lagging manifest from the latest checkpoint
   metric's phase, repeated-shard size, and lane count rather than relabeling the
   preserved organism with stale orchestration metadata.

@@ -25,6 +25,13 @@ channel. Each saved lane keeps its checkpointed modulo/domain. A broader phase a
 only newly appended lanes, so old trajectories continue receiving their original
 tokens instead of being globally reinterpreted. A smaller domain is rejected because
 it would discard or remap saved experience.
+`--expand-existing-lane-domains` is the explicit alternative for lived curriculum
+breadth. During resume-plasticity it increases only restored lanes' stored wrap
+boundary to the requested broader prefix/full stream. Their next-token cursor,
+electrical/private/workspace state, absolute age, cells, graph, optimizer, and RNG are
+bit-identical. Because the broader stream shares the old prefix, the next token is
+unchanged; novel text begins only where the old stream would have wrapped to zero.
+The flag is rejected without an explicit broader domain.
 `--stream-mode continuous` is the corpus default: adjacent windows carry the full
 detached cellular runtime state across optimizer steps. `windowed` retains the old
 random-context/cold-electrical-state behavior as a recorded control. Checkpoints save
@@ -221,6 +228,13 @@ Change only structural/lifecycle policy and an optional gradient ceiling in a re
 configuration, then derive its status from the organism's preserved training history.
 Neither helper resets or mutates substrate, developmental history, optimizer, sampler,
 or runtime tensors.
+
+### `expand_persistent_stream_domains`
+
+Changes only checkpointed per-row stream-domain lengths after validating continuous
+mode, cursor bounds, loaded corpus capacity, and monotonic breadth. Reapplying the
+same completed transition during exact-phase resume is an idempotent no-op. It never
+changes a cursor or organism-owned runtime tensor.
 
 Compilation remains opt-in because the measured stable-forward attempt currently has
 dynamic topology graph breaks; production runs should use `--compile off`.

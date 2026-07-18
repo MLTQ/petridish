@@ -58,19 +58,21 @@ and exact-phase resume after a deliberate stop.
   policy for an existing checkpointed organism.
 - **Does**: Accepts an optional repeated-shard curriculum for a continuation phase;
   omission preserves the active stream and zero selects the full corpus.
+- **Does**: Accepts an explicit carried-stream domain expansion flag; the laboratory
+  requires a broader curriculum and records the transition rather than remapping it
+  silently.
 - **Does**: Accepts an optional one-to-512 target lane count for append-only
   persistent experience expansion; the laboratory rejects any requested shrink.
 - **Does**: Accepts fixed, adaptive, or prune-only topology; the laboratory performs
   categorical validation and records the resolved phase policy.
 - **Does**: Accepts an optional 0.01–100 gradient-norm ceiling; omission preserves
   the restored checkpoint's current ceiling rather than substituting a default.
-- **Does**: Accepts an optional zero-to-ten random-offset auxiliary weight; omission
-  preserves the restored checkpoint value and never alters persistent lane storage.
-- **Does**: Accepts an optional auxiliary scope; omission preserves the checkpoint,
-  and changing it affects disposable contexts rather than warm lane domains.
+- **Does**: Retains legacy auxiliary fields for compatibility, while the laboratory
+  requires zero optimizer weight and keeps fresh contexts evaluation-only.
 - **Rationale**: Architecture, geometry, weights, state, and existing corpus cursors
   come from the checkpoint. A shard changes which experiences repeat and a lane
-  expansion adds cold trajectories; neither replaces organism-owned state.
+  expansion adds cold trajectories; explicit carried-domain expansion changes only
+  future wrap boundaries. None replaces organism-owned state.
 
 ### `LabEvaluateRequest`
 - **Does**: Selects a measured GPU and optional state-horizon sweep for read-only

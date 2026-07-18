@@ -299,6 +299,30 @@ def expand_persistent_state_lanes(
     experiment.state_lanes = target_lanes
 
 
+def expand_persistent_stream_domains(
+    experiment: SequenceExperiment, target_tokens: int
+) -> None:
+    """Move carried streams' future wrap boundary without changing their state."""
+
+    if experiment.stream_mode != "continuous":
+        raise ValueError("stream-domain expansion requires continuous stream mode")
+    positions = experiment._training_stream_positions
+    lengths = experiment._training_stream_lengths
+    if positions is None or lengths is None:
+        raise RuntimeError("continuous stream positions and domains were not restored")
+    if target_tokens > experiment.task.training_stream_tokens:
+        raise ValueError("target stream domain exceeds the loaded training corpus")
+    if target_tokens <= experiment.task.sequence_length:
+        raise ValueError("target stream domain must exceed one complete context")
+    if bool((lengths > target_tokens).any()):
+        raise ValueError("stream-domain continuation cannot shrink a carried stream")
+    if not bool((lengths < target_tokens).any()):
+        return
+    if bool((positions < 0).any()) or bool((positions >= lengths).any()):
+        raise ValueError("checkpoint stream cursor is outside its carried domain")
+    experiment._training_stream_lengths = torch.full_like(lengths, target_tokens)
+
+
 def _phase_balanced_added_positions(
     sampled_positions: torch.Tensor,
     preserved_positions: torch.Tensor,
@@ -878,6 +902,13 @@ def main() -> None:
     parser.add_argument("--state-retention", type=float, default=1.0)
     parser.add_argument("--state-lanes", type=int)
     parser.add_argument(
+        "--expand-existing-lane-domains", action="store_true",
+        help=(
+            "move restored lanes' future wrap boundary to the requested broader "
+            "training stream without changing their cursors or runtime state"
+        ),
+    )
+    parser.add_argument(
         "--random-offset-auxiliary-weight", type=float,
         help=(
             "weight for one disposable cold-state random training context per "
@@ -979,6 +1010,19 @@ def main() -> None:
         parser.error(
             "--resume-plasticity requires resume to be enabled and an existing "
             "latest.pt checkpoint"
+        )
+    if args.expand_existing_lane_domains and not args.resume_plasticity:
+        parser.error(
+            "--expand-existing-lane-domains requires an explicit "
+            "--resume-plasticity continuation"
+        )
+    if (
+        args.expand_existing_lane_domains
+        and args.training_shard_tokens is None
+    ):
+        parser.error(
+            "--expand-existing-lane-domains requires an explicit broader "
+            "--training-shard-tokens value"
         )
     payload: dict[str, Any] | None = None
     requested_device = torch.device(args.device)
@@ -1170,6 +1214,10 @@ def main() -> None:
     if payload is not None:
         target_state_lanes = args.state_lanes
         restore_checkpoint(experiment, payload)
+        if args.expand_existing_lane_domains:
+            expand_persistent_stream_domains(
+                experiment, experiment.task.training_stream_tokens
+            )
         expand_persistent_state_lanes(experiment, target_state_lanes)
         if args.resume_plasticity:
             experiment.topology_profile = topology_profile
