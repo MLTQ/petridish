@@ -69,6 +69,26 @@ def test_discovery_summarizes_latest_train_and_evaluation(tmp_path: Path) -> Non
     assert summary["latestHeldOut"]["loss"] == 3.6
 
 
+def test_zombie_trainer_is_not_reported_as_alive(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    process = tmp_path / "123"
+    process.mkdir()
+    (process / "stat").write_text(
+        "123 (python trainer) Z 1 2 3 4\n", encoding="utf-8"
+    )
+    kill_called = False
+
+    def unexpected_kill(_pid: int, _signal: int) -> None:
+        nonlocal kill_called
+        kill_called = True
+
+    monkeypatch.setattr("petridish.laboratory.os.kill", unexpected_kill)
+
+    assert not Laboratory._pid_alive(123, proc_root=tmp_path)
+    assert not kill_called
+
+
 def test_snapshot_discovers_bounded_benchmark_artifacts(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

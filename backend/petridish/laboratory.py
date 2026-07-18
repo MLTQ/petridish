@@ -395,7 +395,16 @@ class Laboratory:
             return None
 
     @staticmethod
-    def _pid_alive(pid: int) -> bool:
+    def _pid_alive(pid: int, *, proc_root: Path = Path("/proc")) -> bool:
+        try:
+            process_stat = (proc_root / str(pid) / "stat").read_text(encoding="utf-8")
+        except OSError:
+            process_stat = ""
+        closing_parenthesis = process_stat.rfind(")")
+        if closing_parenthesis >= 0:
+            fields = process_stat[closing_parenthesis + 1 :].split()
+            if fields and fields[0] == "Z":
+                return False
         try:
             os.kill(pid, 0)
         except OSError:

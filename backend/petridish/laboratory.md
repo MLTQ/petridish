@@ -45,6 +45,12 @@ explicitly enabled trainer processes.
 ### `Laboratory.stop_run`
 - **Does**: Sends SIGTERM so the trainer completes its current update and checkpoints.
 
+### `Laboratory._pid_alive`
+- **Does**: Treats Linux zombie processes as stopped before falling back to a
+  portable signal probe.
+- **Rationale**: A failed CUDA worker can remain in `/proc` until reaped; its PID
+  must not keep a failed experiment labeled as running.
+
 ## Contracts
 
 | Dependent | Expects | Breaking changes |
