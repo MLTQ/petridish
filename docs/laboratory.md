@@ -40,7 +40,10 @@ against optimizer update, not wall time.
 - Run IDs are lowercase slugs and cannot address paths outside `runs/`.
 - Commands are constructed as argument arrays with no shell interpolation.
 - Stop sends SIGTERM to the trainer's checkpoint-safe shutdown path.
-- Server shutdown never terminates independent trainers.
+- Application shutdown does not signal trainers directly, but a systemd service
+  restart can terminate every process in the shared cgroup. Use
+  `scripts/deploy_lab_remote.sh`: full deployment refuses while a trainer is active,
+  while `frontend-only` replaces static assets without restarting the supervisor.
 
 ## Remote launch
 
