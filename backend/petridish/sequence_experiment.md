@@ -144,8 +144,11 @@ Training records stun and recovery events separately from births/deaths. Excitot
 death counts only cumulative damage; transient overload is not classified as death.
 Exact edge-growth and pruning totals are retained independently from the bounded
 visual event stream and survive checkpoints.
-Population changes reconcile continuous runtime state by physical site, retaining
-survivors and initializing only births before the next token window.
+Population changes reconcile every persistent experience lane by physical site,
+retaining each survivor's lane-specific hidden/private/binding state and absolute
+token age while initializing only births. The current-state pointer is remapped to
+its corresponding lane, so round-robin continuation never clears or strands another
+lane after birth/death.
 
 Corpus construction primes the viewer with only four measured tokens; this avoids a
 full training-context forward pass while the runtime lock is switching experiments.

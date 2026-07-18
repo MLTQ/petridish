@@ -70,7 +70,10 @@ organism-owned electrical and structural state. The
 continuous-experience regressions prove adjacent windows share the boundary token,
 optimizer updates carry detached neuron state, checkpoints resume the exact lane and
 runtime state, and cell death preserves each surviving neuron's state by physical
-site. They also require finite non-negative pre-clipping gradient norms for bias,
+site. A multi-lane turnover regression additionally replaces one physical site,
+requires every lane to retain survivor values and token age while initializing the
+birth, preserves the active-lane pointer, and advances again without a stale-site
+failure. They also require finite non-negative pre-clipping gradient norms for bias,
 readout, token encoding, recurrent rules, and synapses, plus a bounded positive global
 clip scale. The same checkpoint regression
 enables structural plasticity as a new phase

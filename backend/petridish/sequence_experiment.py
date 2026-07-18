@@ -458,6 +458,8 @@ class SequenceExperiment:
                 allow_growth=topology_grows(self.topology_profile),
             )
             self._reset_mutation_optimizer_state(update.changed_edges, update.changed_sites)
+            if bool(update.changed_sites.any()):
+                self._reconcile_persistent_runtime_bank()
             events.extend(update.events)
             self.last_recoveries = update.recoveries
             self.cumulative_recoveries += update.recoveries
@@ -744,6 +746,33 @@ class SequenceExperiment:
             return
         self.recall_pair_count += 1
         self.stage_accuracy_history.clear()
+
+    @torch.no_grad()
+    def _reconcile_persistent_runtime_bank(self) -> None:
+        """Remap every experience lane after birth/death without clearing survivors."""
+
+        if self.stream_mode != "continuous":
+            return
+        previous_bank = self._training_runtime_bank
+        previous_current = self._training_runtime_state
+        current_index = next(
+            (
+                index for index, state in enumerate(previous_bank)
+                if state is previous_current
+            ),
+            None,
+        )
+        self._training_runtime_bank = [
+            None if state is None else self.model.reconcile_runtime_state(state)
+            for state in previous_bank
+        ]
+        if previous_current is None:
+            return
+        self._training_runtime_state = (
+            self._training_runtime_bank[current_index]
+            if current_index is not None
+            else self.model.reconcile_runtime_state(previous_current)
+        )
 
     @torch.no_grad()
     def _reset_mutation_optimizer_state(
@@ -1129,6 +1158,8 @@ class SequenceExperiment:
             apply_lifecycle=True, apply_topology=True
         )
         self._reset_mutation_optimizer_state(update.changed_edges, update.changed_sites)
+        if bool(update.changed_sites.any()):
+            self._reconcile_persistent_runtime_bank()
         self.last_births = update.births
         self.last_deaths = update.deaths
         self.last_grown_edges = update.grown_edges

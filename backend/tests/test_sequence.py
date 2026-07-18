@@ -957,6 +957,67 @@ def test_cell_death_preserves_surviving_continuous_state() -> None:
     assert torch.equal(reconciled.hidden[:, new_index], state.hidden[:, old_index])
 
 
+def test_population_turnover_reconciles_every_persistent_state_lane() -> None:
+    text = "One fox ran. Two birds flew. Three cats slept. " * 30
+    task = build_token_task(text, context_length=8, vocabulary_size=32)
+    experiment = SequenceExperiment(
+        task,
+        replace(
+            corpus_config(), batch_size=1, structural_enabled=0, lifecycle_enabled=0
+        ),
+        seed=63,
+        device="cpu",
+        stream_mode="continuous",
+        state_retention=0.9,
+        state_lanes=2,
+    )
+    experiment.train_updates(2)
+    substrate = experiment.model.substrate
+    original_bank = list(experiment._training_runtime_bank)
+    assert all(state is not None for state in original_bank)
+    protected = set(substrate.input_sites.tolist() + substrate.output_sites.tolist())
+    victim = next(
+        site for site in substrate.living_sites.tolist() if site not in protected
+    )
+    newborn = next(
+        site for site in range(experiment.config.site_count)
+        if not bool(substrate.occupied[site]) and site not in protected
+    )
+    survivor = next(
+        site for site in substrate.living_sites.tolist()
+        if site not in protected and site != victim
+    )
+    survivor_values = []
+    positions = []
+    for state in original_bank:
+        assert state is not None
+        survivor_index = int((state.sites == survivor).nonzero()[0])
+        survivor_values.append(state.hidden[:, survivor_index].clone())
+        positions.append(state.position)
+    previous_current_index = next(
+        index for index, state in enumerate(original_bank)
+        if state is experiment._training_runtime_state
+    )
+    substrate.occupied[victim] = False
+    substrate.occupied[newborn] = True
+
+    experiment._reconcile_persistent_runtime_bank()
+
+    for index, state in enumerate(experiment._training_runtime_bank):
+        assert state is not None
+        assert victim not in state.sites.tolist()
+        assert newborn in state.sites.tolist()
+        survivor_index = int((state.sites == survivor).nonzero()[0])
+        assert torch.equal(state.hidden[:, survivor_index], survivor_values[index])
+        assert state.position == positions[index]
+        assert bool(torch.isfinite(state.hidden).all())
+    assert (
+        experiment._training_runtime_state
+        is experiment._training_runtime_bank[previous_current_index]
+    )
+    experiment.train_updates(2)
+
+
 def test_electrical_relaxation_preserves_structure_and_age_without_hard_reset() -> None:
     text = "One fox ran. Two birds flew. Three cats slept. " * 30
     task = build_token_task(text, context_length=8, vocabulary_size=32)
