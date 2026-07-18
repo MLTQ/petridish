@@ -78,6 +78,7 @@ interface BenchmarkSnapshot {
   recallMode: string;
   seed: number | null;
   deterministic: boolean;
+  globalRngMatched: boolean;
   device: string | null;
   steps: number | null;
   completedSteps: number;
@@ -251,7 +252,8 @@ export class LaboratoryView {
       && benchmark.recallMode === newest.recallMode
       && benchmark.steps === newest.steps
     ));
-    this.benchmarkSummary.value = `${newest.profile} · ${newest.recallMode.replace("_", " ")} · seed ${newest.seed ?? "—"} · ${newest.deterministic ? "deterministic" : "seeded"} · ${newest.steps ?? "—"} updates`;
+    const rngStatus = newest.globalRngMatched ? " · branch RNG matched" : "";
+    this.benchmarkSummary.value = `${newest.profile} · ${newest.recallMode.replace("_", " ")} · seed ${newest.seed ?? "—"} · ${newest.deterministic ? "deterministic" : "seeded"}${rngStatus} · ${newest.steps ?? "—"} updates`;
     const visibleCohort = cohort.slice(0, SERIES_CLASSES.length);
     this.drawBenchmarkChart(visibleCohort);
     this.drawBenchmarkTopologyChart(visibleCohort);

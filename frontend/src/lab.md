@@ -31,6 +31,8 @@ validated launch or stop requests.
   repeated runs directly.
 - **Does**: Directly labels curves by artifact ID and states whether the newest cohort
   used deterministic or ordinary seeded execution.
+- **Does**: Labels matched process-global branch RNG separately from deterministic
+  kernels, because stochastic lifecycle mutation uses both guarantees.
 - **Does**: Shows atomic live progress, completion state, elapsed time, and measured
   peak CUDA allocation when the benchmark publisher provides them.
 - **Does**: Shows final held-out accuracy for each queried binding slot so a

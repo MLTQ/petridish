@@ -283,6 +283,7 @@ class Laboratory:
                     "recallMode": payload.get("recallMode", "adaptive"),
                     "seed": payload.get("seed"),
                     "deterministic": payload.get("deterministic", False),
+                    "globalRngMatched": payload.get("globalRngMatched", False),
                     "device": payload.get("device"),
                     "steps": payload.get("steps"),
                     "seconds": payload.get("seconds"),
