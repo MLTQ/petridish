@@ -50,6 +50,7 @@ and exact-phase resume after a deliberate stop.
   from CUDA tensor batch size.
 - **Does**: Bounds a zero-by-default random-offset auxiliary weight from zero through
   ten for explicit shared-rule generalization experiments.
+- **Does**: Restricts auxiliary sampling scope to `active_shard` or `full_corpus`.
 - **Rationale**: The API never accepts a shell command or arbitrary path.
 
 ### `LabContinueRequest`
@@ -65,6 +66,8 @@ and exact-phase resume after a deliberate stop.
   the restored checkpoint's current ceiling rather than substituting a default.
 - **Does**: Accepts an optional zero-to-ten random-offset auxiliary weight; omission
   preserves the restored checkpoint value and never alters persistent lane storage.
+- **Does**: Accepts an optional auxiliary scope; omission preserves the checkpoint,
+  and changing it affects disposable contexts rather than warm lane domains.
 - **Rationale**: Architecture, geometry, weights, state, and existing corpus cursors
   come from the checkpoint. A shard changes which experiences repeat and a lane
   expansion adds cold trajectories; neither replaces organism-owned state.

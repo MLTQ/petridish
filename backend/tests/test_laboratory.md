@@ -91,6 +91,9 @@ control-enable contracts without requiring NVIDIA hardware or launching trainers
 - **Does**: Proves a bounded phase-local random-offset auxiliary weight reaches the
   trainer, manifest, phase history, and append-only metric while values above ten
   fail before process launch.
+- **Does**: Proves active-shard/full-corpus auxiliary scope reaches the trainer,
+  manifest, phase history, and append-only metric while invalid scopes fail before
+  process launch.
 - **Does**: Proves checkpoint evaluation invokes the read-only trainer path, retains
   lineage/phase metadata, and can request state horizons without a plasticity override.
 - **Does**: Requires read-only audits to use sixteen fixed-seed batches rather than

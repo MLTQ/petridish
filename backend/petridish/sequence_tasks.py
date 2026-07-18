@@ -43,6 +43,7 @@ class SequenceTask:
     unigram_baseline_loss: float | None = None
     bigram_baseline_loss: float | None = None
     training_stream: torch.Tensor | None = None
+    full_training_stream: torch.Tensor | None = None
     evaluation_stream: torch.Tensor | None = None
     tokenizer_profile: str | None = None
     special_token_ids: tuple[int, ...] = ()
@@ -57,6 +58,25 @@ class SequenceTask:
     ) -> SequenceBatch:
         selected = self.evaluation_generator if evaluation else self.generator
         return (selected or self.generator)(batch_size, generator)
+
+    def full_training_batch(
+        self, batch_size: int, generator: torch.Generator
+    ) -> SequenceBatch:
+        """Sample independent contexts from the unsharded training corpus."""
+
+        source = self.full_training_stream
+        if source is None:
+            raise ValueError(f"task {self.key} does not expose its full training corpus")
+        maximum = source.numel() - self.sequence_length - 1
+        if maximum <= 0:
+            raise ValueError("full training corpus is shorter than one context window")
+        starts = torch.randint(0, maximum, (batch_size,), generator=generator)
+        offsets = torch.arange(self.sequence_length + 1)
+        rows = source[starts.unsqueeze(1) + offsets]
+        return SequenceBatch(
+            rows[:, :-1], rows[:, 1:],
+            torch.ones(batch_size, self.sequence_length, dtype=torch.bool),
+        )
 
     def initial_stream_positions(
         self, batch_size: int, generator: torch.Generator, *, evaluation: bool = False

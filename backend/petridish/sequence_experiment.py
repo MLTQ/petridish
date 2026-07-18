@@ -32,6 +32,7 @@ from .sequence_tasks import (
 
 
 MAX_STATE_LANES = 512
+RANDOM_OFFSET_AUXILIARY_SCOPES = ("active_shard", "full_corpus")
 
 
 class SequenceExperiment:
@@ -51,6 +52,7 @@ class SequenceExperiment:
         state_retention: float = 1.0,
         state_lanes: int = 1,
         random_offset_auxiliary_weight: float = 0.0,
+        random_offset_auxiliary_scope: str = "active_shard",
         topology_profile: str | None = None,
     ) -> None:
         self.task = resolve_sequence_task(task)
@@ -71,10 +73,18 @@ class SequenceExperiment:
             raise ValueError(
                 "random-offset auxiliary weight must be between zero and ten"
             )
+        if random_offset_auxiliary_scope not in RANDOM_OFFSET_AUXILIARY_SCOPES:
+            raise ValueError("unknown random-offset auxiliary scope")
+        if (
+            random_offset_auxiliary_scope == "full_corpus"
+            and self.task.full_training_stream is None
+        ):
+            raise ValueError("full-corpus auxiliary requires a full training corpus")
         self.stream_mode = stream_mode
         self.state_retention = state_retention
         self.state_lanes = state_lanes
         self.random_offset_auxiliary_weight = random_offset_auxiliary_weight
+        self.random_offset_auxiliary_scope = random_offset_auxiliary_scope
         self.topology_profile = resolve_topology_profile(
             topology_profile, structure=bool(self.config.structural_enabled)
         )
@@ -236,6 +246,19 @@ class SequenceExperiment:
         return SequenceBatch(
             batch.tokens.to(self.device), batch.targets.to(self.device), batch.loss_mask.to(self.device)
         )
+
+    def _random_offset_auxiliary_batch(self) -> SequenceBatch:
+        """Draw one disposable context from the configured training domain."""
+
+        if self.random_offset_auxiliary_scope == "full_corpus":
+            batch = self.task.full_training_batch(
+                self.config.batch_size, self.generator
+            )
+            return SequenceBatch(
+                batch.tokens.to(self.device), batch.targets.to(self.device),
+                batch.loss_mask.to(self.device),
+            )
+        return self._batch(self.config.batch_size)
 
     def _continuous_batch(
         self,
@@ -400,7 +423,7 @@ class SequenceExperiment:
         self.last_random_offset_auxiliary_loss = None
         self.last_random_offset_auxiliary_accuracy = None
         if self.random_offset_auxiliary_weight > 0:
-            auxiliary_batch = self._batch(self.config.batch_size)
+            auxiliary_batch = self._random_offset_auxiliary_batch()
             with torch.autocast(
                 device_type=self.device.type,
                 dtype=self.amp_dtype,

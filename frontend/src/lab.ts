@@ -140,6 +140,7 @@ interface MetricRecord {
   gradientClipScale?: number;
   gradientClip?: number;
   randomOffsetAuxiliaryWeight?: number;
+  randomOffsetAuxiliaryScope?: "active_shard" | "full_corpus";
   randomOffsetAuxiliaryLoss?: number | null;
   randomOffsetAuxiliaryAccuracy?: number | null;
   evaluationSplit?: "validation" | "training" | "trajectory" | "random_context";
@@ -158,6 +159,7 @@ interface OrganismPhase {
   stateLanes?: number;
   gradientClip?: number;
   randomOffsetAuxiliaryWeight?: number;
+  randomOffsetAuxiliaryScope?: "active_shard" | "full_corpus";
   startGrownEdges?: number;
   startPrunedEdges?: number;
   startBirths?: number;
@@ -212,6 +214,7 @@ interface LaboratorySnapshot {
     samePhaseResume?: boolean;
     phaseGradientClip?: boolean;
     randomOffsetAuxiliary?: boolean;
+    randomOffsetAuxiliaryScope?: boolean;
   };
   gpus: GpuSnapshot[];
   runs: RunSnapshot[];
@@ -323,6 +326,7 @@ export class LaboratoryView {
   private readonly continueStateLanesInput = required<HTMLInputElement>("#lab-continue-state-lanes");
   private readonly continueGradientClipInput = required<HTMLInputElement>("#lab-continue-gradient-clip");
   private readonly continueRandomOffsetAuxiliaryInput = required<HTMLInputElement>("#lab-continue-random-offset-auxiliary");
+  private readonly continueRandomOffsetAuxiliaryScopeSelect = required<HTMLSelectElement>("#lab-continue-random-offset-scope");
   private readonly continueButton = required<HTMLButtonElement>("#lab-continue");
   private readonly continueStatus = required<HTMLOutputElement>("#lab-continue-status");
   private readonly benchmarksHost = required<HTMLTableSectionElement>("#laboratory-benchmarks");
@@ -467,8 +471,14 @@ export class LaboratoryView {
     this.continueRandomOffsetAuxiliaryInput.disabled = !(
       canContinue && snapshot.capabilities.randomOffsetAuxiliary
     );
+    this.continueRandomOffsetAuxiliaryScopeSelect.disabled = !(
+      canContinue && snapshot.capabilities.randomOffsetAuxiliaryScope
+    );
     if (!snapshot.capabilities.randomOffsetAuxiliary) {
       this.continueRandomOffsetAuxiliaryInput.value = "";
+    }
+    if (!snapshot.capabilities.randomOffsetAuxiliaryScope) {
+      this.continueRandomOffsetAuxiliaryScopeSelect.value = "preserve";
     }
     this.continueForkRunInput.disabled = !(
       canContinue && snapshot.capabilities.checkpointFork
@@ -917,7 +927,7 @@ export class LaboratoryView {
         ?? 0,
       );
       const auxiliarySummary = randomOffsetAuxiliary > 0
-        ? ` · random-offset aux ×${this.number(randomOffsetAuxiliary, 2)} loss ${this.number(run.latestTrain?.randomOffsetAuxiliaryLoss ?? undefined, 3)} acc ${this.percent(run.latestTrain?.randomOffsetAuxiliaryAccuracy ?? undefined)}`
+        ? ` · random-offset aux ${String(run.latestTrain?.randomOffsetAuxiliaryScope ?? run.configuration.randomOffsetAuxiliaryScope ?? "active_shard").replace("_", " ")} ×${this.number(randomOffsetAuxiliary, 2)} loss ${this.number(run.latestTrain?.randomOffsetAuxiliaryLoss ?? undefined, 3)} acc ${this.percent(run.latestTrain?.randomOffsetAuxiliaryAccuracy ?? undefined)}`
         : " · random-offset aux off";
       const shardCausality = shardAudit?.graphReferenceAccuracy === undefined
         ? ""
@@ -1282,6 +1292,9 @@ export class LaboratoryView {
     const randomOffsetAuxiliarySelection = String(
       form.get("randomOffsetAuxiliaryWeight") ?? "",
     ).trim();
+    const randomOffsetAuxiliaryScope = String(
+      form.get("randomOffsetAuxiliaryScope") ?? "preserve",
+    );
     const body = {
       gpuUuid: String(form.get("gpuUuid")),
       additionalUpdates: Number(form.get("additionalUpdates")),
@@ -1296,6 +1309,9 @@ export class LaboratoryView {
       randomOffsetAuxiliaryWeight: randomOffsetAuxiliarySelection === ""
         ? null
         : Number(randomOffsetAuxiliarySelection),
+      randomOffsetAuxiliaryScope: randomOffsetAuxiliaryScope === "preserve"
+        ? null
+        : randomOffsetAuxiliaryScope,
     };
     try {
       if (forkRunId) {
@@ -1350,6 +1366,7 @@ export class LaboratoryView {
       this.continueStateLanesInput.value = "";
       this.continueGradientClipInput.value = "";
       this.continueRandomOffsetAuxiliaryInput.value = "";
+      this.continueRandomOffsetAuxiliaryScopeSelect.value = "preserve";
     }
     const currentLanes = Number(run.configuration.stateLanes ?? 1);
     const maximumStateLanes = this.snapshot?.capabilities.maximumStateLanes ?? 32;
@@ -1363,6 +1380,7 @@ export class LaboratoryView {
     }
     this.continueGradientClipInput.placeholder = `blank preserves ${Number(run.configuration.gradientClip ?? 1)}`;
     this.continueRandomOffsetAuxiliaryInput.placeholder = `blank preserves ${Number(run.configuration.randomOffsetAuxiliaryWeight ?? 0)}`;
+    this.continueRandomOffsetAuxiliaryScopeSelect.title = `current: ${String(run.configuration.randomOffsetAuxiliaryScope ?? "active_shard").replace("_", " ")}`;
   }
 
   private lineagePhase(run: RunSnapshot): string {
@@ -1376,7 +1394,14 @@ export class LaboratoryView {
       ?? run.configuration.randomOffsetAuxiliaryWeight
       ?? 0,
     );
-    const auxiliaryLabel = auxiliary > 0 ? ` · random aux ×${auxiliary}` : "";
+    const auxiliaryScope = String(
+      phase?.randomOffsetAuxiliaryScope
+      ?? run.configuration.randomOffsetAuxiliaryScope
+      ?? "active_shard"
+    ).replace("_", " ");
+    const auxiliaryLabel = auxiliary > 0
+      ? ` · random aux ${auxiliaryScope} ×${auxiliary}`
+      : "";
     const lanes = phase?.stateLanes ?? Number(run.configuration.stateLanes ?? 1);
     const branch = run.parentCheckpoint
       ? ` · exact fork d${run.branchDepth ?? "?"} ← ${run.parentCheckpoint.runId}@${run.parentCheckpoint.update.toLocaleString()} sha ${run.parentCheckpoint.sha256.slice(0, 12)}`

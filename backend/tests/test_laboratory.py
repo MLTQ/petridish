@@ -142,6 +142,7 @@ def test_run_discovery_repairs_lagging_phase_metadata_from_training_metrics(
             "stateLanes": 2,
             "gradientClip": 1.0,
             "randomOffsetAuxiliaryWeight": 0.0,
+            "randomOffsetAuxiliaryScope": "active_shard",
             "startedAt": 3_501.0,
         "recoveredFromMetrics": True,
     }
@@ -253,6 +254,7 @@ def test_snapshot_advertises_checkpoint_evaluation_route(
     assert capabilities["sameLineageRetry"] is True
     assert capabilities["samePhaseResume"] is True
     assert capabilities["randomOffsetAuxiliary"] is True
+    assert capabilities["randomOffsetAuxiliaryScope"] is True
     assert capabilities["tokenizerProfiles"] == ["wordpiece", "byte"]
 
 
@@ -556,6 +558,7 @@ def test_checkpoint_continuation_preserves_run_lineage_and_changes_only_phase(
             state_lanes=16,
             gradient_clip=5.0,
             random_offset_auxiliary_weight=0.25,
+            random_offset_auxiliary_scope="full_corpus",
         )
     )
 
@@ -575,11 +578,13 @@ def test_checkpoint_continuation_preserves_run_lineage_and_changes_only_phase(
     assert manifest["configuration"]["stateLanes"] == 16
     assert manifest["configuration"]["gradientClip"] == 5.0
     assert manifest["configuration"]["randomOffsetAuxiliaryWeight"] == 0.25
+    assert manifest["configuration"]["randomOffsetAuxiliaryScope"] == "full_corpus"
     assert manifest["phaseHistory"][-1]["topologyProfile"] == "prune_only"
     assert manifest["phaseHistory"][-1]["trainingShardTokens"] == 8_192
     assert manifest["phaseHistory"][-1]["stateLanes"] == 16
     assert manifest["phaseHistory"][-1]["gradientClip"] == 5.0
     assert manifest["phaseHistory"][-1]["randomOffsetAuxiliaryWeight"] == 0.25
+    assert manifest["phaseHistory"][-1]["randomOffsetAuxiliaryScope"] == "full_corpus"
     assert manifest["phaseHistory"][-1]["startGrownEdges"] == 320
     assert manifest["phaseHistory"][-1]["startPrunedEdges"] == 448
     assert manifest["phaseHistory"][-1]["startBirths"] == 3
@@ -593,6 +598,7 @@ def test_checkpoint_continuation_preserves_run_lineage_and_changes_only_phase(
     assert command[command.index("--state-lanes") + 1] == "16"
     assert command[command.index("--gradient-clip") + 1] == "5.0"
     assert command[command.index("--random-offset-auxiliary-weight") + 1] == "0.25"
+    assert command[command.index("--random-offset-auxiliary-scope") + 1] == "full_corpus"
     assert "--no-resume" not in command
     assert records[-1]["type"] == "phase"
     assert records[-1]["organismId"] == manifest["organismId"]
@@ -600,6 +606,7 @@ def test_checkpoint_continuation_preserves_run_lineage_and_changes_only_phase(
     assert records[-1]["stateLanes"] == 16
     assert records[-1]["gradientClip"] == 5.0
     assert records[-1]["randomOffsetAuxiliaryWeight"] == 0.25
+    assert records[-1]["randomOffsetAuxiliaryScope"] == "full_corpus"
     assert records[-1]["startGrownEdges"] == 320
     assert records[-1]["startPrunedEdges"] == 448
 
@@ -652,6 +659,14 @@ def test_curriculum_breadth_requires_append_only_lanes_and_never_shrinks(
         laboratory.continue_run(
             ContinueSpec(
                 "trial", "GPU-example", random_offset_auxiliary_weight=10.1,
+                structure=False, topology_profile="fixed",
+            )
+        )
+
+    with pytest.raises(ValueError, match="auxiliary scope"):
+        laboratory.continue_run(
+            ContinueSpec(
+                "trial", "GPU-example", random_offset_auxiliary_scope="unknown",
                 structure=False, topology_profile="fixed",
             )
         )

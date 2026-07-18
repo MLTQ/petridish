@@ -790,6 +790,71 @@ def test_random_offset_auxiliary_updates_shared_rule_without_replacing_lane_stat
     )
 
 
+def test_full_corpus_auxiliary_samples_beyond_the_persistent_lane_shard() -> None:
+    text = "a" * 256 + "z" * 1_024
+    task = build_token_task(
+        text, context_length=8, vocabulary_size=256, tokenizer_profile="byte",
+        training_shard_tokens=128,
+    )
+    config = replace(
+        corpus_config(), batch_size=1, structural_enabled=0,
+        lifecycle_enabled=0,
+    )
+    shard = SequenceExperiment(
+        task, config, seed=145, device="cpu", stream_mode="continuous",
+        random_offset_auxiliary_weight=0.25,
+        random_offset_auxiliary_scope="active_shard",
+    )
+    full = SequenceExperiment(
+        task, config, seed=145, device="cpu", stream_mode="continuous",
+        random_offset_auxiliary_weight=0.25,
+        random_offset_auxiliary_scope="full_corpus",
+    )
+
+    shard_tokens = torch.cat(
+        [shard._random_offset_auxiliary_batch().tokens.flatten() for _ in range(32)]
+    )
+    full_tokens = torch.cat(
+        [full._random_offset_auxiliary_batch().tokens.flatten() for _ in range(32)]
+    )
+
+    assert set(shard_tokens.tolist()) == {ord("a")}
+    assert ord("z") in set(full_tokens.tolist())
+    assert task.training_stream_tokens == 128
+    assert task.full_training_stream_tokens > task.training_stream_tokens
+
+
+def test_auxiliary_weight_and_scope_round_trip_in_checkpoint(
+    tmp_path: Path,
+) -> None:
+    task = build_token_task(
+        ("One fox ran. Two birds flew. " * 40), context_length=8,
+        vocabulary_size=32, training_shard_tokens=128,
+    )
+    config = replace(corpus_config(), batch_size=1)
+    original = SequenceExperiment(
+        task, config, seed=146, device="cpu", stream_mode="continuous",
+        random_offset_auxiliary_weight=0.25,
+        random_offset_auxiliary_scope="full_corpus",
+    )
+    checkpoint = tmp_path / "auxiliary.pt"
+    save_checkpoint(
+        checkpoint, original, context_length=8, amp_mode="off",
+        organism_id="organism-auxiliary", phase_index=18,
+        phase_name="full corpus auxiliary",
+    )
+    payload = load_checkpoint(checkpoint, torch.device("cpu"))
+    restored = SequenceExperiment(
+        task, config, seed=146, device="cpu", stream_mode="continuous",
+    )
+    restore_checkpoint(restored, payload)
+
+    assert payload["task"]["random_offset_auxiliary_weight"] == pytest.approx(0.25)
+    assert payload["task"]["random_offset_auxiliary_scope"] == "full_corpus"
+    assert restored.random_offset_auxiliary_weight == pytest.approx(0.25)
+    assert restored.random_offset_auxiliary_scope == "full_corpus"
+
+
 def test_round_robin_state_lanes_add_trajectory_diversity_at_batch_one() -> None:
     text = "One fox ran. Two birds flew. Three cats slept. " * 30
     task = build_token_task(text, context_length=8, vocabulary_size=32)

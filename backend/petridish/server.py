@@ -52,6 +52,9 @@ class LabLaunchRequest(BaseModel):
     stateRetention: float = Field(default=0.9, ge=0, le=1)
     stateLanes: int = Field(default=1, ge=1, le=MAX_STATE_LANES)
     randomOffsetAuxiliaryWeight: float = Field(default=0, ge=0, le=10)
+    randomOffsetAuxiliaryScope: str = Field(
+        default="active_shard", pattern="^(active_shard|full_corpus)$"
+    )
     messageSteps: int = Field(default=2, ge=1, le=16)
     broadcastGain: float = Field(default=0.3, ge=0, le=2)
     updates: int = Field(default=100_000, ge=1)
@@ -78,6 +81,9 @@ class LabContinueRequest(BaseModel):
     stateLanes: int | None = Field(default=None, ge=1, le=MAX_STATE_LANES)
     gradientClip: float | None = Field(default=None, ge=0.01, le=100)
     randomOffsetAuxiliaryWeight: float | None = Field(default=None, ge=0, le=10)
+    randomOffsetAuxiliaryScope: str | None = Field(
+        default=None, pattern="^(active_shard|full_corpus)$"
+    )
 
 
 class LabForkRequest(BaseModel):
@@ -179,6 +185,7 @@ async def launch_lab_run(request: LabLaunchRequest) -> dict[str, object]:
         state_retention=request.stateRetention,
         state_lanes=request.stateLanes,
         random_offset_auxiliary_weight=request.randomOffsetAuxiliaryWeight,
+        random_offset_auxiliary_scope=request.randomOffsetAuxiliaryScope,
         message_steps=request.messageSteps,
         broadcast_gain=request.broadcastGain,
         updates=request.updates,
@@ -229,6 +236,7 @@ async def continue_lab_run(
         state_lanes=request.stateLanes,
         gradient_clip=request.gradientClip,
         random_offset_auxiliary_weight=request.randomOffsetAuxiliaryWeight,
+        random_offset_auxiliary_scope=request.randomOffsetAuxiliaryScope,
     )
     try:
         return await asyncio.to_thread(laboratory.continue_run, spec)

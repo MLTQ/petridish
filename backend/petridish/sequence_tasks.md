@@ -22,6 +22,9 @@ path from spatial classification to language modeling.
   hidden by text decoding.
 - **Does**: Optionally exposes raw training/validation token streams and slices
   contiguous, wrapping windows from explicit per-lane positions.
+- **Does**: Separately retains the unsharded training tensor and can draw independent
+  full-corpus contexts without changing the active repeated shard or any persistent
+  lane cursor/state domain.
 - **Does**: Accepts an optional per-lane stream length and wraps each row inside that
   checkpoint-owned prefix domain. Shapes must match positions, every domain must hold
   a complete context, and no domain may exceed the available stream.
@@ -56,3 +59,4 @@ path from spatial classification to language modeling.
 | Frontend | Vocabulary indices remain stable within a run | Token reordering |
 | Benchmarks | Generators are deterministic for a supplied torch generator | RNG source |
 | Continuous trainer | Returned next position begins at the previous window's target token and wraps inside that lane's domain | Stream stride or wrapping |
+| Auxiliary trainer | Full-corpus batches are disposable independent contexts and never become a persistent lane | Conflating auxiliary and lane domains |

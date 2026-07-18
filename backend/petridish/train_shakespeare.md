@@ -172,6 +172,11 @@ lane, cursor, or runtime tensor. The checkpoint and every train/scientific recor
 store its weight; train records also store the auxiliary's unweighted loss and
 accuracy. Ordinary resume rejects an override, while explicit plasticity continuation
 may change it without reconstructing any organism-owned state.
+`--random-offset-auxiliary-scope active_shard|full_corpus` selects the disposable
+context distribution independently of persistent lanes. Omission restores the exact
+checkpoint setting; an explicit change requires a resume-plasticity phase and is
+applied after state restoration so saved metadata cannot overwrite the intervention.
+Both weight and scope are stored in task and experiment checkpoint metadata.
 `--topology-profile fixed|adaptive|prune_only` names the phase policy independently
 from lifecycle. Fixed continues to route through the saved graph without endpoint
 mutation; adaptive prunes and grows; prune-only removes signed-low-utility dendrites

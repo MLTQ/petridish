@@ -18,7 +18,7 @@ from typing import Any
 import uuid
 
 from .sequence_cells import CELL_ARCHITECTURES
-from .sequence_experiment import MAX_STATE_LANES
+from .sequence_experiment import MAX_STATE_LANES, RANDOM_OFFSET_AUXILIARY_SCOPES
 from .sequence_tasks import STREAM_MODES
 from .token_corpus_task import TOKENIZER_PROFILES
 from .lifecycle_profiles import LIFECYCLE_PROFILES, resolve_lifecycle_profile
@@ -53,6 +53,7 @@ class LaunchSpec:
     state_retention: float = 0.9
     state_lanes: int = 1
     random_offset_auxiliary_weight: float = 0.0
+    random_offset_auxiliary_scope: str = "active_shard"
     message_steps: int = 2
     broadcast_gain: float = 0.3
     updates: int = 100_000
@@ -81,6 +82,7 @@ class ContinueSpec:
     state_lanes: int | None = None
     gradient_clip: float | None = None
     random_offset_auxiliary_weight: float | None = None
+    random_offset_auxiliary_scope: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -166,6 +168,7 @@ class Laboratory:
                 "samePhaseResume": True,
                 "phaseGradientClip": True,
                 "randomOffsetAuxiliary": True,
+                "randomOffsetAuxiliaryScope": True,
             },
             "gpus": gpus,
             "runs": self._discover_runs(active_runs),
@@ -239,6 +242,9 @@ class Laboratory:
                 "randomOffsetAuxiliaryWeight": (
                     spec.random_offset_auxiliary_weight
                 ),
+                "randomOffsetAuxiliaryScope": (
+                    spec.random_offset_auxiliary_scope
+                ),
                 "messageSteps": spec.message_steps,
                 "broadcastGain": spec.broadcast_gain,
                 "updates": spec.updates,
@@ -264,6 +270,9 @@ class Laboratory:
                     "gradientClip": 1.0,
                     "randomOffsetAuxiliaryWeight": (
                         spec.random_offset_auxiliary_weight
+                    ),
+                    "randomOffsetAuxiliaryScope": (
+                        spec.random_offset_auxiliary_scope
                     ),
                     "startedAt": time.time(),
                 }
@@ -294,6 +303,12 @@ class Laboratory:
                 "random-offset auxiliary weight must be between zero and ten"
             )
         if (
+            spec.random_offset_auxiliary_scope is not None
+            and spec.random_offset_auxiliary_scope
+            not in RANDOM_OFFSET_AUXILIARY_SCOPES
+        ):
+            raise ValueError("unknown random-offset auxiliary scope")
+        if (
             spec.state_lanes is not None
             and not 1 <= spec.state_lanes <= MAX_STATE_LANES
         ):
@@ -311,6 +326,13 @@ class Laboratory:
             raise ValueError("unknown GPU UUID")
         directory = self._run_directory(spec.run_id)
         manifest = self._read_json(directory / "manifest.json")
+        if (
+            spec.random_offset_auxiliary_scope == "full_corpus"
+            and manifest.get("task") != "tiny_stories"
+        ):
+            raise ValueError(
+                "full-corpus auxiliary is available only for TinyStories"
+            )
         if spec.training_shard_tokens is not None:
             if manifest.get("task") != "tiny_stories":
                 raise ValueError("training shards are available only for TinyStories")
@@ -397,6 +419,19 @@ class Laboratory:
             if spec.random_offset_auxiliary_weight is None
             else spec.random_offset_auxiliary_weight
         )
+        previous_random_offset_auxiliary_scope = str(
+            (latest_train or {}).get(
+                "randomOffsetAuxiliaryScope",
+                configuration.get(
+                    "randomOffsetAuxiliaryScope", "active_shard"
+                ),
+            )
+        )
+        random_offset_auxiliary_scope = (
+            previous_random_offset_auxiliary_scope
+            if spec.random_offset_auxiliary_scope is None
+            else spec.random_offset_auxiliary_scope
+        )
         previous_state_lanes = int(
             (latest_train or {}).get(
                 "stateLanes", configuration.get("stateLanes", 1)
@@ -450,6 +485,12 @@ class Laboratory:
                 else f"{training_shard_tokens:,}-token repeated shard"
             )
             phase_name = f"{curriculum} + {phase_name}"
+        if (
+            spec.random_offset_auxiliary_scope is not None
+            and spec.phase_name is None
+        ):
+            auxiliary_domain = spec.random_offset_auxiliary_scope.replace("_", "-")
+            phase_name = f"{auxiliary_domain} auxiliary + {phase_name}"
         command = self._continuation_command(
             directory,
             target_update=target_update,
@@ -465,6 +506,9 @@ class Laboratory:
             random_offset_auxiliary_weight=(
                 spec.random_offset_auxiliary_weight
             ),
+            random_offset_auxiliary_scope=(
+                spec.random_offset_auxiliary_scope
+            ),
         )
         phase = {
             "index": phase_index,
@@ -478,6 +522,7 @@ class Laboratory:
             "stateLanes": state_lanes,
             "gradientClip": gradient_clip,
             "randomOffsetAuxiliaryWeight": random_offset_auxiliary_weight,
+            "randomOffsetAuxiliaryScope": random_offset_auxiliary_scope,
             "startGrownEdges": int(
                 (latest_diagnostic or {}).get("cumulativeGrownEdges", 0)
             ),
@@ -500,6 +545,7 @@ class Laboratory:
                 "stateLanes": state_lanes,
                 "gradientClip": gradient_clip,
                 "randomOffsetAuxiliaryWeight": random_offset_auxiliary_weight,
+                "randomOffsetAuxiliaryScope": random_offset_auxiliary_scope,
             }
         )
         manifest.update(
@@ -529,6 +575,7 @@ class Laboratory:
                 "stateLanes": state_lanes,
                 "gradientClip": gradient_clip,
                 "randomOffsetAuxiliaryWeight": random_offset_auxiliary_weight,
+                "randomOffsetAuxiliaryScope": random_offset_auxiliary_scope,
                 "startGrownEdges": phase["startGrownEdges"],
                 "startPrunedEdges": phase["startPrunedEdges"],
                 "startBirths": phase["startBirths"],
@@ -802,6 +849,7 @@ class Laboratory:
             state_lanes=None,
             gradient_clip=None,
             random_offset_auxiliary_weight=None,
+            random_offset_auxiliary_scope=None,
         )
         checkpoint_sha256 = self._file_sha256(checkpoint)
         process = self._start_process(spec.run_id, spec.gpu_uuid, command, directory)
@@ -935,6 +983,15 @@ class Laboratory:
             raise ValueError(
                 "random-offset auxiliary weight must be between zero and ten"
             )
+        if spec.random_offset_auxiliary_scope not in RANDOM_OFFSET_AUXILIARY_SCOPES:
+            raise ValueError("unknown random-offset auxiliary scope")
+        if (
+            spec.random_offset_auxiliary_scope == "full_corpus"
+            and spec.task != "tiny_stories"
+        ):
+            raise ValueError(
+                "full-corpus auxiliary is available only for TinyStories"
+            )
         if spec.batch_size < 1 or spec.batch_size > 256:
             raise ValueError("batch size must be between 1 and 256")
         if spec.message_steps < 1 or spec.message_steps > 16:
@@ -972,6 +1029,8 @@ class Laboratory:
             "--state-lanes", str(spec.state_lanes),
             "--random-offset-auxiliary-weight",
             str(spec.random_offset_auxiliary_weight),
+            "--random-offset-auxiliary-scope",
+            spec.random_offset_auxiliary_scope,
             "--message-steps", str(spec.message_steps),
             "--broadcast-gain", str(spec.broadcast_gain),
             "--architecture", spec.architecture,
@@ -1011,6 +1070,7 @@ class Laboratory:
         state_lanes: int | None,
         gradient_clip: float | None,
         random_offset_auxiliary_weight: float | None,
+        random_offset_auxiliary_scope: str | None,
     ) -> list[str]:
         command = [
             sys.executable, "-m", "petridish.train_shakespeare",
@@ -1036,6 +1096,13 @@ class Laboratory:
                 (
                     "--random-offset-auxiliary-weight",
                     str(random_offset_auxiliary_weight),
+                )
+            )
+        if random_offset_auxiliary_scope is not None:
+            command.extend(
+                (
+                    "--random-offset-auxiliary-scope",
+                    random_offset_auxiliary_scope,
                 )
             )
         return command
@@ -1205,6 +1272,12 @@ class Laboratory:
                             "gradientClip": configuration.get("gradientClip", 1.0),
                             "randomOffsetAuxiliaryWeight": configuration.get(
                                 "randomOffsetAuxiliaryWeight", 0.0
+                            ),
+                            "randomOffsetAuxiliaryScope": latest_train.get(
+                                "randomOffsetAuxiliaryScope",
+                                configuration.get(
+                                    "randomOffsetAuxiliaryScope", "active_shard"
+                                ),
                             ),
                             "startedAt": first_measured.get("timestamp"),
                             "recoveredFromMetrics": True,

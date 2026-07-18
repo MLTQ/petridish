@@ -30,6 +30,9 @@ runtime or the multi-gigabyte training split.
   state-carrying truncated-backpropagation experiments.
 - **Does**: Can expose a deterministic prefix of the training stream as a repeated
   experience shard while retaining the complete held-out validation stream.
+- **Does**: Retains the full pre-validation training tensor separately from the
+  active shard so a disposable auxiliary objective can broaden experience without
+  expanding, resetting, or reinterpreting persistent warm lanes.
 - **Rationale**: A persistent organism can be continued onto a learnable bounded
   curriculum without replacing its cells, connectome, weights, optimizer, or
   electrical state. Existing stream cursors are interpreted modulo the new shard;
@@ -49,4 +52,4 @@ runtime or the multi-gigabyte training split.
 | `sequence_tasks.py` | Lazy loading avoids network work for other tasks | Eager download |
 | `sequence_model.py` | Vocabulary may be larger than physical port banks | Restoring one-port-per-token assumptions |
 | Runtime | Cache survives restarts under `data/tinystories/` | Cache location |
-| Checkpoints | Tokenizer profile, exact vocabulary, and optional training-shard size select the cached task | Silent tokenizer or curriculum substitution |
+| Checkpoints | Tokenizer profile, exact vocabulary, optional training-shard size, and auxiliary scope select the cached task | Silent tokenizer or curriculum substitution |

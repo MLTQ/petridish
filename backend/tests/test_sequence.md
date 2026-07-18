@@ -106,7 +106,9 @@ active-training-shard audit must use the independent evaluation RNG, report its 
 explicitly, and restore graph sources and weights after every counterfactual. The
 random-offset auxiliary regression requires the disposable context to publish finite
 loss/accuracy and contribute an optimizer update while the primary lane alone advances
-its cursor/state and the persistent bank retains its exact size. The
+its cursor/state and the persistent bank retains its exact size. Auxiliary-domain
+regressions prove active-shard samples stay inside the prefix, full-corpus samples can
+reach beyond it, and weight/scope round-trip through checkpoint metadata. The
 trajectory audit must clone the exact next stream position and matching state lane,
 report that lane, preserve the cursor, and restore every graph counterfactual. An
 explicit lane audit must select its matching recurrent state and checkpointed stream

@@ -73,6 +73,9 @@ experiment laboratory above the live organism.
 - **Does**: Exposes an optional zero-to-ten random-offset auxiliary weight only on
   persistent continuation. Blank preserves the checkpoint value; the UI labels it as
   an auxiliary objective rather than another state lane or organism.
+- **Does**: Offers a separately capability-gated auxiliary-domain selector. Preserve
+  is the default; active-shard and full-corpus choices never alter persistent lane
+  domains, cursors, or electrical state.
 - **Does**: Uses a task-neutral stepping-stone table and chart for recall and direct
   physical-routing, memory, composition, and persistent-stream overfit controls.
 - **Does**: Labels detailed held-out accuracy as binding slot or supervised stream

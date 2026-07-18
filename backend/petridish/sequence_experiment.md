@@ -56,6 +56,11 @@ gradient, but its transient runtime state is never installed in the persistent b
 or substituted for a saved cursor. The primary lane alone advances and supplies
 homeostatic neuron credit. This is a controlled pressure for a context rule that
 transfers beyond exact saved trajectories, not an organism or lane reset.
+Its explicit `active_shard` or `full_corpus` scope changes only where that disposable
+context is sampled. Full-corpus scope uses the unsharded training tensor while all
+checkpoint-owned warm lanes keep their existing domains, cursors, and complete
+runtime states. Unsupported tasks reject full-corpus scope rather than silently
+falling back to the shard.
 Each continuous lane also owns a checkpointed stream-domain length. A lane wraps its
 absolute cursor inside that preserved corpus prefix even if a later curriculum exposes
 more tokens to newly appended lanes. The exact-trajectory audit clones the selected

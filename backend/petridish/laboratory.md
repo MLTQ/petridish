@@ -38,6 +38,9 @@ explicitly enabled trainer processes.
 - **Does**: Records a zero-by-default random-offset auxiliary weight; a nonzero
   value adds disposable shared-rule training contexts without creating or replacing
   persistent organism lanes.
+- **Does**: Records `active_shard` versus `full_corpus` auxiliary scope independently
+  of the persistent lane curriculum. Scope changes never append, shrink, or
+  reinterpret a warm lane.
 - **Does**: Records fixed, adaptive, or prune-only topology independently from
   lifecycle. Prune-only retains the lineage and forbids replacement growth.
 - **Does**: Derives the compatibility lifecycle boolean from the resolved profile so
@@ -65,6 +68,8 @@ explicitly enabled trainer processes.
   submits an optimizer intervention to a server that would ignore it.
 - **Does**: Advertises the random-offset auxiliary separately so an older trainer
   cannot silently ignore a trajectory-generalization intervention.
+- **Does**: Advertises auxiliary-domain control separately; older servers leave the
+  frontend selector disabled and preserve checkpoint scope.
 - **Interacts with**: `/api/lab` in `server.py` and `lab.ts`.
 
 ### `Laboratory.metrics`
@@ -140,6 +145,9 @@ explicitly enabled trainer processes.
   the resolved value in manifest, phase history, phase metric, and trainer command.
   Blank preserves the checkpoint value; the transient auxiliary context contributes
   shared gradient but cannot replace any saved state lane or cursor.
+- **Does**: Optionally changes only the disposable auxiliary domain between active
+  shard and full corpus, recording the resolved scope in command, manifest, phase,
+  and append-only metrics.
 - **Rationale**: Structural warm-up, adaptive pruning, and lifecycle pressure must be
   phases of one organism rather than separately initialized comparison runs.
 

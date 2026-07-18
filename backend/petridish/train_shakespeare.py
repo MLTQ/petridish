@@ -26,7 +26,9 @@ from .lifecycle_profiles import (
 from .token_corpus_task import TOKENIZER_PROFILES, load_tiny_stories_task
 from .mnist_config import MnistModelConfig
 from .sequence_config import sequence_config
-from .sequence_experiment import MAX_STATE_LANES, SequenceExperiment
+from .sequence_experiment import (
+    MAX_STATE_LANES, RANDOM_OFFSET_AUXILIARY_SCOPES, SequenceExperiment,
+)
 from .sequence_cells import CELL_ARCHITECTURES
 from .sequence_tasks import STREAM_MODES
 from .topology_profiles import (
@@ -70,6 +72,9 @@ def _experiment_state(experiment: SequenceExperiment) -> dict[str, Any]:
             "state_lanes": experiment.state_lanes,
             "random_offset_auxiliary_weight": (
                 experiment.random_offset_auxiliary_weight
+            ),
+            "random_offset_auxiliary_scope": (
+                experiment.random_offset_auxiliary_scope
             ),
             "topology_profile": experiment.topology_profile,
             "_training_stream_positions": experiment._training_stream_positions,
@@ -135,6 +140,12 @@ def save_checkpoint(
             "training_stream_tokens": experiment.task.training_stream_tokens,
             "full_training_stream_tokens": experiment.task.full_training_stream_tokens,
             "training_shard_tokens": experiment.task.training_shard_tokens,
+            "random_offset_auxiliary_weight": (
+                experiment.random_offset_auxiliary_weight
+            ),
+            "random_offset_auxiliary_scope": (
+                experiment.random_offset_auxiliary_scope
+            ),
         },
         "model": experiment.model.state_dict(),
         "optimizer": experiment.optimizer.state_dict(),
@@ -493,6 +504,7 @@ def _scientific_metrics(experiment: SequenceExperiment) -> dict[str, Any]:
         "randomOffsetAuxiliaryWeight": (
             experiment.random_offset_auxiliary_weight
         ),
+        "randomOffsetAuxiliaryScope": experiment.random_offset_auxiliary_scope,
         "randomOffsetAuxiliaryLoss": (
             experiment.last_random_offset_auxiliary_loss
         ),
@@ -872,6 +884,14 @@ def main() -> None:
             "persistent-lane update; omission preserves a resumed checkpoint"
         ),
     )
+    parser.add_argument(
+        "--random-offset-auxiliary-scope",
+        choices=RANDOM_OFFSET_AUXILIARY_SCOPES,
+        help=(
+            "active_shard or full_corpus domain for disposable auxiliary contexts; "
+            "omission preserves a resumed checkpoint"
+        ),
+    )
     parser.add_argument("--broadcast-gain", type=float)
     parser.add_argument("--architecture", choices=CELL_ARCHITECTURES, default="gru")
     parser.add_argument("--updates", type=int, default=100_000)
@@ -965,6 +985,7 @@ def main() -> None:
     requested_random_offset_auxiliary_weight = (
         args.random_offset_auxiliary_weight
     )
+    requested_random_offset_auxiliary_scope = args.random_offset_auxiliary_scope
     if (
         requested_gradient_clip is not None
         and args.resume
@@ -983,6 +1004,16 @@ def main() -> None:
     ):
         parser.error(
             "--random-offset-auxiliary-weight changes a restored organism only "
+            "with --resume-plasticity"
+        )
+    if (
+        requested_random_offset_auxiliary_scope is not None
+        and args.resume
+        and latest.exists()
+        and not args.resume_plasticity
+    ):
+        parser.error(
+            "--random-offset-auxiliary-scope changes a restored organism only "
             "with --resume-plasticity"
         )
     if args.resume and latest.exists():
@@ -1014,7 +1045,12 @@ def main() -> None:
         else:
             args.state_lanes = saved_state_lanes
         saved_random_offset_auxiliary_weight = float(
-            saved_task.get("random_offset_auxiliary_weight", 0.0)
+            saved_task.get(
+                "random_offset_auxiliary_weight",
+                payload.get("experiment", {}).get(
+                    "random_offset_auxiliary_weight", 0.0
+                ),
+            )
         )
         if (
             args.resume_plasticity
@@ -1026,6 +1062,25 @@ def main() -> None:
         else:
             args.random_offset_auxiliary_weight = (
                 saved_random_offset_auxiliary_weight
+            )
+        saved_random_offset_auxiliary_scope = str(
+            saved_task.get(
+                "random_offset_auxiliary_scope",
+                payload.get("experiment", {}).get(
+                    "random_offset_auxiliary_scope", "active_shard"
+                ),
+            )
+        )
+        if (
+            args.resume_plasticity
+            and requested_random_offset_auxiliary_scope is not None
+        ):
+            args.random_offset_auxiliary_scope = (
+                requested_random_offset_auxiliary_scope
+            )
+        else:
+            args.random_offset_auxiliary_scope = (
+                saved_random_offset_auxiliary_scope
             )
         args.vocabulary_size = len(tuple(saved_task.get("vocabulary", ())))
         args.tokenizer_profile = str(
@@ -1061,6 +1116,9 @@ def main() -> None:
         args.state_lanes = requested_state_lanes or 1
         args.random_offset_auxiliary_weight = (
             requested_random_offset_auxiliary_weight or 0.0
+        )
+        args.random_offset_auxiliary_scope = (
+            requested_random_offset_auxiliary_scope or "active_shard"
         )
         organism_id = args.organism_id or f"organism-{uuid.uuid4().hex}"
         phase_index = args.phase_index or 0
@@ -1103,6 +1161,7 @@ def main() -> None:
         random_offset_auxiliary_weight=(
             args.random_offset_auxiliary_weight
         ),
+        random_offset_auxiliary_scope=args.random_offset_auxiliary_scope,
         topology_profile=topology_profile,
     )
     if payload is not None:
@@ -1111,6 +1170,12 @@ def main() -> None:
         expand_persistent_state_lanes(experiment, target_state_lanes)
         if args.resume_plasticity:
             experiment.topology_profile = topology_profile
+            experiment.random_offset_auxiliary_weight = (
+                args.random_offset_auxiliary_weight
+            )
+            experiment.random_offset_auxiliary_scope = (
+                args.random_offset_auxiliary_scope
+            )
             reconcile_plasticity_phase_status(experiment)
     if args.compile_mode != "off":
         experiment.enable_compile(args.compile_mode)
@@ -1137,6 +1202,7 @@ def main() -> None:
         f"stream={args.stream_mode} retention={args.state_retention:.3f} "
         f"lanes={args.state_lanes} topology={experiment.topology_profile} "
         f"random_offset_aux={experiment.random_offset_auxiliary_weight:g} "
+        f"aux_scope={experiment.random_offset_auxiliary_scope} "
         f"tokenizer={experiment.task.tokenizer_profile or 'character'} "
         f"training_tokens={experiment.task.training_stream_tokens or 'full'} "
         f"organism={organism_id} phase={phase_index}:{phase_name} "
@@ -1207,6 +1273,9 @@ def main() -> None:
             "stateLanes": experiment.state_lanes,
             "randomOffsetAuxiliaryWeight": (
                 experiment.random_offset_auxiliary_weight
+            ),
+            "randomOffsetAuxiliaryScope": (
+                experiment.random_offset_auxiliary_scope
             ),
             "randomOffsetAuxiliaryLoss": (
                 experiment.last_random_offset_auxiliary_loss

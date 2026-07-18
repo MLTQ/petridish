@@ -1253,3 +1253,86 @@ the shared rule and synapses, and is discarded rather than replacing any saved l
 This tests whether explicit pressure for state-independent context prediction can turn
 the physically routed trajectory solution into a reusable conditional rule before
 changing the organism's topology or lifecycle again.
+
+## Phase 18 — A cold-context auxiliary improves reusable graph computation
+
+The phase-17 8K breadth endpoint was frozen at update 14,250 with checkpoint SHA
+`840501028a30d8748ff72086ecfce5ac8f88ac65f31af29b3f683660b466a060`.
+Two exact forks retained organism ID
+`organism-b2505376398a491e8cf4150a5daf3fab`, all 2,224 cells and positions, all
+13,737 learned directed edges, the 169-lane electrical/private/workspace state bank,
+every lane cursor and stream domain, learned parameters, optimizer moments, and RNG
+streams. Both continued fixed topology and lifecycle-off training from update 14,250
+to 14,750. Control used auxiliary weight zero; treatment added one independently
+sampled cold 8K-shard context at weight 0.25 to each ordinary warm-lane optimizer
+update. The disposable context traversed the same cells and graph but was never
+installed into the persistent state bank.
+
+The treatment worker was gracefully moved from the contended 4090 to the free 2070
+at update 14,462. The stop produced SHA
+`5951859d5ade4fa2ce077c64eac604d77cfd4c708aa9da7508f586129cb872f5`;
+the same-phase resume API required and returned that exact SHA before continuing at
+update 14,462. Organism ID, phase 18, all 169 state lanes, graph, optimizer, cursors,
+and random streams remained checkpoint-owned. This exposed a display-only defect:
+the phase-local 160-update window had been process-local. It now reconstructs from
+append-only metrics matching phase index and name, so GPU handoffs no longer make a
+continuing phase appear newly initialized.
+
+Across all 500 phase updates, control reached 60.83% / 1.61181 and treatment reached
+62.27% / 1.53279. The treatment improved every persistent stream domain: 2K from
+80.96% / 0.85137 to 83.30% / 0.81833, 4K from 74.30% / 0.93505 to
+75.29% / 0.91334, and 8K from 37.54% / 2.71837 to 39.36% / 2.55024. Over the
+terminal 160 windows it improved 61.28% / 1.60032 to 62.62% / 1.51757. Gradient
+pressure was essentially matched: median clip scales were 0.0627 control and 0.0629
+treatment, with 92.2% and 94.4% of updates at or below 0.1. The result is therefore
+not an accidental relaxation of the norm-one ceiling. Treatment auxiliary accuracy
+averaged 36.40%; its loss improved from 2.904 over the first 100 probes to 2.634 over
+the last 100 even though accuracy stayed near 36%.
+
+The new fixed-seed independent-context audit is the primary result. Each of sixteen
+contexts is sampled independently from the active 8K training shard and starts with
+fresh disposable activations while retaining the learned cells, graph, synapses, and
+shared rule. Control measured 36.82% / 2.95965; treatment measured
+41.02% / 2.52985, a 4.20-point accuracy and 0.430 loss improvement. Both exceed the
+31.42% bigram accuracy baseline on the measured distribution. Graph silence reduced
+them to 4.88% and 4.98%; endpoint rotation to 6.25% and 5.08%; within-target
+source/weight reassignment to 4.98% and 5.47%; and broadcast silence to 9.67% and
+10.35%. The reusable-context gain therefore depends on the learned physical graph,
+synaptic assignment, and broadcast dynamics rather than a frequency-only readout.
+
+Exact saved trajectories remained strong. Inherited 4K lane 16 measured 83.69%
+control and 84.38% treatment; newer 8K lane 105 measured 84.57% control and 83.79%
+treatment. On lane 105, cold state measured 61.23% control and 64.65% treatment. The
+auxiliary therefore trades less than one point of warm trajectory accuracy for 3.42
+points of cold-state competence on that lane while preserving causal routing: graph
+silence left only 3.91% and 2.44% accuracy. It did not erase or replace the living
+trajectory.
+
+Held-out language remains unsolved. Validation was 10.74% / 5.06247 control and
+10.64% / 4.81443 treatment, below the 19.09% unigram baseline. Fixed samples remained
+fragmentary: `l Shee aaom nntt` and `i They  atm antt`. Treatment's saved state was
+actively unhelpful on the unrelated validation stream (10.64% carried versus 12.21%
+cold), so the auxiliary has learned a more reusable rule inside the repeated 8K shard,
+not corpus-wide language.
+
+The historical `training_audit` is retained only for continuity. It chooses one
+random start that is not aligned to a saved lane cursor, then combines it with a
+checkpoint state from another trajectory. Its 12.50% control and 14.45% treatment
+results are neither an exact warm trajectory nor an independent cold-context measure
+and must not drive intervention choice.
+
+All evaluation was read-only. Terminal checkpoint SHAs remained exactly
+`e0a7489245c3d455e0b28092ae1c458275ebce28f1b6ccc9c348628a9ac73e3a`
+for control and
+`93b65448dbef7b25e838af48bd410532d1724c6ba165b1f319218003f805564c`
+for treatment through every cold-context, validation, warm-trajectory, state, graph,
+weight, and broadcast counterfactual.
+
+The next matched experiment should broaden only the auxiliary sampler from the active
+8K shard to the full training corpus while leaving every warm lane, cursor, state,
+cell, edge, optimizer moment, and lifecycle/topology setting untouched. A fixed-scope
+auxiliary control versus full-corpus auxiliary treatment will test whether the proven
+reusable graph rule can become corpus-wide before pruning or lifecycle confounds are
+introduced. Topology and lifecycle should remain frozen for that comparison; prune-
+only and stun/recovery branches become meaningful after corpus-wide cold-context
+accuracy rises above its language baselines.

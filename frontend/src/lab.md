@@ -193,6 +193,9 @@ validated launch or stop requests.
   Blank preserves the checkpoint setting; diagnostics show its resolved weight plus
   measured unweighted loss/accuracy, distinguishing transient generalization pressure
   from the primary persistent-lane trajectory.
+- **Does**: Offers a separately gated active-shard/full-corpus auxiliary-domain
+  selector with preserve as the default, and displays the resolved domain beside
+  auxiliary loss/accuracy and lineage.
 - **Does**: Separates phase-local grown/pruned edge counts from lifetime totals when
   the matching phase boundary recorded its starting counters.
 - **Does**: Offers read-only evaluation on stopped checkpoints so new causal metrics

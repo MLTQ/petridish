@@ -196,6 +196,7 @@ def build_token_task(
         unigram_baseline_loss=unigram_loss,
         bigram_baseline_loss=bigram_loss,
         training_stream=train,
+        full_training_stream=full_train,
         evaluation_stream=validation,
         tokenizer_profile=tokenizer_profile,
         special_token_ids=tuple(range(len(reserved))),
