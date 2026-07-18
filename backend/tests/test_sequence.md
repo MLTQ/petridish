@@ -23,6 +23,8 @@ It also requires the stability intervention to scale rule, readout, and synapse
 learning rates together without changing their relative schedule.
 The same launch fixture requires an explicit zero broadcast gain to survive into
 configuration as a hard physical-workspace ablation.
+The benchmark-scale helper independently proves that all three optimizer groups
+receive the same bounded multiplier.
 Named lifecycle-profile tests preserve the original baseline while proving the
 balanced intervention keeps stun, recovery, starvation, and eventual death but
 equalizes maximum births/deaths and lowers the empirically saturated pressures.

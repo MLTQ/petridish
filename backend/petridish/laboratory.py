@@ -353,6 +353,7 @@ class Laboratory:
                     "contextReachableOutputs": payload.get("contextReachableOutputs"),
                     "messageSteps": payload.get("messageSteps"),
                     "broadcastGain": payload.get("broadcastGain"),
+                    "learningRateScale": payload.get("learningRateScale", 1.0),
                     "outputCount": payload.get("outputCount"),
                     "sequenceLength": payload.get("sequenceLength"),
                     "dependencyTokens": payload.get("dependencyTokens"),

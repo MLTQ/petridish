@@ -134,6 +134,7 @@ interface BenchmarkSnapshot {
   contextReachableOutputs: number | null;
   messageSteps: number | null;
   broadcastGain: number | null;
+  learningRateScale: number;
   outputCount: number | null;
   sequenceLength: number | null;
   dependencyTokens: number | null;

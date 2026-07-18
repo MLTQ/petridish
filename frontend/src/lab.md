@@ -42,6 +42,8 @@ validated launch or stop requests.
   kernels, because stochastic lifecycle mutation uses both guarantees.
 - **Does**: Shows atomic live progress, completion state, elapsed time, and measured
   peak CUDA allocation when the benchmark publisher provides them.
+- **Does**: Keeps the persisted benchmark learning-rate scale in its intervention
+  identity rather than merging stability retries into a default-rate cohort.
 - **Does**: Shows failed runs with their persisted exception type/message and keeps
   an empty pre-evaluation failure from producing invalid chart axes.
 - **Does**: Shows final held-out accuracy for each queried binding slot so a

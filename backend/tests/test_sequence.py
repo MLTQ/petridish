@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 import torch
 
-from petridish.benchmark_sequences import _write_result
+from petridish.benchmark_sequences import _scale_learning_rates, _write_result
 from petridish.benchmark_recovery import (
     _apply_branch_config,
     _capture_global_rng,
@@ -233,6 +233,19 @@ def test_headless_launch_scales_all_optimizer_rates_together() -> None:
     assert scaled.synapse_learning_rate == pytest.approx(
         defaults.synapse_learning_rate * 0.25
     )
+
+    benchmark_scaled = _scale_learning_rates(defaults, 0.25)
+    assert benchmark_scaled.learning_rate == pytest.approx(
+        defaults.learning_rate * 0.25
+    )
+    assert benchmark_scaled.readout_learning_rate == pytest.approx(
+        defaults.readout_learning_rate * 0.25
+    )
+    assert benchmark_scaled.synapse_learning_rate == pytest.approx(
+        defaults.synapse_learning_rate * 0.25
+    )
+    with pytest.raises(ValueError, match="learning-rate scale"):
+        _scale_learning_rates(defaults, 0.0)
 
 
 def test_balanced_lifecycle_retains_biomimicry_without_death_budget_collapse() -> None:

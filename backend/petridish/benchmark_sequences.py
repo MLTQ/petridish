@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import replace
 import json
 import math
 import os
@@ -100,12 +101,26 @@ def _gradient_norm(parameters: list[torch.nn.Parameter]) -> float:
     return math.sqrt(squared)
 
 
+def _scale_learning_rates(config: Any, scale: float) -> Any:
+    """Scale every optimizer group together for a matched stability control."""
+
+    if not 0.01 <= scale <= 1.0:
+        raise ValueError("learning-rate scale must be between 0.01 and 1.0")
+    return replace(
+        config,
+        learning_rate=config.learning_rate * scale,
+        readout_learning_rate=config.readout_learning_rate * scale,
+        synapse_learning_rate=config.synapse_learning_rate * scale,
+    )
+
+
 def run_benchmark(
     task: str, profile: str, *, steps: int, seed: int, device: str,
     architecture: str = "gru",
     fixed_recall_pairs: int | None = None,
     message_steps: int | None = None,
     broadcast_gain: float | None = None,
+    learning_rate_scale: float = 1.0,
     output_path: Path | None = None,
     deterministic: bool = False,
 ) -> dict[str, Any]:
@@ -139,6 +154,7 @@ def run_benchmark(
         structural_warmup_trials=max(steps + 1, 10_000),
         **overrides,
     )
+    config = _scale_learning_rates(config, learning_rate_scale)
     if fixed_recall_pairs is not None and task != "associative_recall":
         raise ValueError("fixed recall pairs apply only to associative recall")
     task_definition = (
@@ -177,11 +193,13 @@ def run_benchmark(
             "task": task, "profile": profile, "architecture": architecture,
             "intervention": (
                 f"{config.message_steps} ticks · "
-                f"broadcast {'on' if config.broadcast_gain > 0 else 'off'}"
+                f"broadcast {'on' if config.broadcast_gain > 0 else 'off'} · "
+                f"lr×{learning_rate_scale:g}"
                 if expected_profile is not None else None
             ),
             "messageSteps": config.message_steps,
             "broadcastGain": config.broadcast_gain,
+            "learningRateScale": learning_rate_scale,
             "outputCount": experiment.model.substrate.output_count,
             "sequenceLength": experiment.task.sequence_length,
             "dependencyTokens": (
@@ -345,6 +363,7 @@ def main() -> None:
     parser.add_argument("--fixed-recall-pairs", type=int, choices=(1, 2, 3))
     parser.add_argument("--message-steps", type=int, choices=range(1, 17))
     parser.add_argument("--broadcast-gain", type=float)
+    parser.add_argument("--learning-rate-scale", type=float, default=1.0)
     parser.add_argument("--output", type=Path)
     parser.add_argument("--deterministic", action="store_true")
     args = parser.parse_args()
@@ -354,6 +373,7 @@ def main() -> None:
         fixed_recall_pairs=args.fixed_recall_pairs,
         message_steps=args.message_steps,
         broadcast_gain=args.broadcast_gain,
+        learning_rate_scale=args.learning_rate_scale,
         output_path=args.output,
         deterministic=args.deterministic,
     )

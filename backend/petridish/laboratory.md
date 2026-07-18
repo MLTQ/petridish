@@ -51,6 +51,8 @@ explicitly enabled trainer processes.
   coverage so temporal-memory results retain their physical communication budget.
 - **Does**: Preserves the declared broadcast gain so global-workspace and purely
   dendritic routing controls remain distinguishable.
+- **Does**: Preserves a benchmark's common learning-rate scale so non-finite
+  stability retries remain visibly distinct from default-rate controls.
 - **Does**: Preserves the deterministic-execution flag from benchmark artifacts.
 - **Does**: Preserves an explicit process-global branch-RNG match flag; deterministic
   kernels alone do not prove stochastic lifecycle branches received the same stream.

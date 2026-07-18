@@ -45,6 +45,10 @@ the declared protocol.
 workspace configuration before model construction. Artifacts record the flag so
 bitwise reproductions cannot be confused with ordinary seeded CUDA executions.
 
+`--learning-rate-scale 0.01..1` scales the cell-rule, output-readout, and physical
+synapse optimizer groups together. The exact scale is embedded in both the artifact
+and intervention label so a stability retry cannot be mistaken for a matched default-rate run.
+
 `compact24_no_broadcast` removes slot broadcasting, while
 `compact24_no_global_memory` removes both slot and fast-weight memory.
 `compact24_fast_weights` enables recurrent linear-attention memory at gain 0.5.
@@ -165,6 +169,6 @@ prediction from transformed labels and delayed copying.
 ```bash
 python -m petridish.benchmark_sequences --task token_grammar \
   --profile token_grammar68 --architecture esn --message-steps 16 \
-  --broadcast-gain 0 --steps 1200 \
+  --broadcast-gain 0 --learning-rate-scale 0.25 --steps 1200 \
   --output benchmarks/lab/token-grammar-esn-local.json
 ```
