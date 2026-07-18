@@ -95,6 +95,9 @@ control-enable contracts without requiring NVIDIA hardware or launching trainers
 - **Does**: Proves a bounded phase-local gradient ceiling reaches the trainer,
   manifest, phase history, and append-only metric while out-of-range values fail
   before any process launch.
+- **Does**: Proves a bounded phase-local dendrite growth cap reaches the trainer,
+  manifest, phase history, and append-only metric while out-of-range values fail
+  before any process launch.
 - **Does**: Proves a legacy nonzero disposable auxiliary setting is explicitly
   migrated to zero on continuation and recorded in command, manifest, phase history,
   and append-only metrics; any requested nonzero value fails before process launch.

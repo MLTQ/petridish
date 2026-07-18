@@ -1228,6 +1228,7 @@ def test_continuous_training_state_survives_checkpoint_resume(tmp_path: Path) ->
         config, structure=True, lifecycle=False, lifecycle_profile="off",
         topology_profile="prune_only",
         gradient_clip=5.0,
+        max_grown_per_generation=64,
     )
     restored = SequenceExperiment(
         task, phase_config, seed=45, device="cpu", stream_mode="continuous",
@@ -1245,6 +1246,7 @@ def test_continuous_training_state_survives_checkpoint_resume(tmp_path: Path) ->
     assert payload["task"]["training_shard_tokens"] == 128
     assert restored.config.structural_enabled == 1
     assert restored.config.gradient_clip == pytest.approx(5.0)
+    assert restored.config.max_grown_per_generation == 64
     assert restored.topology_profile == "prune_only"
     assert restored.stream_mode == "continuous"
     assert restored.state_retention == pytest.approx(0.9)

@@ -48,6 +48,8 @@ giving all 49 vectorized patch features one ordered physical boundary column.
 - **Does**: Supplies repeated local source evidence to a target with a free
   dendrite and verifies the stored source ID becomes a directed connection.
 - **Does**: Verifies prune-only topology never invokes candidate discovery/growth.
+- **Does**: Caps adaptive growth to the strongest configured number of proposals
+  per generation and retains ready evidence when the budget is zero.
 
 ### Hyperparameter schema tests
 - **Does**: Locks the 64×64/8-cell-radius defaults, requires a control spec for

@@ -77,6 +77,7 @@ def sequence_config(task: str | None = None, **overrides: object) -> MnistModelC
             births_per_generation=16,
             max_deaths_per_generation=64,
             max_pruned_per_generation=256,
+            max_grown_per_generation=64,
         )
     return replace(base, **overrides)
 

@@ -69,6 +69,8 @@ and exact-phase resume after a deliberate stop.
   categorical validation and records the resolved phase policy.
 - **Does**: Accepts an optional 0.01–100 gradient-norm ceiling; omission preserves
   the restored checkpoint's current ceiling rather than substituting a default.
+- **Does**: Accepts an optional zero-to-4,096 dendrite growth budget for adaptive
+  phases; omission preserves the checkpoint's current cap.
 - **Does**: Retains legacy auxiliary fields for compatibility, while the laboratory
   requires zero optimizer weight and keeps fresh contexts evaluation-only.
 - **Rationale**: Architecture, geometry, weights, state, and existing corpus cursors

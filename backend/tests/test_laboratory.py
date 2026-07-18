@@ -577,6 +577,7 @@ def test_checkpoint_continuation_preserves_run_lineage_and_changes_only_phase(
             training_shard_tokens=8_192,
             state_lanes=16,
             gradient_clip=5.0,
+            max_grown_per_generation=64,
         )
     )
 
@@ -600,6 +601,7 @@ def test_checkpoint_continuation_preserves_run_lineage_and_changes_only_phase(
     assert manifest["configuration"]["trainingShardTokens"] == 8_192
     assert manifest["configuration"]["stateLanes"] == 16
     assert manifest["configuration"]["gradientClip"] == 5.0
+    assert manifest["configuration"]["maxGrownPerGeneration"] == 64
     assert manifest["configuration"]["randomOffsetAuxiliaryWeight"] == 0
     assert manifest["configuration"]["randomOffsetAuxiliaryScope"] == "full_corpus"
     assert manifest["phaseHistory"][-1]["topologyProfile"] == "prune_only"
@@ -607,6 +609,7 @@ def test_checkpoint_continuation_preserves_run_lineage_and_changes_only_phase(
     assert manifest["phaseHistory"][-1]["trainingShardTokens"] == 8_192
     assert manifest["phaseHistory"][-1]["stateLanes"] == 16
     assert manifest["phaseHistory"][-1]["gradientClip"] == 5.0
+    assert manifest["phaseHistory"][-1]["maxGrownPerGeneration"] == 64
     assert manifest["phaseHistory"][-1]["randomOffsetAuxiliaryWeight"] == 0
     assert manifest["phaseHistory"][-1]["randomOffsetAuxiliaryScope"] == "full_corpus"
     assert manifest["phaseHistory"][-1]["startGrownEdges"] == 320
@@ -622,6 +625,7 @@ def test_checkpoint_continuation_preserves_run_lineage_and_changes_only_phase(
     assert command[command.index("--training-shard-tokens") + 1] == "8192"
     assert command[command.index("--state-lanes") + 1] == "16"
     assert command[command.index("--gradient-clip") + 1] == "5.0"
+    assert command[command.index("--max-grown-per-generation") + 1] == "64"
     assert command[command.index("--random-offset-auxiliary-weight") + 1] == "0.0"
     assert "--random-offset-auxiliary-scope" not in command
     assert "--no-resume" not in command
@@ -631,6 +635,7 @@ def test_checkpoint_continuation_preserves_run_lineage_and_changes_only_phase(
     assert records[-1]["trainingShardTokens"] == 8_192
     assert records[-1]["stateLanes"] == 16
     assert records[-1]["gradientClip"] == 5.0
+    assert records[-1]["maxGrownPerGeneration"] == 64
     assert records[-1]["randomOffsetAuxiliaryWeight"] == 0
     assert records[-1]["randomOffsetAuxiliaryScope"] == "full_corpus"
     assert records[-1]["startGrownEdges"] == 320
@@ -678,6 +683,14 @@ def test_curriculum_breadth_requires_append_only_lanes_and_never_shrinks(
         laboratory.continue_run(
             ContinueSpec(
                 "trial", "GPU-example", gradient_clip=100.1,
+                structure=False, topology_profile="fixed",
+            )
+        )
+
+    with pytest.raises(ValueError, match="growth budget"):
+        laboratory.continue_run(
+            ContinueSpec(
+                "trial", "GPU-example", max_grown_per_generation=4_097,
                 structure=False, topology_profile="fixed",
             )
         )

@@ -26,6 +26,8 @@ in configuration but selected through the laboratory, not represented as a slide
   message gain, separate readout/rule rates, gradient clipping, and structure warm-up.
 - **Rationale**: Adaptive topology has its own enable switch; lifecycle-off no longer
   ambiguously implies a fixed connectome.
+- **Rationale**: Growth and pruning budgets are separate controls because accepting
+  every matured proposal can disrupt a competent organism even when pruning is capped.
 - **Rationale**: Early-output loss remains explicit and defaults to zero so
   unreachable pre-arrival steps cannot train the classifier toward uniform guesses.
 - **Rationale**: Genotype capacity, local-attention temperature, staged optimizer

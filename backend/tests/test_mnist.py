@@ -279,6 +279,64 @@ def test_prune_only_topology_never_calls_growth(
     assert update.grown_edges == 0
 
 
+def test_adaptive_growth_accepts_only_the_strongest_bounded_proposals(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = replace(
+        tiny_config(), max_grown_per_generation=3,
+        max_pruned_per_generation=0, candidate_decay=1,
+        candidate_threshold=0.5, emission_threshold=0, axon_slots=512,
+    )
+    substrate = CellularGraphClassifier(config, seed=32).substrate
+    source = int(substrate.input_sites[0])
+    best_sources = torch.full(
+        (config.site_count,), source, dtype=torch.long,
+        device=substrate.occupied.device,
+    )
+    evidence = torch.linspace(
+        0.5, 1.5, config.site_count, device=substrate.occupied.device
+    )
+    monkeypatch.setattr(
+        substrate, "_best_local_source",
+        lambda require_axon_capacity=False: (best_sources, evidence),
+    )
+
+    update = substrate.structural_step(
+        apply_lifecycle=False, apply_topology=True, allow_growth=True
+    )
+
+    assert update.grown_edges == 3
+    assert int(update.changed_edges.sum()) == 3
+
+
+def test_zero_growth_budget_defers_ready_proposals(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = replace(
+        tiny_config(), max_grown_per_generation=0,
+        max_pruned_per_generation=0, candidate_decay=1,
+        candidate_threshold=0.5, emission_threshold=0, axon_slots=512,
+    )
+    substrate = CellularGraphClassifier(config, seed=33).substrate
+    source = int(substrate.input_sites[0])
+    best_sources = torch.full(
+        (config.site_count,), source, dtype=torch.long,
+        device=substrate.occupied.device,
+    )
+    evidence = torch.ones(config.site_count, device=substrate.occupied.device)
+    monkeypatch.setattr(
+        substrate, "_best_local_source",
+        lambda require_axon_capacity=False: (best_sources, evidence),
+    )
+
+    update = substrate.structural_step(
+        apply_lifecycle=False, apply_topology=True, allow_growth=True
+    )
+
+    assert update.grown_edges == 0
+    assert float(substrate.candidate_counter.max()) >= config.candidate_threshold
+
+
 def test_newborn_inherits_parent_genotype_and_one_real_dendrite() -> None:
     config = replace(
         tiny_config(),

@@ -388,6 +388,7 @@ def plasticity_phase_config(
     lifecycle_profile: str,
     topology_profile: str | None = None,
     gradient_clip: float | None = None,
+    max_grown_per_generation: int | None = None,
 ) -> MnistModelConfig:
     """Change phase policy without replacing any organism-owned state."""
 
@@ -398,6 +399,11 @@ def plasticity_phase_config(
     )
     if gradient_clip is not None:
         phase_config = replace(phase_config, gradient_clip=gradient_clip)
+    if max_grown_per_generation is not None:
+        phase_config = replace(
+            phase_config,
+            max_grown_per_generation=max_grown_per_generation,
+        )
     return apply_lifecycle_profile(phase_config, profile)
 
 
@@ -602,6 +608,7 @@ def _scientific_metrics(experiment: SequenceExperiment) -> dict[str, Any]:
             0, config.structure_plateau_trials - plateau_age
         ),
         "structuralInterval": config.structural_interval,
+        "maxGrownPerGeneration": config.max_grown_per_generation,
         "lastBirths": experiment.last_births,
         "lastDeaths": experiment.last_deaths,
         "cumulativeBirths": experiment.cumulative_births,
@@ -1001,6 +1008,7 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--learning-rate-scale", type=float, default=1.0)
     parser.add_argument("--gradient-clip", type=float)
+    parser.add_argument("--max-grown-per-generation", type=int)
     parser.add_argument("--amp", choices=("off", "bfloat16"), default="off")
     parser.add_argument(
         "--compile", dest="compile_mode",
@@ -1053,6 +1061,11 @@ def main() -> None:
         parser.error("--learning-rate-scale must be between 0.01 and 1.0")
     if args.gradient_clip is not None and not 0.01 <= args.gradient_clip <= 100:
         parser.error("--gradient-clip must be between 0.01 and 100")
+    if (
+        args.max_grown_per_generation is not None
+        and not 0 <= args.max_grown_per_generation <= 4_096
+    ):
+        parser.error("--max-grown-per-generation must be between 0 and 4096")
     if args.broadcast_gain is not None and not 0 <= args.broadcast_gain <= 2.0:
         parser.error("--broadcast-gain must be between 0 and 2")
     if not 0 <= args.state_retention <= 1:
@@ -1101,6 +1114,7 @@ def main() -> None:
     requested_training_shard_tokens = args.training_shard_tokens
     requested_state_lanes = args.state_lanes
     requested_gradient_clip = args.gradient_clip
+    requested_max_grown_per_generation = args.max_grown_per_generation
     requested_random_offset_auxiliary_weight = (
         args.random_offset_auxiliary_weight
     )
@@ -1113,6 +1127,16 @@ def main() -> None:
     ):
         parser.error(
             "--gradient-clip changes a restored organism only with "
+            "--resume-plasticity"
+        )
+    if (
+        requested_max_grown_per_generation is not None
+        and args.resume
+        and latest.exists()
+        and not args.resume_plasticity
+    ):
+        parser.error(
+            "--max-grown-per-generation changes a restored organism only with "
             "--resume-plasticity"
         )
     if (
@@ -1230,6 +1254,7 @@ def main() -> None:
                 lifecycle_profile=args.lifecycle_profile,
                 topology_profile=topology_profile,
                 gradient_clip=requested_gradient_clip,
+                max_grown_per_generation=requested_max_grown_per_generation,
             )
     else:
         args.state_lanes = requested_state_lanes or 1
@@ -1459,6 +1484,7 @@ def main() -> None:
             "fullTrainingStreamTokens": experiment.task.full_training_stream_tokens,
             "trainingShardTokens": experiment.task.training_shard_tokens,
             "gradientClip": config.gradient_clip,
+            "maxGrownPerGeneration": config.max_grown_per_generation,
             **experiment.last_gradient_norms,
             "electricalStateTokens": (
                 experiment._training_runtime_state.position

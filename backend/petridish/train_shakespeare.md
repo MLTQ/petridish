@@ -92,6 +92,10 @@ explicit `--resume-plasticity` phase, `--gradient-clip 0.01..100` can change tha
 single restored configuration value without replacing model, graph, optimizer,
 sampler, RNG, or electrical state. Supplying it to an ordinary checkpoint resume is
 rejected; omission preserves the saved ceiling exactly.
+`--max-grown-per-generation 0..4096` similarly bounds how many matured dendrite
+proposals an adaptive structural transaction may accept. The limit is phase-local,
+checkpointed, and published in training/scientific diagnostics; omission preserves
+the restored limit. Zero defers all ready proposals without clearing their evidence.
 Continuous held-out records begin from a tensor-cloned copy of the checkpoint's
 actual electrical/private/workspace state and report its seed age. An identical
 contiguous-token cold-state ablation begins without that state; their accuracy delta
@@ -229,8 +233,9 @@ plasticity phase.
 
 ### `plasticity_phase_config` / `reconcile_plasticity_phase_status`
 
-Change only structural/lifecycle policy and an optional gradient ceiling in a restored
-configuration, then derive its status from the organism's preserved training history.
+Change only structural/lifecycle policy, an optional gradient ceiling, and an optional
+growth budget in a restored configuration, then derive its status from the organism's
+preserved training history.
 Neither helper resets or mutates substrate, developmental history, optimizer, sampler,
 or runtime tensors.
 

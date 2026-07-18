@@ -41,6 +41,8 @@ optimizer rates, and independently gated lifecycle/topology thresholds.
   determine cell specialization and content-addressed communication capacity.
 - **Rationale**: Readout, rule, synapse, and structural unlock controls separate
   moving optimization targets; structure requires competence or a measured plateau.
+- **Rationale**: Independent per-generation growth and pruning budgets prevent one
+  matured proposal wave from rewriting thousands of conducting routes at once.
 - **Rationale**: Structural enablement is independent from lifecycle enablement so
   fixed-connectome, topology-only, and turnover experiments are not conflated.
 - **Rationale**: Lifecycle enable/warm-up/cadence controls activate metabolic

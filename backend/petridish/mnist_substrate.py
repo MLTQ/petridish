@@ -735,21 +735,33 @@ class SpatialSubstrate(nn.Module):
         ready = self.candidate_counter[targets, candidate_slot] >= cfg.candidate_threshold
         ready_targets = targets[ready]
         ready_sources = sources[ready]
+        ready_slots = candidate_slot[ready]
         if not ready_targets.numel():
             return changed
+        budget = max(0, cfg.max_grown_per_generation)
+        if budget == 0:
+            return changed
+        strength = self.candidate_counter[ready_targets, ready_slots]
+        order = torch.argsort(strength, descending=True)
+        ready_targets = ready_targets[order]
+        ready_sources = ready_sources[order]
         _, _, existing_sources = self.edge_list()
         outgoing = torch.bincount(existing_sources, minlength=cfg.site_count).cpu().tolist()
-        accepted: list[bool] = []
-        for source in ready_sources.cpu().tolist():
+        accepted: list[int] = []
+        for index, source in enumerate(ready_sources.cpu().tolist()):
             has_capacity = outgoing[source] < cfg.axon_slots
-            accepted.append(has_capacity)
             if has_capacity:
+                accepted.append(index)
                 outgoing[source] += 1
-        accepted_mask = torch.tensor(accepted, device=ready_targets.device, dtype=torch.bool)
-        ready_targets = ready_targets[accepted_mask]
-        ready_sources = ready_sources[accepted_mask]
-        if not ready_targets.numel():
+                if len(accepted) >= budget:
+                    break
+        if not accepted:
             return changed
+        accepted_indices = torch.tensor(
+            accepted, device=ready_targets.device, dtype=torch.long
+        )
+        ready_targets = ready_targets[accepted_indices]
+        ready_sources = ready_sources[accepted_indices]
         free_slot = free[ready_targets].float().argmax(dim=1)
         self.dendrite_source[ready_targets, free_slot] = ready_sources
         growth_sign = torch.randn(

@@ -89,6 +89,7 @@ SPECS: dict[str, HyperparameterSpec] = {
     "edge_grace_trials": HyperparameterSpec("edge grace trials", "growth & pruning", 1, 512, 1),
     "prune_utility": HyperparameterSpec("prune utility floor", "growth & pruning", 0, 0.2, 0.001),
     "max_pruned_per_generation": HyperparameterSpec("prune budget", "growth & pruning", 0, 4_096, 32),
+    "max_grown_per_generation": HyperparameterSpec("growth budget", "growth & pruning", 0, 4_096, 16),
     "lifecycle_enabled": HyperparameterSpec("lifecycle enabled (0/1)", "homeostasis", 0, 1, 1),
     "lifecycle_warmup_trials": HyperparameterSpec("lifecycle warm-up", "homeostasis", 0, 5_000, 1),
     "lifecycle_interval": HyperparameterSpec("lifecycle interval", "homeostasis", 1, 128, 1),

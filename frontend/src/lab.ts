@@ -139,6 +139,7 @@ interface MetricRecord {
   totalGradientNorm?: number;
   gradientClipScale?: number;
   gradientClip?: number;
+  maxGrownPerGeneration?: number;
   randomOffsetAuxiliaryWeight?: number;
   randomOffsetAuxiliaryScope?: "active_shard" | "full_corpus";
   randomOffsetAuxiliaryLoss?: number | null;
@@ -167,6 +168,7 @@ interface OrganismPhase {
   expandedExistingLaneDomains?: boolean;
   stateLanes?: number;
   gradientClip?: number;
+  maxGrownPerGeneration?: number;
   randomOffsetAuxiliaryWeight?: number;
   randomOffsetAuxiliaryScope?: "active_shard" | "full_corpus";
   startGrownEdges?: number;
@@ -227,6 +229,7 @@ interface LaboratorySnapshot {
     sameLineageRetry?: boolean;
     samePhaseResume?: boolean;
     phaseGradientClip?: boolean;
+    phaseGrowthBudget?: boolean;
     persistentStateTraining?: boolean;
     randomOffsetAuxiliary?: boolean;
     randomOffsetAuxiliaryScope?: boolean;
@@ -342,6 +345,7 @@ export class LaboratoryView {
   private readonly continueExpandExistingDomainsInput = required<HTMLInputElement>("#lab-continue-expand-existing-domains");
   private readonly continueStateLanesInput = required<HTMLInputElement>("#lab-continue-state-lanes");
   private readonly continueGradientClipInput = required<HTMLInputElement>("#lab-continue-gradient-clip");
+  private readonly continueGrowthBudgetInput = required<HTMLInputElement>("#lab-continue-growth-budget");
   private readonly continueRandomOffsetAuxiliaryInput = required<HTMLInputElement>("#lab-continue-random-offset-auxiliary");
   private readonly continueRandomOffsetAuxiliaryScopeSelect = required<HTMLSelectElement>("#lab-continue-random-offset-scope");
   private readonly continueButton = required<HTMLButtonElement>("#lab-continue");
@@ -493,6 +497,12 @@ export class LaboratoryView {
     this.continueGradientClipInput.disabled = !(
       canContinue && snapshot.capabilities.phaseGradientClip
     );
+    this.continueGrowthBudgetInput.disabled = !(
+      canContinue && snapshot.capabilities.phaseGrowthBudget
+    );
+    if (!snapshot.capabilities.phaseGrowthBudget) {
+      this.continueGrowthBudgetInput.value = "";
+    }
     if (!snapshot.capabilities.phaseGradientClip) {
       this.continueGradientClipInput.value = "";
     }
@@ -1009,7 +1019,7 @@ export class LaboratoryView {
         ? ` · phase +${Math.max(0, (diagnostic.cumulativeGrownEdges ?? 0) - phase.startGrownEdges)}/−${Math.max(0, (diagnostic.cumulativePrunedEdges ?? 0) - (phase.startPrunedEdges ?? 0))}`
         : "";
       const structure = diagnostic
-        ? `${topologyStatus} · ${diagnostic.structureUnlockReason ?? "reason unreported"}${(diagnostic.structuralWarmupRemaining ?? 0) > 0 ? ` · ${diagnostic.structuralWarmupRemaining} warm-up updates` : !diagnostic.structureUnlocked && (diagnostic.structurePlateauRemaining ?? 0) > 0 ? ` · ≤${diagnostic.structurePlateauRemaining} plateau updates` : ""} · lifetime +${diagnostic.cumulativeGrownEdges ?? 0}/−${diagnostic.cumulativePrunedEdges ?? 0}${phaseTurnover} edges · ${diagnostic.pruneEligibleEdges ?? 0} eligible · gen ${diagnostic.generation ?? 0}`
+        ? `${topologyStatus} · ${diagnostic.structureUnlockReason ?? "reason unreported"}${(diagnostic.structuralWarmupRemaining ?? 0) > 0 ? ` · ${diagnostic.structuralWarmupRemaining} warm-up updates` : !diagnostic.structureUnlocked && (diagnostic.structurePlateauRemaining ?? 0) > 0 ? ` · ≤${diagnostic.structurePlateauRemaining} plateau updates` : ""} · growth cap ${diagnostic.maxGrownPerGeneration ?? run.configuration.maxGrownPerGeneration ?? "legacy unbounded"}/gen · lifetime +${diagnostic.cumulativeGrownEdges ?? 0}/−${diagnostic.cumulativePrunedEdges ?? 0}${phaseTurnover} edges · ${diagnostic.pruneEligibleEdges ?? 0} eligible · gen ${diagnostic.generation ?? 0}`
         : "—";
       const sample = heldOut?.generationSample === undefined
         ? "—"
@@ -1342,6 +1352,9 @@ export class LaboratoryView {
     const shardSelection = String(form.get("trainingShardTokens") ?? "preserve");
     const laneSelection = String(form.get("stateLanes") ?? "").trim();
     const gradientClipSelection = String(form.get("gradientClip") ?? "").trim();
+    const growthBudgetSelection = String(
+      form.get("maxGrownPerGeneration") ?? "",
+    ).trim();
     const randomOffsetAuxiliarySelection = String(
       form.get("randomOffsetAuxiliaryWeight") ?? "",
     ).trim();
@@ -1361,6 +1374,9 @@ export class LaboratoryView {
       expandExistingLaneDomains: form.get("expandExistingLaneDomains") === "on",
       stateLanes: laneSelection === "" ? null : Number(laneSelection),
       gradientClip: gradientClipSelection === "" ? null : Number(gradientClipSelection),
+      maxGrownPerGeneration: growthBudgetSelection === ""
+        ? null
+        : Number(growthBudgetSelection),
       randomOffsetAuxiliaryWeight: randomOffsetAuxiliarySelection === ""
         ? null
         : Number(randomOffsetAuxiliarySelection),
@@ -1422,6 +1438,7 @@ export class LaboratoryView {
       this.continueExpandExistingDomainsInput.checked = false;
       this.continueStateLanesInput.value = "";
       this.continueGradientClipInput.value = "";
+      this.continueGrowthBudgetInput.value = "";
       this.continueRandomOffsetAuxiliaryInput.value = "";
       this.continueRandomOffsetAuxiliaryScopeSelect.value = "preserve";
       this.continuePhaseRoleSelect.value = run.currentRole
@@ -1438,6 +1455,7 @@ export class LaboratoryView {
       this.continueStateLanesInput.value = "";
     }
     this.continueGradientClipInput.placeholder = `blank preserves ${Number(run.configuration.gradientClip ?? 1)}`;
+    this.continueGrowthBudgetInput.placeholder = `blank preserves ${Number(run.configuration.maxGrownPerGeneration ?? 192)}`;
     const legacyAuxiliary = Number(run.configuration.randomOffsetAuxiliaryWeight ?? 0);
     this.continueRandomOffsetAuxiliaryInput.placeholder = legacyAuxiliary > 0
       ? `legacy ×${legacyAuxiliary} will be disabled on continuation`

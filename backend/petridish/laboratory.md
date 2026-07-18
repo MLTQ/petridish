@@ -142,6 +142,9 @@ explicitly enabled trainer processes.
 - **Does**: Optionally changes only the restored configuration's global gradient
   norm ceiling, records the resolved value in manifest/phase/metrics, and omits the
   trainer flag when continuation must preserve the checkpoint-owned value.
+- **Does**: Optionally bounds accepted dendrite growth per structural generation,
+  records the resolved cap in manifest/phase/metrics, and preserves the checkpoint
+  value when omitted.
 - **Does**: Rejects any requested nonzero disposable auxiliary weight. A legacy
   checkpoint with a nonzero value is continued with an explicit zero override,
   recorded in the command, manifest, phase history, and append-only metric before

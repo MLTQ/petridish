@@ -23,3 +23,6 @@ sixteen axons per cell. Its 64 input and 64 output anchors are population-code
 interfaces, not vocabulary-sized neuron banks. The four-cell height margin keeps
 each bank in one uninterrupted boundary column. Lifecycle starts after 500 updates;
 utility pruning waits at least 1,000 updates so early random traffic is not selected.
+Adaptive token-organism growth is capped at 64 dendrites per structural generation;
+this prevents a matured proposal wave from replacing a competent connectome in one
+transaction while leaving proposal evidence available for later generations.

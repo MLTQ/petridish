@@ -78,6 +78,8 @@ experiment laboratory above the live organism.
   stability experiments.
 - **Does**: Exposes an optional bounded gradient-clip ceiling only on persistent
   continuation; blank explicitly preserves the checkpoint's current ceiling.
+- **Does**: Exposes a separate per-generation dendrite-growth budget; blank preserves
+  the checkpoint cap and zero defers every ready proposal without clearing evidence.
 - **Does**: Shows disposable cold-gradient training as disabled. Legacy auxiliary
   metadata remains diagnostic history, while continuation migrates its weight to zero
   and fresh-state contexts remain read-only audits.

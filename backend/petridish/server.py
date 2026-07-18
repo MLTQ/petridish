@@ -84,6 +84,7 @@ class LabContinueRequest(BaseModel):
     expandExistingLaneDomains: bool = False
     stateLanes: int | None = Field(default=None, ge=1, le=MAX_STATE_LANES)
     gradientClip: float | None = Field(default=None, ge=0.01, le=100)
+    maxGrownPerGeneration: int | None = Field(default=None, ge=0, le=4_096)
     randomOffsetAuxiliaryWeight: float | None = Field(default=None, ge=0, le=10)
     randomOffsetAuxiliaryScope: str | None = Field(
         default=None, pattern="^(active_shard|full_corpus)$"
@@ -244,6 +245,7 @@ async def continue_lab_run(
         expand_existing_lane_domains=request.expandExistingLaneDomains,
         state_lanes=request.stateLanes,
         gradient_clip=request.gradientClip,
+        max_grown_per_generation=request.maxGrownPerGeneration,
         random_offset_auxiliary_weight=request.randomOffsetAuxiliaryWeight,
         random_offset_auxiliary_scope=request.randomOffsetAuxiliaryScope,
     )

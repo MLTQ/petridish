@@ -83,6 +83,7 @@ class ContinueSpec:
     expand_existing_lane_domains: bool = False
     state_lanes: int | None = None
     gradient_clip: float | None = None
+    max_grown_per_generation: int | None = None
     random_offset_auxiliary_weight: float | None = None
     random_offset_auxiliary_scope: str | None = None
 
@@ -171,6 +172,7 @@ class Laboratory:
                 "sameLineageRetry": True,
                 "samePhaseResume": True,
                 "phaseGradientClip": True,
+                "phaseGrowthBudget": True,
                 "persistentStateTraining": True,
                 "randomOffsetAuxiliary": False,
                 "randomOffsetAuxiliaryScope": False,
@@ -302,6 +304,11 @@ class Laboratory:
             raise ValueError("additional updates must be positive")
         if spec.gradient_clip is not None and not 0.01 <= spec.gradient_clip <= 100:
             raise ValueError("gradient clip must be between 0.01 and 100")
+        if (
+            spec.max_grown_per_generation is not None
+            and not 0 <= spec.max_grown_per_generation <= 4_096
+        ):
+            raise ValueError("growth budget must be between 0 and 4096")
         if spec.random_offset_auxiliary_weight not in {None, 0, 0.0}:
             raise ValueError(
                 "disposable cold-context gradients are disabled; persistent "
@@ -421,6 +428,20 @@ class Laboratory:
             if spec.gradient_clip is None
             else spec.gradient_clip
         )
+        previous_growth_budget = int(
+            (latest_diagnostic or {}).get(
+                "maxGrownPerGeneration",
+                (latest_train or {}).get(
+                    "maxGrownPerGeneration",
+                    configuration.get("maxGrownPerGeneration", 192),
+                ),
+            )
+        )
+        max_grown_per_generation = (
+            previous_growth_budget
+            if spec.max_grown_per_generation is None
+            else spec.max_grown_per_generation
+        )
         previous_random_offset_auxiliary_weight = float(
             (latest_train or {}).get(
                 "randomOffsetAuxiliaryWeight",
@@ -533,6 +554,7 @@ class Laboratory:
             expand_existing_lane_domains=spec.expand_existing_lane_domains,
             state_lanes=spec.state_lanes,
             gradient_clip=spec.gradient_clip,
+            max_grown_per_generation=spec.max_grown_per_generation,
             random_offset_auxiliary_weight=(
                 auxiliary_override
             ),
@@ -553,6 +575,7 @@ class Laboratory:
             "expandedExistingLaneDomains": spec.expand_existing_lane_domains,
             "stateLanes": state_lanes,
             "gradientClip": gradient_clip,
+            "maxGrownPerGeneration": max_grown_per_generation,
             "randomOffsetAuxiliaryWeight": random_offset_auxiliary_weight,
             "randomOffsetAuxiliaryScope": random_offset_auxiliary_scope,
             "startGrownEdges": int(
@@ -578,6 +601,7 @@ class Laboratory:
                 "expandedExistingLaneDomains": spec.expand_existing_lane_domains,
                 "stateLanes": state_lanes,
                 "gradientClip": gradient_clip,
+                "maxGrownPerGeneration": max_grown_per_generation,
                 "randomOffsetAuxiliaryWeight": random_offset_auxiliary_weight,
                 "randomOffsetAuxiliaryScope": random_offset_auxiliary_scope,
             }
@@ -612,6 +636,7 @@ class Laboratory:
                 "expandedExistingLaneDomains": spec.expand_existing_lane_domains,
                 "stateLanes": state_lanes,
                 "gradientClip": gradient_clip,
+                "maxGrownPerGeneration": max_grown_per_generation,
                 "randomOffsetAuxiliaryWeight": random_offset_auxiliary_weight,
                 "randomOffsetAuxiliaryScope": random_offset_auxiliary_scope,
                 "startGrownEdges": phase["startGrownEdges"],
@@ -900,6 +925,7 @@ class Laboratory:
             ),
             state_lanes=None,
             gradient_clip=None,
+            max_grown_per_generation=None,
             random_offset_auxiliary_weight=None,
             random_offset_auxiliary_scope=None,
         )
@@ -1130,6 +1156,7 @@ class Laboratory:
         expand_existing_lane_domains: bool,
         state_lanes: int | None,
         gradient_clip: float | None,
+        max_grown_per_generation: int | None,
         random_offset_auxiliary_weight: float | None,
         random_offset_auxiliary_scope: str | None,
     ) -> list[str]:
@@ -1154,6 +1181,13 @@ class Laboratory:
             command.extend(("--state-lanes", str(state_lanes)))
         if gradient_clip is not None:
             command.extend(("--gradient-clip", str(gradient_clip)))
+        if max_grown_per_generation is not None:
+            command.extend(
+                (
+                    "--max-grown-per-generation",
+                    str(max_grown_per_generation),
+                )
+            )
         if random_offset_auxiliary_weight is not None:
             command.extend(
                 (
