@@ -15,7 +15,8 @@ path from spatial classification to language modeling.
   batch generator.
 - **Does**: Optionally supplies a distinct validation generator, text encoder and
   decoder, character/token counts, tokenizer metadata, source URL, and measured
-  unigram/bigram validation baselines for cached corpus tasks.
+  unigram/bigram validation accuracy plus smoothed loss baselines for cached corpus
+  tasks.
 - **Does**: Optionally exposes raw training/validation token streams and slices
   contiguous, wrapping windows from explicit per-lane positions.
 - **Rationale**: Persistent organisms must receive adjacent experience without

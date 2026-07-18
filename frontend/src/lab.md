@@ -32,6 +32,8 @@ validated launch or stop requests.
   bands, separating organism startup/settling from steady-state token prediction.
 - **Does**: Places exact corpus unigram and bigram accuracy beside those bands so
   improvements are judged against real frequency/context baselines, not 1/vocabulary.
+- **Does**: Places smoothed unigram/bigram perplexity beside accuracy so distributed
+  learning below the modal token is not mistaken for total failure.
 - **Rationale**: Loss alone cannot establish that a cellular routing or lifecycle
   mechanism is functioning.
 

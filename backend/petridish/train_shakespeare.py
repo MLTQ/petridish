@@ -264,6 +264,8 @@ def _baseline_diagnostics(experiment: SequenceExperiment) -> dict[str, float]:
         for key, value in (
             ("unigramBaselineAccuracy", task.unigram_baseline_accuracy),
             ("bigramBaselineAccuracy", task.bigram_baseline_accuracy),
+            ("unigramBaselineLoss", task.unigram_baseline_loss),
+            ("bigramBaselineLoss", task.bigram_baseline_loss),
         )
         if value is not None
     }

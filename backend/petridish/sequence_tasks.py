@@ -40,6 +40,8 @@ class SequenceTask:
     source_url: str | None = None
     unigram_baseline_accuracy: float | None = None
     bigram_baseline_accuracy: float | None = None
+    unigram_baseline_loss: float | None = None
+    bigram_baseline_loss: float | None = None
     training_stream: torch.Tensor | None = None
     evaluation_stream: torch.Tensor | None = None
 

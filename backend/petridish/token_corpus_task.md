@@ -17,7 +17,8 @@ runtime or the multi-gigabyte training split.
 ### `build_token_task`
 - **Does**: Builds the same task from supplied text for tests and offline experiments.
 - **Does**: Measures exact held-out unigram accuracy and a train-fitted bigram
-  lookup baseline with vectorized counts.
+  lookup baseline with vectorized counts, plus add-one-smoothed validation
+  cross-entropy/perplexity for both distributions.
 - **Rationale**: Leading spaces remain part of pieces, so concatenating decoded
   predictions produces readable text without a language-specific detokenizer.
 - **Does**: Retains the split token tensors as explicit contiguous streams for
@@ -27,7 +28,8 @@ runtime or the multi-gigabyte training split.
 - **Does**: Fits the most-common global token and one-step transition table on the
   training split, then evaluates both on the untouched validation stream.
 - **Rationale**: Uniform vocabulary chance is not a meaningful language baseline;
-  learned models must be compared with frequency and one-token context.
+  learned models must be compared with frequency and one-token context. Accuracy
+  catches modal collapse; smoothed loss detects useful probability mass below top one.
 
 ## Contracts
 

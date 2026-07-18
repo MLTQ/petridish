@@ -51,6 +51,8 @@ interface MetricRecord {
   positionAccuracy?: number[];
   unigramBaselineAccuracy?: number;
   bigramBaselineAccuracy?: number;
+  unigramBaselineLoss?: number;
+  bigramBaselineLoss?: number;
   electricalStateTokens?: number;
   coldStateLoss?: number;
   coldStateAccuracy?: number;
@@ -787,7 +789,7 @@ export class LaboratoryView {
     )).join(" · ");
     const baselineSummary = record.unigramBaselineAccuracy === undefined
       ? ""
-      : `uni ${this.percent(record.unigramBaselineAccuracy)} · bi ${this.percent(record.bigramBaselineAccuracy)}`;
+      : `uni ${this.percent(record.unigramBaselineAccuracy)} / ppl ${this.perplexity(record.unigramBaselineLoss)} · bi ${this.percent(record.bigramBaselineAccuracy)} / ppl ${this.perplexity(record.bigramBaselineLoss)}`;
     const stateSummary = record.coldStateAccuracy === undefined
       ? ""
       : `carry ${this.percent(record.accuracy)} · cold ${this.percent(record.coldStateAccuracy)} · Δ ${this.signedPercent(record.stateCarryAccuracyDelta)}`;
@@ -801,5 +803,10 @@ export class LaboratoryView {
   private signedPercent(value: number | undefined): string {
     if (value === undefined || !Number.isFinite(value)) return "—";
     return `${value >= 0 ? "+" : ""}${(value * 100).toFixed(1)}%`;
+  }
+
+  private perplexity(loss: number | undefined): string {
+    if (loss === undefined || !Number.isFinite(loss)) return "—";
+    return Math.exp(Math.min(20, loss)).toFixed(1);
   }
 }

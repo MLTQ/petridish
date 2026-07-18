@@ -54,8 +54,8 @@ def _chunk_generator(encoded: torch.Tensor, context_length: int):
 
 def _next_token_baselines(
     train: torch.Tensor, validation: torch.Tensor, vocabulary_size: int
-) -> tuple[float, float]:
-    """Measure exact validation unigram and train-fitted bigram accuracy."""
+) -> tuple[float, float, float, float]:
+    """Measure exact accuracy and smoothed validation loss for n-gram baselines."""
 
     unigram_counts = torch.bincount(train, minlength=vocabulary_size)
     unigram_token = int(unigram_counts.argmax())
@@ -71,7 +71,19 @@ def _next_token_baselines(
     bigram_accuracy = float(
         (bigram_prediction[validation[:-1]] == targets).float().mean()
     )
-    return unigram_accuracy, bigram_accuracy
+    unigram_probability = (
+        (unigram_counts.double() + 1)
+        / (unigram_counts.sum().double() + vocabulary_size)
+    )
+    unigram_loss = float(-unigram_probability[targets].log().mean())
+    bigram_probability = (
+        (bigram_counts.double() + 1)
+        / (bigram_counts.sum(dim=1, keepdim=True).double() + vocabulary_size)
+    )
+    bigram_loss = float(
+        -bigram_probability[validation[:-1], targets].log().mean()
+    )
+    return unigram_accuracy, bigram_accuracy, unigram_loss, bigram_loss
 
 
 def build_token_task(
@@ -97,7 +109,7 @@ def build_token_task(
     split = max(context_length + 2, int(encoded.numel() * 0.90))
     split = min(split, encoded.numel() - context_length - 2)
     train, validation = encoded[:split], encoded[split:]
-    unigram_accuracy, bigram_accuracy = _next_token_baselines(
+    unigram_accuracy, bigram_accuracy, unigram_loss, bigram_loss = _next_token_baselines(
         train, validation, len(vocabulary)
     )
 
@@ -131,6 +143,8 @@ def build_token_task(
         source_url=source_url,
         unigram_baseline_accuracy=unigram_accuracy,
         bigram_baseline_accuracy=bigram_accuracy,
+        unigram_baseline_loss=unigram_loss,
+        bigram_baseline_loss=bigram_loss,
         training_stream=train,
         evaluation_stream=validation,
     )
