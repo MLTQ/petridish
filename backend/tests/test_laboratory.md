@@ -65,6 +65,11 @@ control-enable contracts without requiring NVIDIA hardware or launching trainers
   the fresh-run flag.
 - **Does**: Proves a repeated-shard curriculum is recorded in the same lineage's
   command, manifest, phase boundary, and append-only metric.
+- **Does**: Proves append-only lane expansion reaches the command, manifest, phase
+  boundary, and metric while shrink requests remain invalid.
+- **Does**: Proves continuation repairs a lagging manifest from the latest checkpoint
+  metric's phase, repeated-shard size, and lane count rather than relabeling the
+  preserved organism with stale orchestration metadata.
 - **Does**: Proves continuation snapshots edge and cell turnover counters for
   phase-local consolidation diagnostics.
 - **Does**: Proves checkpoint evaluation invokes the read-only trainer path, retains
@@ -79,6 +84,8 @@ control-enable contracts without requiring NVIDIA hardware or launching trainers
   random-offset shard records.
 - **Does**: Requires the server to advertise repeated-shard continuation before the
   frontend enables that phase control.
+- **Does**: Requires the server to advertise state-lane expansion before the frontend
+  enables the append-only lane control.
 
 ## Contracts
 

@@ -74,6 +74,7 @@ class ContinueSpec:
     topology_profile: str | None = None
     phase_name: str | None = None
     training_shard_tokens: int | None = None
+    state_lanes: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -123,6 +124,7 @@ class Laboratory:
                 "checkpointEvaluation": True,
                 "trainingShardAudit": True,
                 "trainingShardCurriculum": True,
+                "stateLaneExpansion": True,
             },
             "gpus": gpus,
             "runs": self._discover_runs(active_runs),
@@ -233,6 +235,8 @@ class Laboratory:
             raise PermissionError("laboratory process control is disabled")
         if spec.additional_updates < 1:
             raise ValueError("additional updates must be positive")
+        if spec.state_lanes is not None and not 1 <= spec.state_lanes <= 16:
+            raise ValueError("state lanes must be between one and sixteen")
         if spec.lifecycle_profile not in LIFECYCLE_PROFILES:
             raise ValueError("unknown lifecycle profile")
         topology_profile = resolve_topology_profile(
@@ -296,12 +300,35 @@ class Laboratory:
                     "startedAt": manifest.get("createdAt"),
                 }
             )
-        phase_index = max(int(phase.get("index", 0)) for phase in history) + 1
+        observed_phase_indices = [
+            int(record.get("phaseIndex", 0) or 0)
+            for record in records
+            if record.get("phaseIndex") is not None
+        ]
+        phase_index = max(
+            max(int(phase.get("index", 0)) for phase in history),
+            max(observed_phase_indices, default=0),
+        ) + 1
         profile = resolve_lifecycle_profile(
             spec.lifecycle_profile, enabled=spec.lifecycle
         )
         configuration = dict(manifest.get("configuration", {}))
-        previous_shard_tokens = int(configuration.get("trainingShardTokens", 0) or 0)
+        previous_state_lanes = int(
+            (latest_train or {}).get(
+                "stateLanes", configuration.get("stateLanes", 1)
+            ) or 1
+        )
+        state_lanes = (
+            previous_state_lanes if spec.state_lanes is None else spec.state_lanes
+        )
+        if state_lanes < previous_state_lanes:
+            raise ValueError("state-lane continuation cannot discard existing lanes")
+        latest_shard_tokens = (
+            (latest_train or {}).get("trainingShardTokens")
+            if "trainingShardTokens" in (latest_train or {})
+            else configuration.get("trainingShardTokens", 0)
+        )
+        previous_shard_tokens = int(latest_shard_tokens or 0)
         training_shard_tokens = (
             previous_shard_tokens
             if spec.training_shard_tokens is None
@@ -325,6 +352,7 @@ class Laboratory:
             topology_profile=topology_profile,
             lifecycle_profile=profile,
             training_shard_tokens=spec.training_shard_tokens,
+            state_lanes=spec.state_lanes,
         )
         phase = {
             "index": phase_index,
@@ -335,6 +363,7 @@ class Laboratory:
             "topologyProfile": topology_profile,
             "lifecycleProfile": profile,
             "trainingShardTokens": training_shard_tokens,
+            "stateLanes": state_lanes,
             "startGrownEdges": int(
                 (latest_diagnostic or {}).get("cumulativeGrownEdges", 0)
             ),
@@ -354,6 +383,7 @@ class Laboratory:
                 "structure": structure_enabled,
                 "topologyProfile": topology_profile,
                 "trainingShardTokens": training_shard_tokens,
+                "stateLanes": state_lanes,
             }
         )
         manifest.update(
@@ -380,6 +410,7 @@ class Laboratory:
                 "topologyProfile": topology_profile,
                 "lifecycleProfile": profile,
                 "trainingShardTokens": training_shard_tokens,
+                "stateLanes": state_lanes,
                 "startGrownEdges": phase["startGrownEdges"],
                 "startPrunedEdges": phase["startPrunedEdges"],
                 "startBirths": phase["startBirths"],
@@ -553,6 +584,7 @@ class Laboratory:
         topology_profile: str,
         lifecycle_profile: str,
         training_shard_tokens: int | None,
+        state_lanes: int | None,
     ) -> list[str]:
         command = [
             sys.executable, "-m", "petridish.train_shakespeare",
@@ -569,6 +601,8 @@ class Laboratory:
         command.append("--structure" if structure else "--no-structure")
         if training_shard_tokens is not None:
             command.extend(("--training-shard-tokens", str(training_shard_tokens)))
+        if state_lanes is not None:
+            command.extend(("--state-lanes", str(state_lanes)))
         return command
 
     def _evaluation_command(

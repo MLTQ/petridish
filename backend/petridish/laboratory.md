@@ -44,6 +44,8 @@ explicitly enabled trainer processes.
   the matching server restart cannot expose a nonfunctional mutation control.
 - **Does**: Advertises repeated-shard continuation explicitly so a frontend/backend
   version mismatch cannot silently discard a curriculum request.
+- **Does**: Advertises append-only state-lane expansion explicitly so an older
+  backend can never misinterpret phase-diversity controls as ordinary continuation.
 - **Interacts with**: `/api/lab` in `server.py` and `lab.ts`.
 
 ### `Laboratory.metrics`
@@ -93,6 +95,12 @@ explicitly enabled trainer processes.
 - **Does**: Optionally changes only the TinyStories experience distribution to a
   deterministic repeated token shard. The checkpoint organism, graph, optimizer,
   corpus cursor, RNG state, and electrical memory remain the same lineage.
+- **Does**: Optionally appends up to sixteen independently phased persistent
+  experience lanes. Existing lane positions and electrical states may not shrink or
+  move; only new cold lanes are allocated by the checkpoint's continuing RNG stream.
+- **Does**: Recovers the authoritative phase index, repeated-shard size, and current
+  lane count from the latest training metric when an older manifest lags a valid
+  checkpoint, preventing stale orchestration metadata from relabeling continuation.
 - **Does**: Captures cumulative cell and edge turnover at each phase boundary so
   later diagnostics can report phase-local change separately from lifetime totals.
 - **Rationale**: Structural warm-up, adaptive pruning, and lifecycle pressure must be

@@ -125,6 +125,9 @@ validated launch or stop requests.
   without accepting architecture, geometry, connectome, weight, or state replacements.
 - **Does**: Can change a continued TinyStories organism to a deterministic repeated
   experience shard without resetting or replacing any organism-owned state.
+- **Does**: Can expand a continued organism's persistent experience lanes without
+  exposing a shrink operation; existing lane positions and electrical histories stay
+  organism-owned while newly allocated lanes begin cold at independent phases.
 - **Does**: Enables that control only when the serving backend advertises support,
   preventing an older API from silently ignoring the requested curriculum.
 - **Does**: States the continuation invariant directly in the controls: cells,

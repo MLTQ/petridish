@@ -635,3 +635,50 @@ continuing on an intermediate 1,024-byte shard through update 4,250. This is a
 curriculum-granularity recovery test: it preserves the 112,000-token recurrent state,
 all cells and edges, learned parameters, optimizer moments, and RNG streams produced
 by the failed 2,048-byte phase.
+
+### Physical-graph sequence learning and its cursor-phase limitation
+
+The intermediate 1,024-byte recovery succeeded on the unchanged 2070 lineage. Across
+updates 3,501–4,250, 100-update-bin accuracy rose from 23.61% through 24.28%, 33.80%,
+34.81%, 39.34%, 45.56%, and 51.58%; the final 50 updates averaged 50.44%. The final
+160-update rolling result was 51.32% / 1.76821, above the shard's 20.53% unigram and
+37.24% fitted-bigram training ceilings. The same organism ID, 16,565-edge graph, and
+all cells persisted while its electrical lanes advanced from 112,064 to 136,000
+tokens. Severe global clipping remained common: the final-160 median scale was 0.073,
+its tenth percentile 0.048, and 88.75% of updates were scaled to 0.1 or below.
+
+Three distinct read-only audits exposed what that competence means. On the exact next
+saved trajectory, accuracy was 48.54% / 1.75134; graph silence reduced it to 9.47%,
+broadcast silence to 18.65%, source rotation to 12.89%, and weight reassignment to
+11.33%. Both the physical graph and broadcast workspace have therefore become useful
+on the learned trajectory, reversing the graph's harmful effect in the earlier
+512/2,048-byte phases. Yet random offsets within the same 1,024-byte shard achieved
+only 19.14% graph-reference accuracy, and full validation achieved 13.96%. The model
+learned an aligned recurrent trajectory rather than a phase-shift-invariant byte
+distribution.
+
+The 4090 local-only lineage produced the stronger mechanistic result. It continued
+from update 1,301 to 1,801 on the 128-byte shard with zero broadcast, the same organism
+ID `organism-3b2405d533c548e0ab2666a8d8ff9987`, its original fixed 17,130-edge graph,
+and electrical age increasing from 83,328 to 115,264 tokens. Accuracy by 100-update
+bin was 21.09%, 24.91%, 68.56%, 99.53%, and 100.00%; the final 160 updates were exactly
+100% / 0.26184. This exceeds the shard's 21.26% unigram and 43.31% fitted-bigram
+training ceilings without a global workspace.
+
+The exact-trajectory causal audit was decisive across 1,024 predicted bytes: intact
+graph plus saved electrical state achieved 100% at every position. Zeroing graph
+weights reduced accuracy to 14.26%; rotating endpoints to 4.69%; reassigning each
+destination's learned source/weight pairing to 4.00%; and retaining the graph but
+starting from cold electrical state to 28.91%. Broadcast silence was a no-op because
+the run's gain is exactly zero. The learned computation therefore resides jointly in
+the physical dendritic graph, its learned synaptic assignment, and persistent local
+electrical state.
+
+This competence is also cursor-phase specific. A random-offset audit on the same
+128-byte shard reached 26.76% with the intact graph versus 12.30% silenced, 5.08%
+rotated, and 2.93% reassigned. The graph causally improves some shifted predictions,
+but far less than the aligned 100%. Full validation was 9.08% / 4.90073 and cold state
+was less harmful there, confirming genuine overfit. The next intervention should add
+independently phased persistent experience lanes while preserving every existing
+lane, rather than scaling the corpus immediately. This directly tests whether one
+organism can consolidate the same local rule and graph across many cursor phases.

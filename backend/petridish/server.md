@@ -54,11 +54,13 @@ runtime device is configurable independently from trainer workers.
   policy for an existing checkpointed organism.
 - **Does**: Accepts an optional repeated-shard curriculum for a continuation phase;
   omission preserves the active stream and zero selects the full corpus.
+- **Does**: Accepts an optional one-to-sixteen target lane count for append-only
+  persistent experience expansion; the laboratory rejects any requested shrink.
 - **Does**: Accepts fixed, adaptive, or prune-only topology; the laboratory performs
   categorical validation and records the resolved phase policy.
-- **Rationale**: Architecture, geometry, weights, state, and corpus cursor come from
-  the checkpoint. A shard changes which existing corpus experiences repeat; it does
-  not replace organism-owned state.
+- **Rationale**: Architecture, geometry, weights, state, and existing corpus cursors
+  come from the checkpoint. A shard changes which experiences repeat and a lane
+  expansion adds cold trajectories; neither replaces organism-owned state.
 
 ### `LabEvaluateRequest`
 - **Does**: Selects a measured GPU and optional state-horizon sweep for read-only

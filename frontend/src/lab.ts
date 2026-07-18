@@ -130,6 +130,7 @@ interface OrganismPhase {
   structure: boolean;
   lifecycleProfile: string;
   trainingShardTokens?: number;
+  stateLanes?: number;
   startGrownEdges?: number;
   startPrunedEdges?: number;
   startBirths?: number;
@@ -168,6 +169,7 @@ interface LaboratorySnapshot {
     checkpointEvaluation?: boolean;
     trainingShardAudit?: boolean;
     trainingShardCurriculum?: boolean;
+    stateLaneExpansion?: boolean;
   };
   gpus: GpuSnapshot[];
   runs: RunSnapshot[];
@@ -274,6 +276,7 @@ export class LaboratoryView {
   private readonly continueLifecycleSelect = required<HTMLSelectElement>("#lab-continue-lifecycle-profile");
   private readonly continueStructureSelect = required<HTMLSelectElement>("#lab-continue-structure");
   private readonly continueTrainingShardSelect = required<HTMLSelectElement>("#lab-continue-training-shard");
+  private readonly continueStateLanesSelect = required<HTMLSelectElement>("#lab-continue-state-lanes");
   private readonly continueButton = required<HTMLButtonElement>("#lab-continue");
   private readonly continueStatus = required<HTMLOutputElement>("#lab-continue-status");
   private readonly benchmarksHost = required<HTMLTableSectionElement>("#laboratory-benchmarks");
@@ -397,6 +400,12 @@ export class LaboratoryView {
     );
     if (!snapshot.capabilities.trainingShardCurriculum) {
       this.continueTrainingShardSelect.value = "preserve";
+    }
+    this.continueStateLanesSelect.disabled = !(
+      canContinue && snapshot.capabilities.stateLaneExpansion
+    );
+    if (!snapshot.capabilities.stateLaneExpansion) {
+      this.continueStateLanesSelect.value = "preserve";
     }
     this.launchStatus.value = snapshot.controlEnabled
       ? "new runs receive immutable manifests"
@@ -1010,6 +1019,7 @@ export class LaboratoryView {
     const topologyProfile = String(form.get("topologyProfile"));
     const phaseName = String(form.get("phaseName") ?? "").trim();
     const shardSelection = String(form.get("trainingShardTokens") ?? "preserve");
+    const laneSelection = String(form.get("stateLanes") ?? "preserve");
     const body = {
       gpuUuid: String(form.get("gpuUuid")),
       additionalUpdates: Number(form.get("additionalUpdates")),
@@ -1019,6 +1029,7 @@ export class LaboratoryView {
       structure: topologyProfile !== "fixed",
       phaseName: phaseName || null,
       trainingShardTokens: shardSelection === "preserve" ? null : Number(shardSelection),
+      stateLanes: laneSelection === "preserve" ? null : Number(laneSelection),
     };
     try {
       const response = await fetch(`/api/lab/runs/${encodeURIComponent(runId)}/continue`, {
@@ -1051,6 +1062,11 @@ export class LaboratoryView {
       run.configuration.lifecycleProfile ?? (run.configuration.lifecycle ? "baseline" : "off"),
     );
     this.continueTrainingShardSelect.value = "preserve";
+    this.continueStateLanesSelect.value = "preserve";
+    const currentLanes = Number(run.configuration.stateLanes ?? 1);
+    for (const option of this.continueStateLanesSelect.options) {
+      option.disabled = option.value !== "preserve" && Number(option.value) < currentLanes;
+    }
   }
 
   private lineagePhase(run: RunSnapshot): string {
@@ -1059,7 +1075,8 @@ export class LaboratoryView {
     const curriculum = phase?.trainingShardTokens
       ? ` · repeat ${phase.trainingShardTokens.toLocaleString()}`
       : phase?.trainingShardTokens === 0 ? " · full stream" : "";
-    return `${lineage} · p${phase?.index ?? 0} ${phase?.name ?? "training"}${curriculum}`;
+    const lanes = phase?.stateLanes ?? Number(run.configuration.stateLanes ?? 1);
+    return `${lineage} · p${phase?.index ?? 0} ${phase?.name ?? "training"}${curriculum} · ${lanes} lane${lanes === 1 ? "" : "s"}`;
   }
 
   private populateSelect(select: HTMLSelectElement, choices: { value: string; label: string }[]): void {

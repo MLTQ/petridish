@@ -175,6 +175,38 @@ def restore_checkpoint(
     np.random.set_state(rng["numpy"])
 
 
+def expand_persistent_state_lanes(
+    experiment: SequenceExperiment, target_lanes: int
+) -> None:
+    """Add cold experience lanes without replacing any checkpoint-owned lane."""
+
+    current_lanes = experiment.state_lanes
+    if target_lanes < current_lanes:
+        raise ValueError("state-lane continuation cannot discard existing lanes")
+    if target_lanes == current_lanes:
+        return
+    if experiment.stream_mode != "continuous":
+        raise ValueError("state-lane expansion requires continuous stream mode")
+    positions = experiment._training_stream_positions
+    if positions is None:
+        raise RuntimeError("continuous stream positions were not restored")
+    preserved_positions = positions.unsqueeze(0) if current_lanes == 1 else positions
+    added = target_lanes - current_lanes
+    added_positions = experiment.task.initial_stream_positions(
+        experiment.config.batch_size * added, experiment.generator
+    ).reshape(added, experiment.config.batch_size)
+    experiment._training_stream_positions = torch.cat(
+        (preserved_positions, added_positions), dim=0
+    )
+    preserved_bank = list(experiment._training_runtime_bank)
+    if len(preserved_bank) != current_lanes:
+        raise RuntimeError(
+            "checkpoint runtime bank does not match its persistent lane count"
+        )
+    experiment._training_runtime_bank = preserved_bank + [None] * added
+    experiment.state_lanes = target_lanes
+
+
 def plasticity_phase_config(
     config: MnistModelConfig,
     *,
@@ -241,7 +273,7 @@ def _scientific_metrics(experiment: SequenceExperiment) -> dict[str, Any]:
         experiment._training_runtime_bank
         if experiment.state_lanes > 1 else [experiment._training_runtime_state]
     )
-    lane_ages = [state.position for state in lane_states if state is not None]
+    lane_ages = [state.position if state is not None else 0 for state in lane_states]
     plateau_age = experiment.training_step - experiment.last_accuracy_improvement_step
     return {
         "electricalStateTokens": (
@@ -547,7 +579,7 @@ def main() -> None:
     parser.add_argument("--message-steps", type=int)
     parser.add_argument("--stream-mode", choices=STREAM_MODES, default="continuous")
     parser.add_argument("--state-retention", type=float, default=1.0)
-    parser.add_argument("--state-lanes", type=int, default=1)
+    parser.add_argument("--state-lanes", type=int)
     parser.add_argument("--broadcast-gain", type=float)
     parser.add_argument("--architecture", choices=CELL_ARCHITECTURES, default="gru")
     parser.add_argument("--updates", type=int, default=100_000)
@@ -599,7 +631,7 @@ def main() -> None:
         parser.error("--broadcast-gain must be between 0 and 2")
     if not 0 <= args.state_retention <= 1:
         parser.error("--state-retention must be between 0 and 1")
-    if not 1 <= args.state_lanes <= 16:
+    if args.state_lanes is not None and not 1 <= args.state_lanes <= 16:
         parser.error("--state-lanes must be between 1 and 16")
     if args.phase_index is not None and args.phase_index < 0:
         parser.error("--phase-index must be non-negative")
@@ -608,6 +640,7 @@ def main() -> None:
     payload: dict[str, Any] | None = None
     requested_device = torch.device(args.device)
     requested_training_shard_tokens = args.training_shard_tokens
+    requested_state_lanes = args.state_lanes
     if args.resume and latest.exists():
         payload = load_checkpoint(latest, requested_device)
         saved_lineage = dict(payload.get("lineage", {}))
@@ -627,7 +660,15 @@ def main() -> None:
         args.task = str(saved_task.get("key", "tiny_shakespeare"))
         args.stream_mode = str(saved_task.get("stream_mode", "windowed"))
         args.state_retention = float(saved_task.get("state_retention", 1.0))
-        args.state_lanes = int(saved_task.get("state_lanes", 1))
+        saved_state_lanes = int(saved_task.get("state_lanes", 1))
+        if args.resume_plasticity and requested_state_lanes is not None:
+            if requested_state_lanes < saved_state_lanes:
+                raise ValueError(
+                    "state-lane continuation cannot discard existing lanes"
+                )
+            args.state_lanes = requested_state_lanes
+        else:
+            args.state_lanes = saved_state_lanes
         args.vocabulary_size = len(tuple(saved_task.get("vocabulary", ())))
         args.tokenizer_profile = str(
             saved_task.get("tokenizer_profile") or "wordpiece"
@@ -658,6 +699,7 @@ def main() -> None:
                 topology_profile=topology_profile,
             )
     else:
+        args.state_lanes = requested_state_lanes or 1
         organism_id = args.organism_id or f"organism-{uuid.uuid4().hex}"
         phase_index = args.phase_index or 0
         phase_name = args.phase_name or "initial training"
@@ -698,7 +740,9 @@ def main() -> None:
         topology_profile=topology_profile,
     )
     if payload is not None:
+        target_state_lanes = args.state_lanes
         restore_checkpoint(experiment, payload)
+        expand_persistent_state_lanes(experiment, target_state_lanes)
         if args.resume_plasticity:
             experiment.topology_profile = topology_profile
             reconcile_plasticity_phase_status(experiment)

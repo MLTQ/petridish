@@ -46,6 +46,9 @@ experiment laboratory above the live organism.
 - **Does**: Lets that same-organism continuation optionally repeat a deterministic
   TinyStories shard; the default preserves the current stream and zero explicitly
   returns to the full corpus.
+- **Does**: Lets continuation append persistent experience lanes through powers of
+  two up to sixteen while disabling every option below the organism's current lane
+  count. Preserve remains the default.
 - **Does**: Calls held-out zero-state comparisons disposable ablation copies so the
   interface never implies that the live organism was reset.
 - **Does**: Shows lineage and phase beside run status so a continuation cannot be

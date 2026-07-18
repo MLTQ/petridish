@@ -41,6 +41,7 @@ from petridish.token_settling_task import token_settling_task
 from petridish.token_settled_pipeline_task import token_settled_pipeline_task
 from petridish.token_stream_task import token_stream_task
 from petridish.train_shakespeare import (
+    expand_persistent_state_lanes,
     _fresh_config,
     _held_out_diagnostics,
     _migrate_model_state,
@@ -723,6 +724,86 @@ def test_round_robin_state_lanes_add_trajectory_diversity_at_batch_one() -> None
     assert metrics["structureUnlockReason"] == "disabled by configuration"
     assert metrics["structuralWarmupRemaining"] >= 0
     assert metrics["lifecycleReason"] == "disabled by configuration"
+
+
+@pytest.mark.parametrize("starting_lanes", (1, 2))
+def test_state_lane_expansion_preserves_every_existing_trajectory(
+    tmp_path: Path, starting_lanes: int
+) -> None:
+    text = "One fox ran. Two birds flew. Three cats slept. " * 30
+    task = build_token_task(text, context_length=8, vocabulary_size=32)
+    experiment = SequenceExperiment(
+        task, replace(corpus_config(), batch_size=1), seed=58, device="cpu",
+        stream_mode="continuous", state_retention=0.9, state_lanes=starting_lanes,
+    )
+    experiment.train_updates(starting_lanes)
+    original_positions = experiment._training_stream_positions.clone()
+    original_states = list(experiment._training_runtime_bank)
+    original_rng = experiment.generator.get_state().clone()
+    original_model = {
+        name: value.detach().clone()
+        for name, value in experiment.model.state_dict().items()
+    }
+    original_optimizer = copy.deepcopy(experiment.optimizer.state_dict())
+
+    expand_persistent_state_lanes(experiment, 4)
+    metrics = _scientific_metrics(experiment)
+
+    assert experiment.state_lanes == 4
+    assert experiment._training_stream_positions.shape == (4, 1)
+    expected_positions = (
+        original_positions.unsqueeze(0) if starting_lanes == 1 else original_positions
+    )
+    assert torch.equal(
+        experiment._training_stream_positions[:starting_lanes], expected_positions
+    )
+    for index, original_state in enumerate(original_states):
+        assert experiment._training_runtime_bank[index] is original_state
+    assert experiment._training_runtime_bank[starting_lanes:] == [None] * (
+        4 - starting_lanes
+    )
+    assert not torch.equal(experiment.generator.get_state(), original_rng)
+    for name, value in experiment.model.state_dict().items():
+        assert torch.equal(value, original_model[name])
+    assert (
+        experiment.optimizer.state_dict()["param_groups"]
+        == original_optimizer["param_groups"]
+    )
+    for parameter, state in experiment.optimizer.state_dict()["state"].items():
+        for name, value in state.items():
+            original_value = original_optimizer["state"][parameter][name]
+            if isinstance(value, torch.Tensor):
+                assert torch.equal(value, original_value)
+            else:
+                assert value == original_value
+    assert metrics["minimumElectricalStateTokens"] == 0
+    assert metrics["maximumElectricalStateTokens"] == 8
+
+    checkpoint = tmp_path / f"lanes-{starting_lanes}.pt"
+    save_checkpoint(
+        checkpoint, experiment, context_length=8, amp_mode="off",
+        organism_id="organism-lanes", phase_index=3, phase_name="lane expansion",
+    )
+    restored = SequenceExperiment(
+        task, replace(corpus_config(), batch_size=1), seed=58, device="cpu",
+        stream_mode="continuous", state_retention=0.9, state_lanes=4,
+    )
+    restore_checkpoint(restored, load_checkpoint(checkpoint, torch.device("cpu")))
+    assert restored.state_lanes == 4
+    assert torch.equal(
+        restored._training_stream_positions[:starting_lanes], expected_positions
+    )
+    for index, original_state in enumerate(original_states):
+        assert original_state is not None
+        assert restored._training_runtime_bank[index] is not None
+        assert torch.equal(
+            restored._training_runtime_bank[index].hidden, original_state.hidden
+        )
+    assert restored._training_runtime_bank[starting_lanes:] == [None] * (
+        4 - starting_lanes
+    )
+    with pytest.raises(ValueError, match="cannot discard"):
+        expand_persistent_state_lanes(experiment, 2)
 
 
 def test_continuous_training_state_survives_checkpoint_resume(tmp_path: Path) -> None:

@@ -84,6 +84,7 @@ def test_snapshot_advertises_checkpoint_evaluation_route(
     assert capabilities["checkpointEvaluation"] is True
     assert capabilities["trainingShardAudit"] is True
     assert capabilities["trainingShardCurriculum"] is True
+    assert capabilities["stateLaneExpansion"] is True
     assert capabilities["tokenizerProfiles"] == ["wordpiece", "byte"]
 
 
@@ -143,6 +144,7 @@ def test_checkpoint_continuation_preserves_run_lineage_and_changes_only_phase(
                 "architecture": "esn",
                 "configuration": {
                     "structure": False, "lifecycleProfile": "off", "updates": 500,
+                    "stateLanes": 1,
                 },
             }
         ),
@@ -189,6 +191,7 @@ def test_checkpoint_continuation_preserves_run_lineage_and_changes_only_phase(
             "trial", "GPU-example", additional_updates=1_000,
             structure=True, topology_profile="prune_only", lifecycle_profile="off",
             training_shard_tokens=8_192,
+            state_lanes=16,
         )
     )
 
@@ -205,8 +208,10 @@ def test_checkpoint_continuation_preserves_run_lineage_and_changes_only_phase(
     assert manifest["configuration"]["structure"] is True
     assert manifest["configuration"]["topologyProfile"] == "prune_only"
     assert manifest["configuration"]["trainingShardTokens"] == 8_192
+    assert manifest["configuration"]["stateLanes"] == 16
     assert manifest["phaseHistory"][-1]["topologyProfile"] == "prune_only"
     assert manifest["phaseHistory"][-1]["trainingShardTokens"] == 8_192
+    assert manifest["phaseHistory"][-1]["stateLanes"] == 16
     assert manifest["phaseHistory"][-1]["startGrownEdges"] == 320
     assert manifest["phaseHistory"][-1]["startPrunedEdges"] == 448
     assert manifest["phaseHistory"][-1]["startBirths"] == 3
@@ -217,12 +222,91 @@ def test_checkpoint_continuation_preserves_run_lineage_and_changes_only_phase(
     assert "--structure" in command
     assert command[command.index("--topology-profile") + 1] == "prune_only"
     assert command[command.index("--training-shard-tokens") + 1] == "8192"
+    assert command[command.index("--state-lanes") + 1] == "16"
     assert "--no-resume" not in command
     assert records[-1]["type"] == "phase"
     assert records[-1]["organismId"] == manifest["organismId"]
     assert records[-1]["trainingShardTokens"] == 8_192
+    assert records[-1]["stateLanes"] == 16
     assert records[-1]["startGrownEdges"] == 320
     assert records[-1]["startPrunedEdges"] == 448
+
+
+def test_continuation_recovers_phase_and_curriculum_from_latest_checkpoint_metric(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    run = tmp_path / "runs" / "trial"
+    run.mkdir(parents=True)
+    (run / "latest.pt").touch()
+    (run / "manifest.json").write_text(
+        json.dumps(
+            {
+                "runId": "trial",
+                "organismId": "organism-preserved",
+                "task": "tiny_stories",
+                "configuration": {
+                    "updates": 3_500,
+                    "stateLanes": 1,
+                    "trainingShardTokens": 2_048,
+                },
+                "phaseHistory": [
+                    {
+                        "index": 6, "name": "stale manifest phase",
+                        "startUpdate": 3_000, "targetUpdate": 3_500,
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run / "metrics.jsonl").write_text(
+        json.dumps(
+            {
+                "type": "train", "update": 4_250, "phaseIndex": 7,
+                "trainingShardTokens": 1_024, "stateLanes": 2,
+            }
+        ) + "\n",
+        encoding="utf-8",
+    )
+    laboratory = Laboratory(
+        tmp_path, run_root=tmp_path / "runs", control_enabled=True
+    )
+    monkeypatch.setattr(
+        laboratory, "_gpu_snapshot", lambda: ([{"uuid": "GPU-example"}], [])
+    )
+    monkeypatch.setattr(
+        laboratory, "_start_process",
+        lambda *_args: SimpleNamespace(pid=1234),
+    )
+
+    with pytest.raises(ValueError, match="cannot discard"):
+        laboratory.continue_run(
+            ContinueSpec(
+                "trial", "GPU-example", additional_updates=100,
+                structure=False, topology_profile="fixed", lifecycle_profile="off",
+                state_lanes=1,
+            )
+        )
+
+    result = laboratory.continue_run(
+        ContinueSpec(
+            "trial", "GPU-example", additional_updates=100,
+            structure=False, topology_profile="fixed", lifecycle_profile="off",
+            state_lanes=16,
+        )
+    )
+
+    manifest = json.loads((run / "manifest.json").read_text(encoding="utf-8"))
+    command = manifest["command"]
+    assert result["organismId"] == "organism-preserved"
+    assert result["phaseIndex"] == 8
+    assert manifest["configuration"]["updates"] == 4_350
+    assert manifest["configuration"]["trainingShardTokens"] == 1_024
+    assert manifest["configuration"]["stateLanes"] == 16
+    assert manifest["phaseHistory"][-1]["index"] == 8
+    assert manifest["phaseHistory"][-1]["trainingShardTokens"] == 1_024
+    assert "--training-shard-tokens" not in command
+    assert command[command.index("--state-lanes") + 1] == "16"
 
 
 def test_checkpoint_evaluation_is_read_only_and_keeps_the_phase(

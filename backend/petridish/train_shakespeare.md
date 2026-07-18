@@ -116,6 +116,11 @@ carried-versus-cold pair.
 `--state-lanes 1..16` alternates independent persistent corpus trajectories at the
 same tensor batch size and records their minimum/maximum electrical ages. It is the
 memory-constant alternative to increasing CUDA batch size.
+During `--resume-plasticity`, a larger explicit lane count appends cold independently
+phased trajectories while retaining every saved position and recurrent state in its
+original lane. Lane counts may never decrease because doing so would discard
+organism-owned electrical histories. Added lane positions advance the preserved RNG
+normally; the generator is never reseeded.
 `--topology-profile fixed|adaptive|prune_only` names the phase policy independently
 from lifecycle. Fixed continues to route through the saved graph without endpoint
 mutation; adaptive prunes and grows; prune-only removes signed-low-utility dendrites
