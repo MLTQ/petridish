@@ -40,6 +40,7 @@ REPAIR_WINDOWS = (
 def run_repair_windows(
     output_dir: Path, *, base_steps: int = 1_200, recovery_steps: int = 240,
     seed: int = 11, device: str = "cuda", lesion_radius: float = 8,
+    freeze_afters: tuple[int, ...] | None = None,
 ) -> dict[str, Any]:
     """Compare fixed lifecycle windows, then consolidate with mutation frozen."""
 
@@ -50,6 +51,10 @@ def run_repair_windows(
         structural_warmup_trials=max(base_steps + recovery_steps + 1, 10_000),
         **PROFILES["compact24_binding_sparse"],
     )
+    windows = REPAIR_WINDOWS if freeze_afters is None else tuple(
+        RepairWindow(f"lesion_r8_repair{value}_freeze", value)
+        for value in freeze_afters
+    )
     base = SequenceExperiment(
         "associative_recall", config, seed=seed, device=device,
         recall_pair_count=3, recall_pair_max=3,
@@ -57,21 +62,21 @@ def run_repair_windows(
     for _ in range(base_steps):
         base.train_updates(1)
     base_metrics = base.evaluate_metrics(12)
-    branches = {window.name: copy.deepcopy(base) for window in REPAIR_WINDOWS}
+    branches = {window.name: copy.deepcopy(base) for window in windows}
     center_x = (config.width - 1) / 2
     center_y = (config.height - 1) / 2
     lesion_counts = {
         window.name: branches[window.name].model.substrate.lesion(
             center_x, center_y, lesion_radius
         )
-        for window in REPAIR_WINDOWS
+        for window in windows
     }
     if len(set(lesion_counts.values())) != 1:
         raise RuntimeError("repair-window branches removed different cells")
     branch_rng = _capture_global_rng(base.device)
 
     summaries: dict[str, Any] = {}
-    for window in REPAIR_WINDOWS:
+    for window in windows:
         experiment = branches[window.name]
         _restore_global_rng(branch_rng, experiment.device)
         _apply_branch_config(experiment, lifecycle=True, interval=8)
@@ -114,11 +119,19 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=11)
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--lesion-radius", type=float, default=8)
+    parser.add_argument(
+        "--freeze-after", type=int, action="append",
+        help="run only the specified repair window; may be repeated",
+    )
     args = parser.parse_args()
     result = run_repair_windows(
         args.output_dir, base_steps=max(1, args.base_steps),
         recovery_steps=max(1, args.recovery_steps), seed=args.seed,
         device=args.device, lesion_radius=max(0.5, args.lesion_radius),
+        freeze_afters=(
+            tuple(max(1, value) for value in args.freeze_after)
+            if args.freeze_after else None
+        ),
     )
     print({
         "baseAccuracy": result["baseAccuracy"],

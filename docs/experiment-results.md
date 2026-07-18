@@ -270,3 +270,25 @@ copied experiment. Later lifecycle branches therefore received different mutatio
 noise streams. All ablation and partial repair artifacts were moved out of the live
 laboratory, explicit CPU/CUDA RNG restoration was added at each branch boundary, and
 the matrix must be rerun before any numerical comparison above is accepted.
+
+## Corrected radius-8 lifecycle matrix — 2026-07-17
+
+The full five-branch matrix was rerun after restoring the same CPU/CUDA global RNG at
+each clone boundary. The corrected severe-lifecycle prefix exactly matches the first
+repair-window branch through update 60 across accuracy, cells, edges, births, and
+deaths, validating branch-order independence.
+
+| Branch | Initial | Minimum | Peak | Final | Cells | Edges | Births | Deaths |
+|--------|--------:|--------:|-----:|------:|------:|------:|-------:|-------:|
+| static control | 99.22% | 94.53% | 100.00% | 99.48% | 250 | 867 | 0 | 0 |
+| lifecycle control, interval 8 | 99.22% | 29.17% | 99.22% | 49.74% | 301 | 886 | 222 | 171 |
+| radius-8, static | 23.18% | 23.18% | 88.02% | 85.94% | 144 | 243 | 0 | 0 |
+| radius-8, lifecycle interval 8 | 23.18% | 23.18% | 79.43% | 78.39% | 294 | 851 | 284 | 134 |
+| radius-8, interval 32 / birth 4 / death 8 | 23.18% | 20.05% | 77.34% | 61.20% | 113 | 308 | 32 | 63 |
+
+The accepted result is narrower than the discarded run: continuous lifecycle restores
+physical population and connectivity but does not outperform gradient-only functional
+recovery. It is also independently destructive without a lesion. Lower cadence plus
+asymmetric caps reduces both repair and final accuracy. A focused corrected replication
+of the 60-update repair-then-freeze branch is next; its pre-fix first-branch trace is
+only hypothesis-generating even though its prefix matches the corrected matrix exactly.

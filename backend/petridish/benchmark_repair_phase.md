@@ -14,3 +14,5 @@ hypothesis-generating rather than an independent confirmatory result.
 Every atomic `repair_phase_r8` artifact records its repair window and whether mutation
 has frozen. Branches fail if the matched lesions remove different cells, and every
 branch restores the same CPU/CUDA global RNG stream before stochastic repair begins.
+`--freeze-after` may be repeated to run a declared subset when a focused replication
+is more informative than recomputing the full exploratory window sweep.
