@@ -41,7 +41,7 @@
         </div>
         <div class="run-table-wrap">
           <table class="run-table">
-            <thead><tr><th>Compare</th><th>Run</th><th>Cell</th><th>GPU</th><th>Update</th><th>Loss</th><th>Held out</th><th>Chars/s</th><th>State</th></tr></thead>
+            <thead><tr><th>Compare</th><th>Run</th><th>Task</th><th>Cell</th><th>GPU</th><th>Update</th><th>Loss</th><th>Held out</th><th>tokens/s</th><th>State</th></tr></thead>
             <tbody id="laboratory-runs"></tbody>
           </table>
         </div>
@@ -75,11 +75,11 @@
         <div>
           <svg id="benchmark-chart" viewBox="0 0 720 190" role="img" aria-label="Held-out associative recall accuracy by update, with curriculum transitions marked"></svg>
           <div id="benchmark-chart-legend" class="laboratory-chart-legend"></div>
-          <div class="benchmark-subchart-heading">
+          <div class="benchmark-subchart-heading" hidden>
             <span>Topology retained</span>
             <small>solid cells · dashed edges · relative to unlesioned base</small>
           </div>
-          <svg id="benchmark-topology-chart" viewBox="0 0 720 160" role="img" aria-label="Living cells and active edges relative to the unlesioned base by recovery update"></svg>
+          <svg id="benchmark-topology-chart" hidden viewBox="0 0 720 160" role="img" aria-label="Historical living-cell and active-edge recovery results"></svg>
         </div>
       </div>
     </section>
@@ -88,6 +88,7 @@
       <form id="laboratory-launch-form">
         <label>Run ID <input id="lab-run-id" name="runId" pattern="[a-z0-9][a-z0-9-]{0,62}" value="attention-pilot" required></label>
         <label>GPU <select id="lab-gpu" name="gpuUuid" required></select></label>
+        <label>Task <select id="lab-task" name="task" required></select></label>
         <label>Cell architecture <select id="lab-architecture" name="architecture" required></select></label>
         <label>Batch <input id="lab-batch" name="batchSize" type="number" min="1" max="256" value="16" required></label>
         <label>Updates <input id="lab-updates" name="updates" type="number" min="1" value="1000" required></label>
@@ -116,6 +117,7 @@
             <option value="associative_recall">Associative recall</option>
             <option value="tiny_language">Tiny language model</option>
             <option value="tiny_shakespeare">Tiny Shakespeare corpus</option>
+            <option value="tiny_stories">Token cellular language organism</option>
           </select>
         </label>
         <label>
@@ -133,6 +135,8 @@
             <option value="stress">homeostatic stress</option>
             <option value="age">neuron age</option>
             <option value="lineage">lineage depth</option>
+            <option value="stunned">stunned state</option>
+            <option value="excitotoxic_damage">cumulative excitotoxic damage</option>
             <option value="alive">viability</option>
           </select>
         </label>
@@ -199,21 +203,6 @@
 
     <aside>
       <section class="panel">
-        <div class="section-heading">
-          <div>
-            <span class="eyebrow">intervention</span>
-            <h2>Lesion brush</h2>
-          </div>
-          <button id="lesion-toggle" type="button" aria-pressed="false">Arm</button>
-        </div>
-        <label class="range-control wide">
-          Radius <output id="lesion-radius-value">2.5 cells</output>
-          <input id="lesion-radius" type="range" min="0.5" max="16" value="2.5" step="0.5">
-        </label>
-        <p class="hint">Arm, then paint directly onto the dish. Damaged cells lose energy and every incident axon.</p>
-      </section>
-
-      <section class="panel">
         <div class="section-heading compact">
           <div>
             <span class="eyebrow">cadence</span>
@@ -240,7 +229,7 @@
         <div class="device-row"><span>learning phase</span><strong id="metric-learning-phase">—</strong></div>
         <div class="device-row"><span>lifecycle</span><strong id="metric-lifecycle">—</strong></div>
         <div class="device-row"><span>structure</span><strong id="metric-structure">—</strong></div>
-        <div class="device-row"><span>mean energy · stress</span><strong id="metric-homeostasis">—</strong></div>
+        <div class="device-row"><span>energy · stun · damage</span><strong id="metric-homeostasis">—</strong></div>
         <div class="device-row"><span>mean neuron age</span><strong id="metric-age">—</strong></div>
         <div class="device-row"><span>population turnover</span><strong id="metric-turnover">—</strong></div>
         <div class="device-row"><span>last death causes</span><strong id="metric-death-causes">—</strong></div>

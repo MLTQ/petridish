@@ -23,10 +23,13 @@ memory, and autoregressive language experiments.
 - **Does**: Resolves a task key to one immutable layout and rejects unknown keys.
 
 ### `sequence_layout`
-- **Does**: Validates registered synthetic layouts and constructs a deterministic,
-  vocabulary-sized Tiny Shakespeare layout at runtime.
+- **Does**: Validates registered synthetic layouts, constructs a deterministic,
+  vocabulary-sized Tiny Shakespeare layout, and constructs the fixed 64-input /
+  64-output distributed-code TinyStories layout.
 - **Rationale**: Corpus vocabulary size comes from cached text, so its physical
   ports cannot be hard-coded in the registry.
+- **Rationale**: The token organism deliberately decouples a 2,048-piece lexicon
+  from physical boundary population size.
 
 ## Contracts
 

@@ -34,6 +34,9 @@ semantic sensory ports supplied by the graph layout.
   key, value, and learned emit gate; each target attends only across its real dendrites.
 - **Rationale**: A persistent genotype FiLM-modulates the shared rule, so
   specialization scales with occupied sites without a full model per cell.
+- **Rationale**: Temporarily stunned neurons remain occupied but are excluded from
+  input drive, dendritic conduction, recurrent updates, and output readout. Their
+  hidden state and physical edges remain available if the substrate recovers them.
 
 ### `MnistForward`
 - **Does**: Returns logits, retained recurrent states, advertised query/key/gate

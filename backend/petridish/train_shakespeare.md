@@ -1,10 +1,14 @@
-# Resumable Tiny Shakespeare trainer
+# Resumable corpus trainer
 
 `train_shakespeare.py` runs the same trace-free `SequenceExperiment.train_updates`
 path used by live fast training and the CUDA benchmark. It defaults to the required
 68×68, batch-16, context-64, two-message-step baseline with lifecycle disabled and
 both lifecycle and structural warm-ups set to 5,000 updates. Measured batch/AMP
 choices can be supplied explicitly.
+
+`--task tiny_stories` selects the 64×64 distributed-token organism and its cached
+2,048-piece TinyStories task. The historical module name remains stable for existing
+service files and checkpoints. Metrics report token throughput for both task types.
 
 `--architecture` selects a checkpointed homogeneous GRU, LSTM, ESN, or temporal
 transformer population. GRU remains the default and preserves existing checkpoints.
@@ -15,7 +19,7 @@ The trainer writes one append-only JSONL record per optimizer update plus separa
 held-out records at an infrequent configurable interval. `latest.pt` is replaced
 atomically and contains model parameters, optimizer moments, all substrate/topology
 buffers, generation and update counters, configuration, vocabulary, rolling metrics,
-and Python, NumPy, Torch, CUDA, sampler, and evaluation random states.
+and Python, NumPy, Torch, CUDA, sampler, evaluation, and substrate lifecycle random states.
 
 By default a fresh invocation resumes `latest.pt` when present. Resume restores the
 saved configuration, context, seed, vocabulary contract, AMP mode, organism, and

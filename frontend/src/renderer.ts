@@ -15,6 +15,8 @@ export type FieldLayer =
   | "stress"
   | "age"
   | "lineage"
+  | "stunned"
+  | "excitotoxic_damage"
   | "alive";
 
 type DishPointerHandler = (x: number, y: number, painting: boolean) => void;
@@ -26,6 +28,8 @@ const COLORS = {
   traffic: 0xf3df79,
   newborn: 0xb0f4ff,
   prune: 0xff5b63,
+  stunned: 0xf3df79,
+  recovered: 0xb0f4ff,
   selected: 0xffffff,
   sensor: 0x70a5ff,
   motor: 0xffb15c,
@@ -229,7 +233,9 @@ export class DishRenderer {
       } else {
         const center = this.cellCenter(event.destination, snapshot, geometry);
         this.eventLayer.circle(center.x, center.y, Math.max(1.2, geometry.cell * 0.45)).stroke({
-          color: event.type === "born" ? COLORS.newborn : COLORS.prune,
+          color: event.type === "stunned" ? COLORS.stunned
+            : event.type === "recovered" ? COLORS.recovered
+              : event.type === "born" ? COLORS.newborn : COLORS.prune,
           alpha: 0.95,
           width: 1.2,
         });
@@ -260,6 +266,8 @@ export class DishRenderer {
       || layer === "load"
       || layer === "emission"
       || layer === "stress"
+      || layer === "stunned"
+      || layer === "excitotoxic_damage"
     ) {
       return blend(COLORS.neutral, COLORS.traffic, clamp01(raw / scale));
     }
@@ -367,7 +375,9 @@ export class DishRenderer {
       const center = this.cellCenter(event.destination, snapshot, geometry);
       context.globalAlpha = 0.95;
       context.strokeStyle = cssColor(
-        event.type === "grown" || event.type === "born" ? COLORS.newborn : COLORS.prune,
+        event.type === "stunned" ? COLORS.stunned
+          : event.type === "recovered" ? COLORS.recovered
+            : event.type === "grown" || event.type === "born" ? COLORS.newborn : COLORS.prune,
       );
       context.lineWidth = 1.2;
       context.beginPath();

@@ -28,7 +28,7 @@ runtime device is configurable independently from trainer workers.
   so opening the viewer cannot stall or acquire their GPU state.
 
 ### `LabLaunchRequest`
-- **Does**: Bounds every process argument accepted from the browser.
+- **Does**: Bounds the selected corpus task and every process argument accepted from the browser.
 - **Rationale**: The API never accepts a shell command or arbitrary path.
 
 ### `websocket_endpoint`

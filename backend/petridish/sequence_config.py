@@ -52,6 +52,32 @@ def sequence_config(task: str | None = None, **overrides: object) -> MnistModelC
             lifecycle_warmup_trials=5_000,
             structural_warmup_trials=5_000,
         )
+    if task == "tiny_stories":
+        base = replace(
+            base,
+            width=64,
+            height=64,
+            hidden_channels=32,
+            genotype_channels=16,
+            edge_slots=8,
+            axon_slots=16,
+            batch_size=8,
+            message_steps=4,
+            local_radius=8,
+            candidate_probes=48,
+            initial_density=0.50,
+            max_initial_neurons=2_048,
+            max_visible_edges=6_000,
+            broadcast_slots=8,
+            broadcast_gain=0.35,
+            lifecycle_enabled=1,
+            lifecycle_warmup_trials=500,
+            structural_warmup_trials=1_000,
+            structure_plateau_trials=500,
+            births_per_generation=16,
+            max_deaths_per_generation=64,
+            max_pruned_per_generation=256,
+        )
     return replace(base, **overrides)
 
 

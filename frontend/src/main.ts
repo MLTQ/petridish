@@ -20,9 +20,6 @@ function required<T extends Element>(selector: string): T {
 const host = required<HTMLElement>("#dish-host");
 const connection = required<HTMLElement>("#connection-status");
 const playPause = required<HTMLButtonElement>("#play-pause");
-const lesionToggle = required<HTMLButtonElement>("#lesion-toggle");
-const lesionRadius = required<HTMLInputElement>("#lesion-radius");
-const lesionRadiusValue = required<HTMLOutputElement>("#lesion-radius-value");
 const edgeThreshold = required<HTMLInputElement>("#edge-threshold");
 const edgeThresholdValue = required<HTMLOutputElement>("#edge-threshold-value");
 const inspector = required<HTMLElement>("#inspector");
@@ -41,8 +38,6 @@ const savedOrganismStatus = required<HTMLOutputElement>("#saved-organism-status"
 
 let currentSnapshot: ExperimentSnapshot | null = null;
 let playing = true;
-let lesionArmed = false;
-let lastLesionAt = 0;
 let configurationSignature = "";
 let currentExperiment: ExperimentSnapshot["experiment"] | null = null;
 let pendingTrainingMode: boolean | null = null;
@@ -93,14 +88,6 @@ const socket = new ExperimentSocket(
 );
 
 const renderer = new DishRenderer(host, (x, y, painting) => {
-  if (lesionArmed) {
-    const now = performance.now();
-    if (!painting || now - lastLesionAt > 70) {
-      lastLesionAt = now;
-      socket.send({ type: "lesion", x, y, radius: Number(lesionRadius.value) });
-    }
-    return;
-  }
   if (!painting && currentSnapshot) {
     const cellX = Math.floor(x);
     const cellY = Math.floor(y);
@@ -208,15 +195,6 @@ edgeThreshold.addEventListener("input", () => {
   edgeThresholdValue.value = Number(edgeThreshold.value).toFixed(2);
   renderer.setEdgeThreshold(Number(edgeThreshold.value));
 });
-lesionRadius.addEventListener("input", () => {
-  lesionRadiusValue.value = `${Number(lesionRadius.value).toFixed(1)} cells`;
-});
-lesionToggle.addEventListener("click", () => {
-  lesionArmed = !lesionArmed;
-  lesionToggle.setAttribute("aria-pressed", String(lesionArmed));
-  lesionToggle.textContent = lesionArmed ? "Armed" : "Arm";
-  host.classList.toggle("lesion-armed", lesionArmed);
-});
 window.addEventListener("beforeunload", () => socket.close());
 
 function receiveSnapshot(snapshot: ExperimentSnapshot): void {
@@ -303,7 +281,11 @@ function receiveSnapshot(snapshot: ExperimentSnapshot): void {
   );
   text(
     "#metric-death-causes",
-    `${snapshot.task.deathCauses.starvation} starved · ${snapshot.task.deathCauses.overload} overloaded · ${snapshot.task.deathCauses.maintenance} maintenance`,
+    `${snapshot.task.deathCauses.starvation} starved · ${snapshot.task.deathCauses.excitotoxicity} excitotoxic · ${snapshot.task.deathCauses.maintenance} maintenance`,
+  );
+  text(
+    "#metric-homeostasis",
+    `${snapshot.metrics.meanEnergy.toFixed(3)} energy · ${snapshot.metrics.stunnedCells.toLocaleString()} stunned · ${snapshot.metrics.meanExcitotoxicDamage.toFixed(3)} damage`,
   );
   const minimumHops = snapshot.metrics.minimumOutputHops;
   const medianHops = snapshot.metrics.medianOutputHops;
@@ -402,7 +384,7 @@ function updateSequenceTask(
   required<HTMLElement>("#sequence-preview-panel").hidden = false;
   required<HTMLElement>("#generation-panel").hidden = !task.interactive;
   sequenceTrainingControls.hidden = false;
-  text("#task-name", `${task.title.toLowerCase()} organism`);
+  text("#task-name", task.title.toLowerCase());
   text(
     "#task-phase",
     runtime.computePhase === "idle"
@@ -424,9 +406,12 @@ function updateSequenceTask(
     );
   }
   if (task.datasetName) {
+    const unit = task.datasetTokens > 0
+      ? `${task.datasetTokens.toLocaleString()} tokens · ${task.contextLength}-token context${task.tokenizerName ? ` · ${task.tokenizerName}` : ""}`
+      : `${task.datasetCharacters.toLocaleString()} characters · ${task.contextLength}-character context`;
     text(
       "#sequence-description",
-      `${task.description} ${task.datasetCharacters.toLocaleString()} characters · ${task.contextLength}-character context.`,
+      `${task.description} ${unit}.`,
     );
   }
   const position = Math.max(0, Math.min(task.position, task.tokens.length - 1));
@@ -534,6 +519,7 @@ function visibleToken(token: string): string {
   if (token === "\n") return "↵ newline";
   if (token === "\t") return "⇥ tab";
   if (token === " ") return "␠ space";
+  if (token.startsWith(" ")) return `␠${token.slice(1)}`;
   return token || "—";
 }
 

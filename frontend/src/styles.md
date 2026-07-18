@@ -77,5 +77,5 @@ chart encoding.
 | Dependent | Expects | Breaking changes |
 |-----------|---------|------------------|
 | Renderer | `#dish-host` has non-zero bounded height and canvas fills it | Host sizing rules |
-| `main.ts` | `.lesion-armed` and connection state classes provide feedback | State class removal |
+| `main.ts` | Connection and pending-control state classes provide feedback | State class removal |
 | HTML | Class names correspond to structural groups | Selector renames |

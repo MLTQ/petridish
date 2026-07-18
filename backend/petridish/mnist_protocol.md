@@ -23,8 +23,9 @@ gradient-credit, and structural state.
 - **Does**: Reports optimizer phase, overfit-curriculum progress, genotype and
   emission channels, local-attention entropy, effective parameter count, and
   cached sensory-to-output reachability.
-- **Does**: Reports age, stress, lineage, parent ID, lifecycle activation,
-  population turnover, and starvation/overload/maintenance death counts.
+- **Does**: Reports age, stress, lineage, parent ID, stunned state, excitotoxic
+  damage, lifecycle activation, population turnover, and
+  starvation/excitotoxicity/maintenance death counts.
 
 ## Contracts
 

@@ -2,10 +2,9 @@
 
 ## Purpose
 
-Owns the persistent physical population: occupied sites, trainable site
+Owns the persistent physical population: occupied and temporarily stunned sites, trainable site
 genotypes, advertised query/key memory, incoming dendrites, metabolism,
-birth, inherited lineage, cause-classified death, content-aware growth, pruning,
-and lesions.
+birth, inherited lineage, cause-classified death, content-aware growth, and pruning.
 
 ## Components
 
@@ -48,6 +47,9 @@ and lesions.
 - **Does**: Retains slow query, key, and emission statistics for connection proposals.
 - **Does**: Measures normalized starvation/overload stress even while lifecycle
   mutation is waiting for its warm-up.
+- **Does**: Converts sustained high traffic into a reversible, non-conducting
+  stunned state; seeded recovery restores cells while repeated episodes accumulate
+  repairable excitotoxic damage.
 - **Rationale**: Indexed slow-state updates use explicit assignment because
   PyTorch advanced indexing returns temporary tensors for in-place operations.
 
@@ -66,9 +68,11 @@ and lesions.
 - **Rationale**: A newborn enters an actual signal lineage instead of appearing
   disconnected and immediately starving.
 
-### `_apply_death`
-- **Does**: Removes depleted mature neurons and classifies the dominant pressure
-  as starvation, overload, or maintenance.
+### `_recover_stunned` / `_apply_death`
+- **Does**: Gives refractory cells a seeded recovery chance without deleting their
+  dendrites, then removes mature depleted cells or cells whose repeated excitotoxic
+  episodes crossed the damage threshold.
+- **Does**: Classifies death as starvation, excitotoxicity, or maintenance.
 
 ## Contracts
 
@@ -83,7 +87,6 @@ and lesions.
 
 ## Notes
 
-Input and output roles are environmental anchors during homeostasis, but a
-manual lesion can still remove them. New neurons reuse empty site IDs only after
-all incident dendrites have been removed. Input-role neurons never recruit
+Input and output roles are environmental anchors during homeostasis. New neurons
+reuse empty site IDs only after all incident dendrites have been removed. Input-role neurons never recruit
 incoming dendrites; they are driven only by the environment.

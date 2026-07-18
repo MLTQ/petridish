@@ -13,6 +13,7 @@ import torch
 from fastapi import WebSocket
 
 from .corpus_task import load_tiny_shakespeare_task
+from .token_corpus_task import load_tiny_stories_task
 from .mnist_config import MnistModelConfig
 from .mnist_experiment import MnistExperiment
 from .mnist_hyperparameters import configured
@@ -293,10 +294,16 @@ class ExperimentRuntime:
         if not isinstance(task_payload, dict):
             raise ValueError("checkpoint task metadata is invalid")
         task_key = str(task_payload.get("key", ""))
-        if task_key != "tiny_shakespeare":
+        if task_key not in {"tiny_shakespeare", "tiny_stories"}:
             raise ValueError(f"unsupported saved organism task: {task_key or 'missing'}")
         context_length = int(task_payload["context_length"])
-        task = load_tiny_shakespeare_task(context_length)
+        task = (
+            load_tiny_stories_task(
+                context_length, len(tuple(task_payload.get("vocabulary", ())))
+            )
+            if task_key == "tiny_stories"
+            else load_tiny_shakespeare_task(context_length)
+        )
         if tuple(task_payload.get("vocabulary", ())) != task.vocabulary:
             raise ValueError("checkpoint vocabulary does not match the cached corpus")
 
@@ -399,7 +406,8 @@ class ExperimentRuntime:
                 self.training_mode = False
                 name = str(message.get("name", "mnist"))
                 if name not in {
-                    "mnist", "associative_recall", "tiny_language", "tiny_shakespeare"
+                    "mnist", "associative_recall", "tiny_language", "tiny_shakespeare",
+                    "tiny_stories",
                 }:
                     raise ValueError(f"unknown experiment: {name}")
                 if name not in self.experiments:

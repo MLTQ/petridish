@@ -9,11 +9,11 @@ export interface EdgeSnapshot {
 }
 
 export interface StructuralEvent {
-  type: "grown" | "pruned" | "born" | "died";
+  type: "grown" | "pruned" | "born" | "died" | "stunned" | "recovered";
   source: number;
   destination: number;
   tick: number;
-  cause?: "starvation" | "overload" | "maintenance";
+  cause?: "starvation" | "excitotoxicity" | "maintenance";
 }
 
 export interface MnistTaskSnapshot {
@@ -46,16 +46,16 @@ export interface MnistTaskSnapshot {
   curriculumStageUpdates: number;
   births: number;
   deaths: number;
-  deathCauses: Record<"starvation" | "overload" | "maintenance", number>;
+  deathCauses: Record<"starvation" | "excitotoxicity" | "maintenance", number>;
   cumulativeBirths: number;
   cumulativeDeaths: number;
-  cumulativeDeathCauses: Record<"starvation" | "overload" | "maintenance", number>;
+  cumulativeDeathCauses: Record<"starvation" | "excitotoxicity" | "maintenance", number>;
   image: number[];
 }
 
 export interface SequenceTaskSnapshot {
   kind: "sequence";
-  taskKey: "associative_recall" | "tiny_language" | "tiny_shakespeare";
+  taskKey: "associative_recall" | "tiny_language" | "tiny_shakespeare" | "tiny_stories";
   title: string;
   description: string;
   phase: "token" | "feedback" | "structural";
@@ -77,6 +77,8 @@ export interface SequenceTaskSnapshot {
   stageAccuracy: number;
   datasetName: string | null;
   datasetCharacters: number;
+  datasetTokens: number;
+  tokenizerName: string | null;
   contextLength: number;
   interactive: boolean;
   interactivePrompt: string;
@@ -97,10 +99,14 @@ export interface SequenceTaskSnapshot {
   structureUnlockReason: string;
   births: number;
   deaths: number;
-  deathCauses: Record<"starvation" | "overload" | "maintenance", number>;
+  deathCauses: Record<"starvation" | "excitotoxicity" | "maintenance", number>;
   cumulativeBirths: number;
   cumulativeDeaths: number;
-  cumulativeDeathCauses: Record<"starvation" | "overload" | "maintenance", number>;
+  cumulativeDeathCauses: Record<"starvation" | "excitotoxicity" | "maintenance", number>;
+  stuns: number;
+  recoveries: number;
+  cumulativeStuns: number;
+  cumulativeRecoveries: number;
 }
 
 export type TaskSnapshot = MnistTaskSnapshot | SequenceTaskSnapshot;
@@ -119,7 +125,7 @@ export interface HyperparameterSnapshot {
 
 export interface ExperimentSnapshot {
   type: "snapshot";
-  experiment: "mnist" | "associative_recall" | "tiny_language" | "tiny_shakespeare";
+  experiment: "mnist" | "associative_recall" | "tiny_language" | "tiny_shakespeare" | "tiny_stories";
   tick: number;
   runtime: {
     mode: "visualization" | "headless";
@@ -154,6 +160,8 @@ export interface ExperimentSnapshot {
     meanEnergy: number;
     meanAge: number;
     stressedCells: number;
+    stunnedCells: number;
+    meanExcitotoxicDamage: number;
     turnoverEvents: number;
     edgeCount: number;
     visibleEdgeCount: number;
@@ -180,7 +188,6 @@ export type ExperimentCommand =
   | { type: "reset"; seed?: number }
   | { type: "speed"; steps: number }
   | { type: "training"; enabled: boolean }
-  | { type: "lesion"; x: number; y: number; radius: number }
   | { type: "evaluate"; batches?: number }
   | { type: "lifecycle" }
   | { type: "experiment"; name: ExperimentSnapshot["experiment"] }

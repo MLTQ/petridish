@@ -172,7 +172,7 @@ class CellularGraphClassifier(nn.Module):
             (self.config.site_count,), -1, dtype=torch.long, device=sites.device
         )
         site_to_compact[sites] = torch.arange(sites.numel(), device=sites.device)
-        target_site, slot, source_site = substrate.edge_list()
+        target_site, slot, source_site = substrate.conducting_edge_list()
         return (
             target_site,
             slot,
@@ -201,7 +201,7 @@ class CellularGraphClassifier(nn.Module):
             0.18 * torch.tanh(self.genotype_film(genotype))
         ).chunk(2, dim=1)
         output_compact = site_to_compact[substrate.output_sites]
-        output_alive = output_compact >= 0
+        output_alive = (output_compact >= 0) & ~substrate.stunned[substrate.output_sites]
         if output_alive.any():
             identity = self.output_identity.weight[output_alive]
             context = context.index_add(
@@ -219,13 +219,16 @@ class CellularGraphClassifier(nn.Module):
             input_drive = encoded + self.input_identity.weight.unsqueeze(0)
             external[:, input_compact[input_alive]] = input_drive[:, input_alive]
         hidden = external
+        responsive = ~substrate.stunned[sites]
+        external[:, ~responsive] = 0
+        hidden[:, ~responsive] = 0
 
         input_signal = torch.zeros(sites.numel(), device=images.device, dtype=images.dtype)
         if input_alive.any():
             patch_strength = patches[:, input_alive].abs().mean(dim=(0, 2))
             input_signal[input_compact[input_alive]] = patch_strength
 
-        target_site, slot, source_site = substrate.edge_list()
+        target_site, slot, source_site = substrate.conducting_edge_list()
         target_compact = site_to_compact[target_site]
         source_compact = site_to_compact[source_site]
         weights = substrate.synapse_weight[target_site, slot]
@@ -258,7 +261,7 @@ class CellularGraphClassifier(nn.Module):
             query = self.message_query(normalized)
             key = self.message_key(normalized)
             value = self.message_value(normalized)
-            emit = torch.sigmoid(self.emit_gate(normalized))
+            emit = torch.sigmoid(self.emit_gate(normalized)) * responsive.view(1, -1, 1)
             advertised_query += query.detach().mean(dim=0) / cfg.message_steps
             advertised_key += key.detach().mean(dim=0) / cfg.message_steps
             emission += emit.detach().mean(dim=(0, 2)) / cfg.message_steps
@@ -282,6 +285,7 @@ class CellularGraphClassifier(nn.Module):
             )
             incoming = torch.zeros_like(hidden)
             incoming.index_add_(1, target_compact, edge_message)
+            incoming = incoming * responsive.view(1, -1, 1)
             indegree = torch.zeros(sites.numel(), device=images.device, dtype=images.dtype)
             indegree.index_add_(0, target_compact, torch.ones_like(target_compact, dtype=images.dtype))
             if (indegree > 1).any():
@@ -314,7 +318,8 @@ class CellularGraphClassifier(nn.Module):
                 hidden.reshape(-1, cfg.hidden_channels),
             ).reshape(batch_size, sites.numel(), cfg.hidden_channels)
             updated = updated * (1 + film_scale.unsqueeze(0)) + film_bias.unsqueeze(0)
-            hidden = self.state_norm(updated + incoming)
+            next_hidden = self.state_norm(updated + incoming)
+            hidden = torch.where(responsive.view(1, -1, 1), next_hidden, hidden)
             if hidden.requires_grad:
                 hidden.retain_grad()
                 retained_states.append(hidden)
@@ -379,7 +384,7 @@ class CellularGraphClassifier(nn.Module):
             hidden.shape[0], 10, self.config.hidden_channels,
             device=hidden.device, dtype=hidden.dtype,
         )
-        alive = compact >= 0
+        alive = (compact >= 0) & ~self.substrate.stunned[self.substrate.output_sites]
         if alive.any():
             output_state[:, alive] = hidden[:, compact[alive]]
         return output_state

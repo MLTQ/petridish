@@ -10,7 +10,7 @@ not synthesize signal particles or decorative neural activity.
 
 ### `DishRenderer`
 - **Does**: Maps compact protocol rows back into configurable physical site positions,
-  draws occupied neurons and real edges, handles lesions/selections, and falls
+  draws occupied neurons and real edges, handles selections, and falls
   back to Canvas2D if WebGL is unavailable.
 
 ### `drawEdges`
@@ -29,9 +29,12 @@ not synthesize signal particles or decorative neural activity.
   scientific layers using the same raw-channel contract.
 - **Does**: Exposes measured homeostatic stress, neuron age, and lineage depth
   as additional raw layers.
+- **Does**: Exposes the binary stunned state and accumulated excitotoxic damage as
+  raw layers; stunned/recovered rings come only from backend events.
 
 ### `drawEvents`
-- **Does**: Marks only reported dendrite growth/pruning and neuron birth/death.
+- **Does**: Marks only reported dendrite growth/pruning, neuron birth/death, and
+  stun/recovery transitions.
 
 ## Contracts
 

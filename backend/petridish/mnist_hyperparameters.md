@@ -30,6 +30,9 @@ in configuration but selected through the laboratory, not represented as a slide
   unlocks, curriculum windows, and competence-gated structure remain viewer-tunable.
 - **Rationale**: Lifecycle activation, cadence, local birth-density ceiling,
   newborn reserve, and inheritance noise are controls rather than hidden constants.
+- **Rationale**: Excitotoxicity controls distinguish the traffic threshold that
+  causes a stun, probabilistic recovery, refractory time, accumulated damage,
+  repair, and eventual death instead of treating one overload as fatal.
 - **Rationale**: Sequence snapshots additionally expose low-rank broadcast workspace
   slots, gain, and memory decay; MNIST omits controls its model does not consume.
 - **Rationale**: Sequence-only fast-weight gain/decay are also omitted from MNIST.

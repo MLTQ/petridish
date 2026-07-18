@@ -23,6 +23,7 @@ interface MetricRecord {
   rollingLoss?: number;
   accuracy?: number;
   targetCharactersPerSecond?: number;
+  targetTokensPerSecond?: number;
 }
 
 interface RunSnapshot {
@@ -123,6 +124,7 @@ export class LaboratoryView {
   private readonly refreshButton = required<HTMLButtonElement>("#laboratory-refresh");
   private readonly form = required<HTMLFormElement>("#laboratory-launch-form");
   private readonly gpuSelect = required<HTMLSelectElement>("#lab-gpu");
+  private readonly taskSelect = required<HTMLSelectElement>("#lab-task");
   private readonly architectureSelect = required<HTMLSelectElement>("#lab-architecture");
   private readonly launchButton = required<HTMLButtonElement>("#lab-launch");
   private readonly launchStatus = required<HTMLOutputElement>("#lab-launch-status");
@@ -180,6 +182,12 @@ export class LaboratoryView {
     this.populateSelect(
       this.gpuSelect,
       snapshot.gpus.map((gpu) => ({ value: gpu.uuid, label: gpu.name })),
+    );
+    this.populateSelect(
+      this.taskSelect,
+      snapshot.capabilities.tasks.map((name) => ({
+        value: name, label: name === "tiny_stories" ? "Token cellular language" : "Tiny Shakespeare",
+      })),
     );
     this.populateSelect(
       this.architectureSelect,
@@ -408,12 +416,17 @@ export class LaboratoryView {
       row.append(compare);
       const values = [
         run.id,
+        run.task === "tiny_stories" ? "Tokens" : "Characters",
         run.architecture.toUpperCase(),
         run.gpuUuid ? (gpuNames.get(run.gpuUuid) ?? run.gpuUuid.slice(0, 12)) : "—",
         run.latestTrain?.update?.toLocaleString() ?? "—",
         this.number(run.latestTrain?.rollingLoss ?? run.latestTrain?.loss, 3),
         this.number(run.latestHeldOut?.loss, 3),
-        this.number(run.latestTrain?.targetCharactersPerSecond, 0),
+        this.number(
+          run.latestTrain?.targetTokensPerSecond
+            ?? run.latestTrain?.targetCharactersPerSecond,
+          0,
+        ),
       ];
       for (const value of values) {
         const cell = document.createElement("td");
@@ -435,7 +448,7 @@ export class LaboratoryView {
     });
     if (rows.length === 0) {
       const row = document.createElement("tr");
-      row.innerHTML = '<td colspan="9">No persisted runs found.</td>';
+      row.innerHTML = '<td colspan="10">No persisted runs found.</td>';
       rows.push(row);
     }
     this.runsHost.replaceChildren(...rows);
@@ -513,8 +526,11 @@ export class LaboratoryView {
     const form = new FormData(this.form);
     const body = {
       runId: String(form.get("runId")), gpuUuid: String(form.get("gpuUuid")),
-      architecture: String(form.get("architecture")), fieldSize: 68,
-      batchSize: Number(form.get("batchSize")), contextLength: 64, messageSteps: 2,
+      task: String(form.get("task")),
+      architecture: String(form.get("architecture")),
+      fieldSize: String(form.get("task")) === "tiny_stories" ? 64 : 68,
+      batchSize: Number(form.get("batchSize")), contextLength: 64,
+      messageSteps: String(form.get("task")) === "tiny_stories" ? 4 : 2,
       updates: Number(form.get("updates")), seed: Number(form.get("seed")),
       amp: String(form.get("amp")), lifecycle: form.get("lifecycle") === "on",
     };

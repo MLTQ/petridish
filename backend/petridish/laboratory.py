@@ -29,6 +29,7 @@ class LaunchSpec:
 
     run_id: str
     gpu_uuid: str
+    task: str = "tiny_shakespeare"
     architecture: str = "gru"
     field_size: int = 68
     batch_size: int = 16
@@ -68,7 +69,7 @@ class Laboratory:
         return {
             "controlEnabled": self.control_enabled,
             "capabilities": {
-                "tasks": ["tiny_shakespeare"],
+                "tasks": ["tiny_shakespeare", "tiny_stories"],
                 "architectures": list(CELL_ARCHITECTURES),
                 "ampModes": ["off", "bfloat16"],
             },
@@ -114,7 +115,7 @@ class Laboratory:
         manifest = {
             "version": 1,
             "runId": spec.run_id,
-            "task": "tiny_shakespeare",
+            "task": spec.task,
             "architecture": spec.architecture,
             "gpuUuid": spec.gpu_uuid,
             "configuration": {
@@ -175,10 +176,13 @@ class Laboratory:
         self._logs.clear()
 
     def _validate_spec(self, spec: LaunchSpec) -> None:
+        if spec.task not in {"tiny_shakespeare", "tiny_stories"}:
+            raise ValueError("unknown corpus task")
         if spec.architecture not in CELL_ARCHITECTURES:
             raise ValueError("unknown sequence cell architecture")
-        if spec.field_size != 68:
-            raise ValueError("Tiny Shakespeare laboratory runs require a 68×68 field")
+        required_field = 68 if spec.task == "tiny_shakespeare" else 64
+        if spec.field_size != required_field:
+            raise ValueError(f"{spec.task} laboratory runs require a {required_field}×{required_field} field")
         if spec.context_length < 8 or spec.context_length > 256:
             raise ValueError("context length must be between 8 and 256")
         if spec.batch_size < 1 or spec.batch_size > 256:
@@ -193,6 +197,7 @@ class Laboratory:
     def _trainer_command(self, spec: LaunchSpec, directory: Path) -> list[str]:
         command = [
             sys.executable, "-m", "petridish.train_shakespeare",
+            "--task", spec.task,
             "--device", "cuda", "--field-size", str(spec.field_size),
             "--batch-size", str(spec.batch_size),
             "--context-length", str(spec.context_length),

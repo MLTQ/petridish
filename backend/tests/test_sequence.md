@@ -31,6 +31,13 @@ rules through the same physical graph and verifies finite logits plus synaptic g
 Checkpoint migration protects pre-architecture GRU model keys while leaving unrelated
 state untouched.
 
+The distributed-token regression builds a small wordpiece corpus, verifies that its
+vocabulary is encoded through fixed 64-cell population banks, and proves that a
+sequence split across incremental calls produces the same logits as one uninterrupted
+forward pass. The excitotoxicity regression verifies stun, seeded recovery without
+edge deletion, and lethal classification only after accumulated damage crosses the
+configured threshold.
+
 Benchmark artifact replacement is required to be atomic so the polling laboratory
 sees either the previous complete JSON document or the next one, never a partial write.
 Recall evaluation also reports one accuracy per queried binding slot so aggregate

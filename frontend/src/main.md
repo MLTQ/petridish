@@ -3,7 +3,7 @@
 ## Purpose
 
 Composes transport, renderer, charts, laboratory monitoring, lifecycle controls,
-lesioning, task previews, interactive corpus generation, metrics, and cell
+task previews, interactive corpus generation, metrics, and cell
 inspection for every organism.
 
 ## Components
@@ -49,11 +49,13 @@ inspection for every organism.
 
 ### `updateSequenceTask`
 - **Does**: Renders a bounded token window around the active context position,
-  corpus metadata, perplexity, and sequence accuracy.
+  corpus/tokenizer metadata, perplexity, and sequence accuracy.
 - **Does**: For corpus tasks, keeps prompt editing local while focused and shows
   the authoritative generated suffix plus next greedy-token diagnostic.
 - **Rationale**: Whitespace tokens receive explicit visible labels so newlines
   and spaces cannot masquerade as missing data.
+- **Does**: Makes leading-space wordpieces explicit and reports measured energy,
+  stunned population, cumulative damage, and excitotoxic deaths.
 - **Does**: Exposes headless training only for sequence organisms; stopping it asks
   the backend to rebuild a current trace before rendering resumes.
 - **Rationale**: Mode switches remain pending and disable the action until the
@@ -106,8 +108,7 @@ inspection for every organism.
 
 ## Notes
 
-Lesion drag commands are throttled to prevent pointer sampling rate from flooding
-the scientific runtime.
+Dish pointer input is inspection-only; the lesion recovery workflow has been removed.
 - Experiment selection switches among persistent MNIST, associative-recall, and
   language organisms and resets only viewer-local chart/configuration state.
 - Task rendering is discriminated: MNIST keeps its external image preview and

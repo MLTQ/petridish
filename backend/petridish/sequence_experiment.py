@@ -14,7 +14,9 @@ from .config import resolve_device
 from .graph_layout import sequence_layout
 from .mnist_config import MnistModelConfig
 from .sequence_config import sequence_config
-from .sequence_model import CellularSequenceModel, SequenceForward, SequenceFrame
+from .sequence_model import (
+    CellularSequenceModel, SequenceForward, SequenceFrame, SequenceRuntimeState,
+)
 from .sequence_tasks import (
     SequenceBatch,
     SequenceTask,
@@ -76,6 +78,8 @@ class SequenceExperiment:
         readout_ids = {
             id(parameter) for parameter in self.model.output_bank_readout.parameters()
         } | {id(self.model.class_bias)}
+        if self.model.logit_scale is not None:
+            readout_ids.add(id(self.model.logit_scale))
         readout = [parameter for parameter in shared if id(parameter) in readout_ids]
         rule = [parameter for parameter in shared if id(parameter) not in readout_ids]
         self.optimizer = torch.optim.Adam(
@@ -105,13 +109,20 @@ class SequenceExperiment:
         self.interactive_prompt = ""
         self.generated_text = ""
         self.next_token_prediction = ""
+        self._interactive_state: SequenceRuntimeState | None = None
+        self._interactive_next_logits: torch.Tensor | None = None
+        self._interactive_token_ids: list[int] = []
         self.last_births = 0
         self.last_deaths = 0
-        self.last_death_causes = {"starvation": 0, "overload": 0, "maintenance": 0}
+        self.last_death_causes = {"starvation": 0, "excitotoxicity": 0, "maintenance": 0}
+        self.last_stuns = 0
+        self.last_recoveries = 0
+        self.cumulative_stuns = 0
+        self.cumulative_recoveries = 0
         self.cumulative_births = 0
         self.cumulative_deaths = 0
         self.cumulative_death_causes = {
-            "starvation": 0, "overload": 0, "maintenance": 0
+            "starvation": 0, "excitotoxicity": 0, "maintenance": 0
         }
         self.last_synapse_update_ratio = 0.0
         self.last_mean_attention_entropy = 0.0
@@ -162,6 +173,10 @@ class SequenceExperiment:
     def _prime_preview(self) -> None:
         self.model.eval()
         batch = self._batch(1)
+        if self.task.encode is not None and batch.tokens.shape[1] > 4:
+            batch = SequenceBatch(
+                batch.tokens[:, -4:], batch.targets[:, -4:], batch.loss_mask[:, -4:]
+            )
         result = self.model(batch.tokens, capture_trace=True)
         result.frames.extend(self._terminal_frames(result))
         self._remember(result, batch)
@@ -287,7 +302,7 @@ class SequenceExperiment:
         structure_unlocked = self._should_unlock_structure(completed, accuracy)
         if progress_callback is not None:
             progress_callback("credit", 0, 1)
-        self.model.substrate.record_trial(
+        homeostasis_events = self.model.substrate.record_trial(
             result.sites, result.stimulation, result.load, neuron_credit,
             result.edge_flow, edge_credit, result.advertised_query,
             result.advertised_key, result.emission, reward,
@@ -304,10 +319,13 @@ class SequenceExperiment:
                 self.last_trace = [feedback_frame]
                 self.visual_cursor = 0
                 progress_callback("credit", 1, 1)
-        events: list[dict[str, Any]] = []
+        events: list[dict[str, Any]] = list(homeostasis_events)
+        self.last_stuns = sum(event["type"] == "stunned" for event in events)
+        self.last_recoveries = 0
+        self.cumulative_stuns += self.last_stuns
         self.last_births = 0
         self.last_deaths = 0
-        self.last_death_causes = {"starvation": 0, "overload": 0, "maintenance": 0}
+        self.last_death_causes = {"starvation": 0, "excitotoxicity": 0, "maintenance": 0}
         lifecycle_due = lifecycle_active and (
             completed - self.config.lifecycle_warmup_trials
         ) % self.config.lifecycle_interval == 0
@@ -321,7 +339,9 @@ class SequenceExperiment:
                 apply_lifecycle=lifecycle_due, apply_topology=structure_due
             )
             self._reset_mutation_optimizer_state(update.changed_edges, update.changed_sites)
-            events = update.events
+            events.extend(update.events)
+            self.last_recoveries = update.recoveries
+            self.cumulative_recoveries += update.recoveries
             self.last_births = update.births
             self.last_deaths = update.deaths
             self.last_death_causes.update(update.death_causes)
@@ -443,6 +463,9 @@ class SequenceExperiment:
             raise ValueError("interactive prompting is available only for corpus tasks")
         self.interactive_prompt = text
         self.generated_text = ""
+        self._interactive_state = None
+        self._interactive_next_logits = None
+        self._interactive_token_ids = []
         self._preview_text(text)
 
     @torch.no_grad()
@@ -451,19 +474,37 @@ class SequenceExperiment:
 
         if self.task.encode is None or self.task.decode is None:
             raise ValueError("token generation is available only for corpus tasks")
-        context = self.interactive_prompt + self.generated_text
-        if not context:
-            context = "ROMEO:"
-            self.interactive_prompt = context
+        if self._interactive_next_logits is None or self._interactive_state is None:
+            self._preview_text(self.interactive_prompt or "Once upon a time")
+        assert self._interactive_next_logits is not None
+        assert self._interactive_state is not None
         self.model.eval()
-        token_ids = self.task.encode(context)[-self.task.sequence_length :]
-        tokens = torch.tensor(token_ids, device=self.device).unsqueeze(0)
-        result = self.model(tokens, capture_trace=True)
-        probabilities = (result.logits[0, -1] / 0.85).softmax(dim=0).cpu()
+        probabilities = (self._interactive_next_logits / 0.85).softmax(dim=0).cpu()
         token = int(torch.multinomial(probabilities, 1, generator=self.generator))
         generated = self.task.decode([token])
         self.generated_text += generated
-        self._preview_text(self.interactive_prompt + self.generated_text)
+        self._interactive_token_ids.append(token)
+        next_input = torch.tensor([[token]], device=self.device)
+        result = self.model(
+            next_input, capture_trace=True, runtime_state=self._interactive_state
+        )
+        self._interactive_state = result.runtime_state
+        self._interactive_next_logits = result.logits[0, -1]
+        window = self._interactive_token_ids[-self.task.sequence_length :]
+        self.last_tokens = torch.tensor(window, dtype=torch.long)
+        self.last_targets = torch.full_like(self.last_tokens, -100)
+        self.last_predictions = torch.full_like(self.last_tokens, -1)
+        self.last_confidences = torch.zeros(len(window))
+        next_probabilities = self._interactive_next_logits.softmax(dim=0)
+        self.last_predictions[-1] = int(next_probabilities.argmax().cpu())
+        self.last_confidences[-1] = float(next_probabilities.max().cpu())
+        for frame in result.frames:
+            frame.token_position = len(window) - 1
+            frame.step = len(window) - 1
+        result.frames.extend(self._terminal_frames(result))
+        self.last_trace = result.frames
+        self.visual_cursor = max(0, len(result.frames) - 1)
+        self.next_token_prediction = self.task.vocabulary[int(self.last_predictions[-1])]
         return generated
 
     @torch.no_grad()
@@ -475,6 +516,9 @@ class SequenceExperiment:
         batch = SequenceBatch(tokens, targets, torch.zeros_like(tokens, dtype=torch.bool))
         self.model.eval()
         result = self.model(tokens, capture_trace=True)
+        self._interactive_state = result.runtime_state
+        self._interactive_next_logits = result.logits[0, -1]
+        self._interactive_token_ids = list(token_ids)
         self._remember(result, batch)
 
     def _should_activate_lifecycle(self, completed: int) -> bool:
@@ -648,8 +692,10 @@ class SequenceExperiment:
         self.last_births = update.births
         self.last_deaths = update.deaths
         self.last_death_causes = {
-            "starvation": 0, "overload": 0, "maintenance": 0, **update.death_causes
+            "starvation": 0, "excitotoxicity": 0, "maintenance": 0, **update.death_causes
         }
+        self.last_recoveries = update.recoveries
+        self.cumulative_recoveries += update.recoveries
         self.cumulative_births += update.births
         self.cumulative_deaths += update.deaths
         for cause, count in update.death_causes.items():

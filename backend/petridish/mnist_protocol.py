@@ -28,6 +28,8 @@ CHANNEL_NAMES = [
     "stress",
     "lineage",
     "parent",
+    "stunned",
+    "excitotoxic_damage",
 ]
 
 
@@ -58,6 +60,8 @@ def build_mnist_snapshot(experiment: MnistExperiment) -> dict[str, Any]:
             substrate.homeostatic_stress[sites],
             substrate.lineage_depth[sites].float(),
             substrate.parent_site[sites].float(),
+            substrate.stunned[sites].float(),
+            substrate.excitotoxic_damage[sites],
         ),
         dim=1,
     )
@@ -176,6 +180,10 @@ def build_mnist_snapshot(experiment: MnistExperiment) -> dict[str, Any]:
             "meanEnergy": round(float(substrate.energy[sites].mean()), 5),
             "meanAge": round(float(substrate.neuron_age[sites].float().mean()), 3),
             "stressedCells": int((substrate.homeostatic_stress[sites] >= 1).sum()),
+            "stunnedCells": int(substrate.stunned[sites].sum()),
+            "meanExcitotoxicDamage": round(
+                float(substrate.excitotoxic_damage[sites].mean()), 5
+            ),
             "turnoverEvents": experiment.cumulative_births + experiment.cumulative_deaths,
             "edgeCount": total_edge_count,
             "visibleEdgeCount": len(edge_payload["source"]),

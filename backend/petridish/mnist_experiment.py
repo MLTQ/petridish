@@ -106,12 +106,12 @@ class MnistExperiment:
         self.last_confidence = 0.1
         self.last_births = 0
         self.last_deaths = 0
-        self.last_death_causes = {"starvation": 0, "overload": 0, "maintenance": 0}
+        self.last_death_causes = {"starvation": 0, "excitotoxicity": 0, "maintenance": 0}
         self.cumulative_births = 0
         self.cumulative_deaths = 0
         self.cumulative_death_causes = {
             "starvation": 0,
-            "overload": 0,
+            "excitotoxicity": 0,
             "maintenance": 0,
         }
         self.last_synapse_update_ratio = 0.0
@@ -284,7 +284,7 @@ class MnistExperiment:
         structural_events: list[dict[str, Any]] = []
         self.last_births = 0
         self.last_deaths = 0
-        self.last_death_causes = {"starvation": 0, "overload": 0, "maintenance": 0}
+        self.last_death_causes = {"starvation": 0, "excitotoxicity": 0, "maintenance": 0}
         lifecycle_due = (
             lifecycle_active
             and (completed_step - self.config.lifecycle_warmup_trials)
@@ -442,7 +442,7 @@ class MnistExperiment:
         self.last_deaths = update.deaths
         self.last_death_causes = {
             "starvation": 0,
-            "overload": 0,
+            "excitotoxicity": 0,
             "maintenance": 0,
             **update.death_causes,
         }

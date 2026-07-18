@@ -14,7 +14,7 @@ path from spatial classification to language modeling.
 - **Does**: Names a distribution, vocabulary, sequence length, and deterministic
   batch generator.
 - **Does**: Optionally supplies a distinct validation generator, text encoder and
-  decoder, dataset metadata, and source URL for cached corpus tasks.
+  decoder, character/token counts, tokenizer metadata, and source URL for cached corpus tasks.
 
 ### `associative_recall_batch`
 - **Does**: Generates one to three random key/value bindings and a delayed query
@@ -29,7 +29,7 @@ path from spatial classification to language modeling.
 
 ### `resolve_sequence_task`
 - **Does**: Resolves synthetic tasks immediately and lazily loads Tiny Shakespeare
-  only when selected, avoiding network or disk work for unrelated experiments.
+  or token-level TinyStories only when selected, avoiding network or disk work for unrelated experiments.
 - **Interacts with**: `corpus_task.py` and `SequenceExperiment`.
 
 ## Contracts

@@ -37,6 +37,7 @@ class LabLaunchRequest(BaseModel):
 
     runId: str
     gpuUuid: str
+    task: str = "tiny_shakespeare"
     architecture: str = "gru"
     fieldSize: int = 68
     batchSize: int = Field(default=16, ge=1, le=256)
@@ -104,6 +105,7 @@ async def launch_lab_run(request: LabLaunchRequest) -> dict[str, object]:
     spec = LaunchSpec(
         run_id=request.runId,
         gpu_uuid=request.gpuUuid,
+        task=request.task,
         architecture=request.architecture,
         field_size=request.fieldSize,
         batch_size=request.batchSize,

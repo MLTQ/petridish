@@ -18,6 +18,7 @@ import numpy as np
 import torch
 
 from .corpus_task import load_tiny_shakespeare_task
+from .token_corpus_task import load_tiny_stories_task
 from .mnist_config import MnistModelConfig
 from .sequence_config import sequence_config
 from .sequence_experiment import SequenceExperiment
@@ -36,7 +37,8 @@ def _experiment_state(experiment: SequenceExperiment) -> dict[str, Any]:
         "structure_unlock_reason", "best_rolling_accuracy",
         "last_accuracy_improvement_step", "last_births", "last_deaths",
         "last_death_causes", "cumulative_births", "cumulative_deaths",
-        "cumulative_death_causes",
+        "cumulative_death_causes", "last_stuns", "last_recoveries",
+        "cumulative_stuns", "cumulative_recoveries",
     )
     state = {name: getattr(experiment, name) for name in names}
     state.update(
@@ -46,6 +48,7 @@ def _experiment_state(experiment: SequenceExperiment) -> dict[str, Any]:
             "reward_history": list(experiment.reward_history),
             "stage_accuracy_history": list(experiment.stage_accuracy_history),
             "substrate_generation": experiment.model.substrate.generation,
+            "substrate_lifecycle_rng": experiment.model.substrate._lifecycle_generator.get_state(),
         }
     )
     return state
@@ -63,6 +66,9 @@ def _restore_experiment_state(
     for name, maximum in history_names.items():
         setattr(experiment, name, deque(state.pop(name, []), maxlen=maximum))
     experiment.model.substrate.generation = int(state.pop("substrate_generation", 0))
+    lifecycle_rng = state.pop("substrate_lifecycle_rng", None)
+    if lifecycle_rng is not None:
+        experiment.model.substrate._lifecycle_generator.set_state(lifecycle_rng.cpu())
     for name, value in state.items():
         setattr(experiment, name, value)
 
@@ -116,7 +122,12 @@ def load_checkpoint(path: Path, device: torch.device) -> dict[str, Any]:
 def restore_checkpoint(
     experiment: SequenceExperiment, payload: dict[str, Any]
 ) -> None:
-    experiment.model.load_state_dict(_migrate_model_state(payload["model"]))
+    incompatible = experiment.model.load_state_dict(
+        _migrate_model_state(payload["model"]), strict=False
+    )
+    unexpected = list(incompatible.unexpected_keys)
+    if unexpected:
+        raise ValueError(f"checkpoint has unexpected model keys: {unexpected[:3]}")
     experiment.optimizer.load_state_dict(payload["optimizer"])
     _restore_experiment_state(experiment, dict(payload["experiment"]))
     rng = payload["random"]
@@ -158,11 +169,15 @@ def _append_metric(path: Path, record: dict[str, Any]) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--task", choices=("tiny_shakespeare", "tiny_stories"),
+        default="tiny_shakespeare",
+    )
     parser.add_argument("--device", default="cuda")
-    parser.add_argument("--field-size", type=int, default=68)
-    parser.add_argument("--batch-size", type=int, default=16)
+    parser.add_argument("--field-size", type=int)
+    parser.add_argument("--batch-size", type=int)
     parser.add_argument("--context-length", type=int, default=64)
-    parser.add_argument("--message-steps", type=int, default=2)
+    parser.add_argument("--message-steps", type=int)
     parser.add_argument("--architecture", choices=CELL_ARCHITECTURES, default="gru")
     parser.add_argument("--updates", type=int, default=100_000)
     parser.add_argument("--seed", type=int, default=1)
@@ -189,21 +204,28 @@ def main() -> None:
         args.context_length = int(saved_task["context_length"])
         args.seed = int(saved_task["seed"])
         args.amp = str(saved_task["amp_mode"])
+        args.task = str(saved_task.get("key", "tiny_shakespeare"))
         config = MnistModelConfig(**payload["configuration"])
     else:
+        defaults = sequence_config(args.task)
+        field_size = args.field_size or defaults.width
         config = sequence_config(
-            "tiny_shakespeare",
-            width=args.field_size,
-            height=args.field_size,
-            batch_size=args.batch_size,
-            message_steps=args.message_steps,
+            args.task,
+            width=field_size,
+            height=field_size,
+            batch_size=args.batch_size or defaults.batch_size,
+            message_steps=args.message_steps or defaults.message_steps,
             cell_architecture=args.architecture,
             lifecycle_enabled=int(args.lifecycle),
             lifecycle_warmup_trials=5_000,
             structural_warmup_trials=5_000,
         )
-    task = load_tiny_shakespeare_task(args.context_length)
-    if len(task.vocabulary) != 66:
+    task = (
+        load_tiny_stories_task(args.context_length)
+        if args.task == "tiny_stories"
+        else load_tiny_shakespeare_task(args.context_length)
+    )
+    if args.task == "tiny_shakespeare" and len(task.vocabulary) != 66:
         raise RuntimeError(f"expected 66 Tiny Shakespeare characters, got {len(task.vocabulary)}")
     if payload is not None and tuple(payload["task"]["vocabulary"]) != task.vocabulary:
         raise ValueError("checkpoint vocabulary does not match the cached corpus")
@@ -254,6 +276,7 @@ def main() -> None:
             "rollingAccuracy": experiment.rolling_accuracy,
             "updateSeconds": update_seconds,
             "targetCharactersPerSecond": config.batch_size * args.context_length / update_seconds,
+            "targetTokensPerSecond": config.batch_size * args.context_length / update_seconds,
             "timestamp": time.time(),
         }
         _append_metric(metrics_path, record)

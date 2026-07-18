@@ -8,8 +8,8 @@ training and intervention mutations behind one lock.
 ## Components
 
 ### `ExperimentRuntime`
-- **Does**: Lazily owns MNIST, associative-recall, synthetic tiny-language, and
-  Tiny Shakespeare organisms;
+- **Does**: Lazily owns MNIST, associative-recall, synthetic tiny-language,
+  Tiny Shakespeare, and token-level TinyStories organisms;
   switching preserves each organism's learned state.
 - **Interacts with**: FastAPI WebSockets, experiment classes, `build_snapshot`.
 
@@ -39,7 +39,7 @@ training and intervention mutations behind one lock.
 ### `_discover_saved_organisms` / `_load_saved_organism`
 - **Does**: Discovers only `runs/*/latest.pt` files and exposes opaque directory
   identifiers rather than accepting arbitrary paths from the viewer.
-- **Does**: Validates Tiny Shakespeare task metadata, vocabulary, and configuration,
+- **Does**: Validates Tiny Shakespeare or TinyStories task metadata, vocabulary, and configuration,
   restores the complete trainer checkpoint, and rebuilds one measured visual trace.
 - **Rationale**: Checkpoints use trusted local PyTorch payloads; the WebSocket
   command cannot escape the repository run directory.
@@ -65,7 +65,7 @@ training and intervention mutations behind one lock.
   accumulating stale frames. The cadence selector controls token sampling stride.
 
 ### `handle_command`
-- **Does**: Bounds and applies experiment switching, playback, reset, lesion,
+- **Does**: Bounds and applies experiment switching, playback, reset,
   evaluation, forced lifecycle cycles, speed, and atomic hyperparameter restarts.
 - **Interacts with**: Frontend `ExperimentSocket`.
 - **Does**: Pauses corpus experiments while replacing the prompt or generating

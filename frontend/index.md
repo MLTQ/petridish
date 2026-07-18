@@ -15,8 +15,8 @@ experiment laboratory above the live organism.
 ### `.laboratory`
 - **Does**: Hosts measured GPU lanes, persisted-run comparison, rolling-loss chart,
   and an explicitly enabled launch form without displacing live dish controls.
-- **Does**: Aligns benchmark accuracy with a second fixed topology-retention plot;
-  solid population and dashed active-edge histories share the unlesioned-base scale.
+- **Does**: Keeps historical topology-recovery data available to the laboratory
+  parser but removes that lesion-oriented plot from the active investigation surface.
 - **Interacts with**: `LaboratoryView` in `lab.ts` and `/api/lab`.
 - **Rationale**: Run-level monitoring changes on a slower cadence than organism
   frames and therefore remains independent from the WebSocket renderer.
@@ -30,8 +30,10 @@ experiment laboratory above the live organism.
   layout; narrow screens return to a natural single-column flow.
 
 ### Control elements
-- **Does**: Expose experiment selection, playback, measured field layers, edge threshold, evaluation,
-  forced lifecycle cycles, lesioning, and speed inputs.
+- **Does**: Expose experiment selection, playback, measured field layers, edge threshold,
+  evaluation, forced lifecycle cycles, and speed inputs.
+- **Does**: Exposes stunned state and cumulative excitotoxic damage as measured layers;
+  lesion intervention controls are intentionally absent.
 - **Interacts with**: Event wiring in `main.ts`.
 - **Does**: Defaults the field to a phase-aware signal layer: activation during
   forward computation and measured gradient credit during feedback.
@@ -69,6 +71,8 @@ experiment laboratory above the live organism.
 - **Interacts with**: `prompt` and `generate` WebSocket commands.
 - **Rationale**: Generation remains paused and deliberate so each new token can
   be inspected against the field and graph state.
+- **Does**: Supports character and wordpiece prompts while the token organism advances
+  its persistent state once per generated token.
 
 ### `#hyperparameter-panel`
 - **Does**: Hosts grouped backend-defined sliders, pending-change status, and an

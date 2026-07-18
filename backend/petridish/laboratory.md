@@ -10,7 +10,8 @@ explicitly enabled trainer processes.
 ## Components
 
 ### `LaunchSpec`
-- **Does**: Defines validated, reproducible arguments for one unattended corpus run.
+- **Does**: Defines validated, reproducible arguments for one unattended
+  Tiny Shakespeare or distributed-token TinyStories run.
 - **Rationale**: Process commands are assembled from typed fields rather than shell text.
 
 ### `Laboratory.snapshot`
@@ -38,7 +39,7 @@ explicitly enabled trainer processes.
   based on persisted measurements while keeping the polling payload bounded.
 
 ### `Laboratory.launch`
-- **Does**: Creates an immutable manifest and starts `train_shakespeare` with a GPU UUID.
+- **Does**: Creates an immutable task-aware manifest and starts the corpus trainer with a GPU UUID.
 - **Rationale**: UUID pinning avoids the host's conflicting CUDA and `nvidia-smi` indices.
 
 ### `Laboratory.stop_run`

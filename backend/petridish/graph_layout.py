@@ -107,6 +107,23 @@ def sequence_layout(task_key: str, vocabulary_size: int) -> GraphLayout:
         ):
             raise ValueError("registered sequence layout does not match vocabulary")
         return registered
+    if task_key == "tiny_stories":
+        port_count = 64
+        return GraphLayout(
+            key=task_key,
+            title="Token Cellular Language Organism",
+            description=(
+                "Distributed token codes enter through 64 sensory neurons and a "
+                "64-neuron population code is decoded against the vocabulary."
+            ),
+            input_count=port_count,
+            output_count=port_count,
+            input_side="left",
+            output_side="right",
+            flow_direction=1,
+            input_position_order=_permutation(port_count, 24_301),
+            output_position_order=_permutation(port_count, 24_302),
+        )
     if task_key != "tiny_shakespeare":
         raise ValueError(f"unknown sequence layout: {task_key}")
     return GraphLayout(

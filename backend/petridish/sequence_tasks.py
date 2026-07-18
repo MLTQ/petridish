@@ -32,6 +32,8 @@ class SequenceTask:
     decode: Callable[[list[int]], str] | None = None
     dataset_name: str | None = None
     dataset_characters: int = 0
+    dataset_tokens: int = 0
+    tokenizer_name: str | None = None
     source_url: str | None = None
 
     def batch(
@@ -121,6 +123,10 @@ def resolve_sequence_task(task: str | SequenceTask) -> SequenceTask:
         from .corpus_task import load_tiny_shakespeare_task
 
         return load_tiny_shakespeare_task()
+    if task == "tiny_stories":
+        from .token_corpus_task import load_tiny_stories_task
+
+        return load_tiny_stories_task()
     try:
         return TASKS[task]
     except KeyError as error:

@@ -36,6 +36,7 @@ class StructuralUpdate:
     births: int
     deaths: int
     death_causes: dict[str, int]
+    recoveries: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -114,6 +115,10 @@ class SpatialSubstrate(nn.Module):
         self.register_buffer("stimulation_ema", torch.zeros(site_count))
         self.register_buffer("load_ema", torch.zeros(site_count))
         self.register_buffer("homeostatic_stress", torch.zeros(site_count))
+        self.register_buffer("stunned", torch.zeros(site_count, dtype=torch.bool))
+        self.register_buffer("stun_generations", torch.zeros(site_count, dtype=torch.long))
+        self.register_buffer("stun_episodes", torch.zeros(site_count, dtype=torch.long))
+        self.register_buffer("excitotoxic_damage", torch.zeros(site_count))
         self.register_buffer("neuron_credit", torch.zeros(site_count))
         self.register_buffer("neuron_utility", torch.zeros(site_count))
         self.register_buffer("neuron_age", torch.zeros(site_count, dtype=torch.long))
@@ -137,6 +142,7 @@ class SpatialSubstrate(nn.Module):
         self.synapse_weight = nn.Parameter(initial_weight)
         self.genotype = nn.Parameter(initial_genotype)
         self.generation = 0
+        self._lifecycle_generator = torch.Generator().manual_seed(seed + 97_531)
         self._diagnostic_cache: GraphDiagnostics | None = None
 
     def _input_sites(self) -> torch.Tensor:
@@ -248,6 +254,15 @@ class SpatialSubstrate(nn.Module):
         target, slot = self.active_edge_mask.nonzero(as_tuple=True)
         return target, slot, self.dendrite_source[target, slot]
 
+    def conducting_edge_list(self) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Return physical edges whose source and target are currently responsive."""
+
+        mask = self.active_edge_mask
+        safe = self.dendrite_source.clamp_min(0)
+        mask = mask & ~self.stunned.unsqueeze(1) & ~self.stunned[safe]
+        target, slot = mask.nonzero(as_tuple=True)
+        return target, slot, self.dendrite_source[target, slot]
+
     def graph_snapshot(self) -> GraphSnapshot:
         return GraphSnapshot(
             self.dendrite_source.detach().clone(),
@@ -315,7 +330,7 @@ class SpatialSubstrate(nn.Module):
         reward: float,
         *,
         homeostasis_active: bool = True,
-    ) -> None:
+    ) -> list[dict[str, Any]]:
         """Update slow metabolic and task statistics after one differentiable trial."""
 
         cfg = self.config
@@ -366,12 +381,12 @@ class SpatialSubstrate(nn.Module):
             )
             self.edge_utility.masked_fill_(~active, 0)
 
+        events: list[dict[str, Any]] = []
         if homeostasis_active:
             signal = self.stimulation_ema[sites]
             traffic = self.load_ema[sites]
             healthy = (signal >= cfg.target_stimulation_min) & (traffic <= cfg.target_stimulation_max)
             starvation = (cfg.target_stimulation_min - signal).clamp_min(0) * cfg.starvation_cost
-            overload = (traffic - cfg.target_stimulation_max).clamp_min(0) * cfg.overload_cost
             incoming = self.active_edge_mask.sum(dim=1).float()
             _, _, sources = self.edge_list()
             outgoing = torch.bincount(sources, minlength=cfg.site_count).float()
@@ -381,15 +396,42 @@ class SpatialSubstrate(nn.Module):
                 healthy.float() * cfg.energy_recovery
                 + task_bonus
                 - starvation
-                - overload
                 - maintenance
             )
             self.energy[sites] = (self.energy[sites] + delta).clamp(0, 1)
+            responsive = ~self.stunned[sites]
+            newly_stunned = (
+                responsive
+                & ~self.anchor_mask[sites]
+                & (traffic >= cfg.stun_load_threshold)
+                & bool(cfg.stun_enabled)
+            )
+            stunned_sites = sites[newly_stunned]
+            if stunned_sites.numel():
+                severity = (
+                    traffic[newly_stunned] / max(cfg.stun_load_threshold, 1e-6)
+                ).clamp(1, 4)
+                self.stunned[stunned_sites] = True
+                self.stun_generations[stunned_sites] = cfg.stun_min_generations
+                self.stun_episodes[stunned_sites] += 1
+                self.excitotoxic_damage[stunned_sites] += (
+                    cfg.excitotoxic_damage_per_stun * cfg.overload_cost * severity
+                )
+                for site in stunned_sites[:160].tolist():
+                    events.append(
+                        {"type": "stunned", "source": site, "destination": site}
+                    )
+            recovering_damage = self.occupied & ~self.stunned
+            self.excitotoxic_damage[recovering_damage] = (
+                self.excitotoxic_damage[recovering_damage]
+                - cfg.excitotoxic_damage_recovery
+            ).clamp_min(0)
         self.energy[self.anchor_mask] = 1
         self.neuron_age[self.occupied] += 1
         self.edge_age[self.active_edge_mask] += 1
         self.synapse_weight.clamp_(-cfg.max_weight, cfg.max_weight)
         self.synapse_weight.masked_fill_(~self.active_edge_mask, 0)
+        return events
 
     @torch.no_grad()
     def structural_step(
@@ -407,6 +449,8 @@ class SpatialSubstrate(nn.Module):
         prune_mask = invalid.clone()
         if apply_topology:
             pruneable = self.active_edge_mask & (self.edge_age >= cfg.edge_grace_trials)
+            safe_sources = self.dendrite_source.clamp_min(0)
+            pruneable &= ~self.stunned.unsqueeze(1) & ~self.stunned[safe_sources]
             pruneable &= self.edge_utility < cfg.prune_utility
             candidates = pruneable.nonzero(as_tuple=False)
             if candidates.shape[0] > cfg.max_pruned_per_generation:
@@ -423,6 +467,7 @@ class SpatialSubstrate(nn.Module):
         self._clear_edges(prune_mask)
         changed |= prune_mask
 
+        recovered_sites = self._recover_stunned(events) if apply_lifecycle else []
         dead_sites, death_causes = (
             self._apply_death(events)
             if apply_lifecycle
@@ -453,7 +498,28 @@ class SpatialSubstrate(nn.Module):
             int(born_sites.numel()),
             int(dead_sites.numel()),
             death_causes,
+            len(recovered_sites),
         )
+
+    @torch.no_grad()
+    def _recover_stunned(self, events: list[dict[str, Any]]) -> list[int]:
+        """Give stunned cells a seeded chance to resume once their refractory time ends."""
+
+        self.stun_generations[self.stunned] -= 1
+        eligible = self.stunned & (self.stun_generations <= 0) & self.occupied
+        sites = eligible.nonzero(as_tuple=False).squeeze(1)
+        if not sites.numel():
+            return []
+        draws = torch.rand(sites.numel(), generator=self._lifecycle_generator).to(
+            self.occupied.device
+        )
+        recovered = sites[draws < self.config.stun_recovery_probability]
+        self.stunned[recovered] = False
+        self.stun_generations[recovered] = 0
+        recovered_list = recovered.tolist()
+        for site in recovered_list[:160]:
+            events.append({"type": "recovered", "source": site, "destination": site})
+        return recovered_list
 
     @torch.no_grad()
     def _clear_edges(self, mask: torch.Tensor) -> None:
@@ -470,17 +536,28 @@ class SpatialSubstrate(nn.Module):
         cfg = self.config
         eligible = self.occupied & ~self.anchor_mask
         eligible &= self.neuron_age >= cfg.juvenile_trials
-        eligible &= self.energy <= cfg.death_energy
+        depleted = self.energy <= cfg.death_energy
+        excitotoxic = self.excitotoxic_damage >= cfg.excitotoxic_death_threshold
+        eligible &= depleted | excitotoxic
         sites = eligible.nonzero(as_tuple=False).squeeze(1)
         if sites.numel() > cfg.max_deaths_per_generation:
-            sites = sites[torch.topk(self.energy[sites], cfg.max_deaths_per_generation, largest=False).indices]
+            danger = (
+                1 - self.energy[sites]
+                + self.excitotoxic_damage[sites]
+                / max(cfg.excitotoxic_death_threshold, 1e-6)
+            )
+            sites = sites[
+                torch.topk(danger, cfg.max_deaths_per_generation, largest=True).indices
+            ]
         if not sites.numel():
             return sites, {}
         starvation = (cfg.target_stimulation_min - self.stimulation_ema[sites]).clamp_min(0)
-        overload = (self.load_ema[sites] - cfg.target_stimulation_max).clamp_min(0)
+        overload = (
+            self.excitotoxic_damage[sites] / max(cfg.excitotoxic_death_threshold, 1e-6)
+        ).clamp_min(0)
         maintenance = torch.full_like(starvation, cfg.maintenance_cost)
         cause_index = torch.stack((starvation, overload, maintenance), dim=1).argmax(dim=1)
-        cause_names = ("starvation", "overload", "maintenance")
+        cause_names = ("starvation", "excitotoxicity", "maintenance")
         death_causes = {
             name: int((cause_index == index).sum())
             for index, name in enumerate(cause_names)
@@ -490,6 +567,10 @@ class SpatialSubstrate(nn.Module):
         self.stimulation_ema[sites] = 0
         self.load_ema[sites] = 0
         self.homeostatic_stress[sites] = 0
+        self.stunned[sites] = False
+        self.stun_generations[sites] = 0
+        self.stun_episodes[sites] = 0
+        self.excitotoxic_damage[sites] = 0
         self.neuron_credit[sites] = 0
         self.neuron_utility[sites] = 0
         self.query_ema[sites] = 0
@@ -527,7 +608,9 @@ class SpatialSubstrate(nn.Module):
             + 0.15 * compatibility * active_signal
         )
         evidence = source_signal * self.probe_kernel.unsqueeze(0)
-        evidence = evidence.masked_fill((self.probe_source < 0) | ~self.occupied[safe], -1)
+        evidence = evidence.masked_fill(
+            (self.probe_source < 0) | ~self.occupied[safe] | self.stunned[safe], -1
+        )
         if require_axon_capacity:
             _, _, existing_sources = self.edge_list()
             outgoing = torch.bincount(
@@ -583,6 +666,10 @@ class SpatialSubstrate(nn.Module):
         self.stimulation_ema[sites] = 0
         self.load_ema[sites] = 0
         self.homeostatic_stress[sites] = 0
+        self.stunned[sites] = False
+        self.stun_generations[sites] = 0
+        self.stun_episodes[sites] = 0
+        self.excitotoxic_damage[sites] = 0
         self.neuron_credit[sites] = 0
         self.neuron_utility[sites] = 0
         self.query_ema[sites] = 0
@@ -594,7 +681,11 @@ class SpatialSubstrate(nn.Module):
         self.lineage_depth[sites] = self.lineage_depth[parents] + 1
         self.genotype[sites] = (
             self.genotype[parents]
-            + torch.randn_like(self.genotype[sites]) * cfg.inheritance_noise
+            + torch.randn(
+                self.genotype[sites].shape,
+                generator=self._lifecycle_generator,
+                dtype=self.genotype.dtype,
+            ).to(self.genotype.device) * cfg.inheritance_noise
         )
         birth_slot = torch.zeros_like(sites)
         self.dendrite_source[sites, birth_slot] = parents
@@ -619,7 +710,7 @@ class SpatialSubstrate(nn.Module):
         self.candidate_counter.mul_(cfg.candidate_decay)
         best_source, evidence = self._best_local_source()
         free = self.dendrite_source < 0
-        receptive = self.occupied & (self.roles[:, 1] == 0)
+        receptive = self.occupied & ~self.stunned & (self.roles[:, 1] == 0)
         receptive &= free.any(dim=1) & (evidence >= cfg.emission_threshold)
         targets = receptive.nonzero(as_tuple=False).squeeze(1)
         if not targets.numel():
@@ -654,8 +745,13 @@ class SpatialSubstrate(nn.Module):
             return changed
         free_slot = free[ready_targets].float().argmax(dim=1)
         self.dendrite_source[ready_targets, free_slot] = ready_sources
-        self.synapse_weight[ready_targets, free_slot] = cfg.initial_weight_scale * torch.sign(
-            torch.randn_like(ready_targets, dtype=self.synapse_weight.dtype) + 1e-4
+        growth_sign = torch.randn(
+            ready_targets.shape,
+            generator=self._lifecycle_generator,
+            dtype=self.synapse_weight.dtype,
+        ).to(self.synapse_weight.device)
+        self.synapse_weight[ready_targets, free_slot] = (
+            cfg.initial_weight_scale * torch.sign(growth_sign + 1e-4)
         )
         self.edge_age[ready_targets, free_slot] = 0
         self.edge_utility[ready_targets, free_slot] = 0.04

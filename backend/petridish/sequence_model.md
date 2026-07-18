@@ -5,6 +5,11 @@ neuron field used by the MNIST experiment. Each vocabulary item owns one semanti
 input port, but `GraphLayout` permutes those ports in space. A token is supplied by
 stimulating its port; the token ID is not broadcast to every cell.
 
+The token cellular-language variant intentionally replaces that legacy interface.
+A learned token vector writes a distributed code across 64 sensory neurons. Sixty-four
+output neurons are decoded to one hidden-width population code and compared with the
+tied vocabulary codebook, so adding vocabulary entries does not add physical neurons.
+
 For each token the selected shared genotype-modulated recurrent rule runs several
 local graph updates. GRU is the preserved baseline; controlled homogeneous LSTM,
 ESN, and temporal-transformer rules share the same physical graph and readout.
@@ -12,6 +17,15 @@ Queries, keys, values, emission gates, weighted directed dendrites, measured tra
 and local attention are identical in spirit to the classifier. Crucially, neuron state
 is retained across token boundaries. The vocabulary-sized output bank is read after every token,
 which supports both a final delayed-recall target and autoregressive next-token loss.
+
+`SequenceRuntimeState` carries hidden state, architecture-private memory, broadcast
+workspace, optional fast/binding memory, and absolute token position between calls.
+Interactive generation therefore consumes only the newly sampled token after the
+prompt has initialized the organism; it does not replay the context window.
+
+Stunned neurons retain their private state and physical dendrites but are gated out
+of external drive, sending, receiving, recurrent updates, and readout until recovery.
+Their incident edges are not mistaken for deleted structure or pruning candidates.
 
 A small low-rank broadcast workspace implements the advertisement channel without an
 all-pairs attention matrix. Neurons softly write content-selected values into shared

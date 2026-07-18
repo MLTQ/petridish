@@ -49,6 +49,21 @@ class SequenceForward:
     advertised_key: torch.Tensor
     emission: torch.Tensor
     mean_attention_entropy: float
+    runtime_state: "SequenceRuntimeState"
+
+
+@dataclass(slots=True)
+class SequenceRuntimeState:
+    """Persistent organism state carried between incremental token calls."""
+
+    sites: torch.Tensor
+    hidden: torch.Tensor
+    cell_memory: torch.Tensor | None
+    workspace: torch.Tensor
+    fast_memory: torch.Tensor | None
+    binding_memory: torch.Tensor | None
+    previous_binding_key: torch.Tensor | None
+    position: int
 
 
 SequenceFrameCallback = Callable[[SequenceFrame, torch.Tensor], None]
@@ -70,18 +85,25 @@ class CellularSequenceModel(nn.Module):
         self.config = config
         self.layout = resolve_layout(layout)
         self.vocab_size = vocab_size
-        if self.layout.input_count != vocab_size or self.layout.output_count != vocab_size:
-            raise ValueError("sequence layouts require one input and output port per token")
+        self.distributed_io = (
+            self.layout.input_count != vocab_size
+            or self.layout.output_count != vocab_size
+        )
         torch.manual_seed(seed)
         self.substrate = SpatialSubstrate(config, layout=self.layout, seed=seed)
         hidden = config.hidden_channels
-        persistent_features = 2 + 3 + 4
+        persistent_features = 2 + 3 + (6 if self.distributed_io else 4)
         self.context_rule = nn.Sequential(nn.Linear(persistent_features, hidden), nn.Tanh())
         self.genotype_context = nn.Linear(config.genotype_channels, hidden)
         self.genotype_film = nn.Linear(config.genotype_channels, hidden * 2)
         self.token_identity = nn.Embedding(vocab_size, hidden)
         self.position_identity = nn.Embedding(max_length, hidden)
-        self.output_identity = nn.Embedding(vocab_size, hidden)
+        self.input_port_identity: nn.Embedding | None = None
+        self.input_value: nn.Linear | None = None
+        if self.distributed_io:
+            self.input_port_identity = nn.Embedding(self.layout.input_count, hidden)
+            self.input_value = nn.Linear(hidden, hidden, bias=False)
+        self.output_identity = nn.Embedding(self.layout.output_count, hidden)
         self.message_norm = nn.LayerNorm(hidden, elementwise_affine=False)
         self.message_query = nn.Linear(hidden, hidden, bias=False)
         self.message_key = nn.Linear(hidden, hidden, bias=False)
@@ -114,7 +136,13 @@ class CellularSequenceModel(nn.Module):
             self.binding_gain = nn.Parameter(torch.tensor(config.binding_memory_gain))
         self.cell_rule = SequenceCellRule(config.cell_architecture, hidden)
         self.state_norm = nn.LayerNorm(hidden)
-        self.output_bank_readout = nn.Linear(hidden * vocab_size, vocab_size)
+        readout_width = self.layout.output_count * hidden
+        self.output_bank_readout = nn.Linear(
+            readout_width, hidden if self.distributed_io else vocab_size
+        )
+        self.logit_scale: nn.Parameter | None = (
+            nn.Parameter(torch.tensor(math.sqrt(hidden))) if self.distributed_io else None
+        )
         self.class_bias = nn.Parameter(torch.zeros(vocab_size))
         self.message_gain_raw = nn.Parameter(
             torch.tensor(math.log(math.expm1(config.message_gain)))
@@ -122,6 +150,8 @@ class CellularSequenceModel(nn.Module):
         nn.init.normal_(self.token_identity.weight, std=0.18)
         nn.init.normal_(self.position_identity.weight, std=0.08)
         nn.init.normal_(self.output_identity.weight, std=0.18)
+        if self.input_port_identity is not None:
+            nn.init.normal_(self.input_port_identity.weight, std=0.18)
         nn.init.normal_(self.output_bank_readout.weight, std=0.025)
         nn.init.zeros_(self.output_bank_readout.bias)
         with torch.no_grad():
@@ -136,15 +166,17 @@ class CellularSequenceModel(nn.Module):
 
     def _persistent_features(self, sites: torch.Tensor, batch: int) -> torch.Tensor:
         substrate = self.substrate
-        slow = torch.stack(
-            (
-                substrate.energy[sites],
-                substrate.stimulation_ema[sites],
-                substrate.load_ema[sites],
-                substrate.neuron_utility[sites].tanh(),
-            ),
-            dim=1,
-        )
+        features = [
+            substrate.energy[sites],
+            substrate.stimulation_ema[sites],
+            substrate.load_ema[sites],
+            substrate.neuron_utility[sites].tanh(),
+        ]
+        if self.distributed_io:
+            features.extend(
+                (substrate.stunned[sites].float(), substrate.excitotoxic_damage[sites])
+            )
+        slow = torch.stack(features, dim=1)
         values = torch.cat((substrate.coordinates[sites], substrate.roles[sites], slow), dim=1)
         return values.unsqueeze(0).expand(batch, -1, -1)
 
@@ -155,12 +187,18 @@ class CellularSequenceModel(nn.Module):
         output_alive: torch.Tensor,
     ) -> torch.Tensor:
         output = torch.zeros(
-            hidden.shape[0], self.vocab_size, self.config.hidden_channels,
+            hidden.shape[0], self.layout.output_count, self.config.hidden_channels,
             device=hidden.device, dtype=hidden.dtype,
         )
         if output_alive.any():
             output[:, output_alive] = hidden[:, output_compact[output_alive]]
-        return self.output_bank_readout(output.flatten(1)) + self.class_bias
+        decoded = self.output_bank_readout(output.flatten(1))
+        if not self.distributed_io:
+            return decoded + self.class_bias
+        assert self.logit_scale is not None
+        code = F.normalize(decoded.float(), dim=1)
+        vocabulary = F.normalize(self.token_identity.weight.float(), dim=1)
+        return code @ vocabulary.T * self.logit_scale.clamp(1, 20) + self.class_bias
 
     def forward(
         self,
@@ -168,6 +206,7 @@ class CellularSequenceModel(nn.Module):
         *,
         capture_trace: bool = True,
         frame_callback: SequenceFrameCallback | None = None,
+        runtime_state: SequenceRuntimeState | None = None,
     ) -> SequenceForward:
         """Consume discrete tokens one at a time without clearing neuron state."""
 
@@ -185,7 +224,7 @@ class CellularSequenceModel(nn.Module):
         context = context + torch.tanh(self.genotype_context(genotype)).unsqueeze(0)
         film_scale, film_bias = (0.18 * torch.tanh(self.genotype_film(genotype))).chunk(2, dim=1)
         output_compact = compact[substrate.output_sites]
-        output_alive = output_compact >= 0
+        output_alive = (output_compact >= 0) & ~substrate.stunned[substrate.output_sites]
         if output_alive.any():
             context = context.index_add(
                 1,
@@ -195,14 +234,25 @@ class CellularSequenceModel(nn.Module):
                 .unsqueeze(0)
                 .expand(batch, -1, -1),
             )
-        hidden = context.clone()
-        cell_memory = self.cell_rule.initial_memory(hidden)
-        target_site, slot, source_site = substrate.edge_list()
+        if runtime_state is not None:
+            if not torch.equal(runtime_state.sites, sites):
+                raise ValueError("incremental state is invalid after a population change")
+            if runtime_state.hidden.shape[0] != batch:
+                raise ValueError("incremental state batch size does not match tokens")
+            hidden = runtime_state.hidden
+            cell_memory = runtime_state.cell_memory
+            start_position = runtime_state.position
+        else:
+            hidden = context.clone()
+            cell_memory = self.cell_rule.initial_memory(hidden)
+            start_position = 0
+        target_site, slot, source_site = substrate.conducting_edge_list()
         target_compact = compact[target_site]
         source_compact = compact[source_site]
         weights = substrate.synapse_weight[target_site, slot]
         compute_weights = weights.to(hidden.dtype)
         input_compact = compact[substrate.input_sites]
+        responsive = ~substrate.stunned[sites]
         batch_rows = torch.arange(batch, device=tokens.device)
         edge_weight_log = compute_weights.abs().clamp_min(1e-5).log().unsqueeze(0)
         edge_weight_view = compute_weights.view(1, -1, 1)
@@ -231,13 +281,19 @@ class CellularSequenceModel(nn.Module):
         logits: list[torch.Tensor] = []
         entropy_total = torch.zeros((), device=tokens.device)
         observations = max(1, length * cfg.message_steps)
-        workspace_state = torch.zeros(
-            batch, cfg.broadcast_slots, cfg.hidden_channels,
-            device=tokens.device, dtype=hidden.dtype,
+        workspace_state = (
+            runtime_state.workspace
+            if runtime_state is not None
+            else torch.zeros(
+                batch, cfg.broadcast_slots, cfg.hidden_channels,
+                device=tokens.device, dtype=hidden.dtype,
+            )
         )
         use_fast_weights = cfg.fast_weight_gain > 0
         fast_memory = (
-            torch.zeros(
+            runtime_state.fast_memory
+            if runtime_state is not None and use_fast_weights
+            else torch.zeros(
                 batch, cfg.hidden_channels, cfg.hidden_channels,
                 device=tokens.device, dtype=hidden.dtype,
             )
@@ -250,22 +306,25 @@ class CellularSequenceModel(nn.Module):
             if self.binding_owner_address is not None else None
         )
         binding_memory = (
-            torch.zeros(
+            runtime_state.binding_memory
+            if runtime_state is not None and use_binding_memory
+            else torch.zeros(
                 batch, site_count, cfg.hidden_channels,
                 device=tokens.device, dtype=hidden.dtype,
             )
             if use_binding_memory else None
         )
-        previous_binding_key: torch.Tensor | None = None
+        previous_binding_key = (
+            runtime_state.previous_binding_key if runtime_state is not None else None
+        )
 
         for position in range(length):
             external = torch.zeros_like(hidden)
-            token_compact = input_compact[tokens[:, position]]
-            alive_batch = token_compact >= 0
-            rows = batch_rows[alive_batch]
             token_embedding = self.token_identity(tokens[:, position])
-            drive = token_embedding[alive_batch]
-            drive = drive + self.position_identity.weight[position]
+            absolute_position = start_position + position
+            drive = token_embedding + self.position_identity.weight[
+                absolute_position % self.position_identity.num_embeddings
+            ]
             current_binding_key: torch.Tensor | None = None
             if use_binding_memory:
                 assert self.binding_token_key is not None
@@ -285,16 +344,41 @@ class CellularSequenceModel(nn.Module):
                 retrieved = torch.einsum(
                     "bn,bnh->bh", read_attention, binding_memory
                 )
-                drive = drive + self.binding_read(retrieved[alive_batch]) * self.binding_gain
-            drive = drive.to(external.dtype)
-            external[rows, token_compact[alive_batch]] = drive
+                drive = drive + self.binding_read(retrieved) * self.binding_gain
             input_signal = torch.zeros(sites.numel(), device=tokens.device)
-            if alive_batch.any():
-                input_signal.index_add_(
-                    0, token_compact[alive_batch],
-                    torch.ones_like(token_compact[alive_batch], dtype=input_signal.dtype),
+            if self.distributed_io:
+                assert self.input_port_identity is not None
+                assert self.input_value is not None
+                alive_ports = input_compact >= 0
+                port_compact = input_compact[alive_ports]
+                port_keys = F.normalize(self.input_port_identity.weight[alive_ports], dim=1)
+                coefficients = torch.softmax(
+                    F.normalize(drive, dim=1) @ port_keys.T
+                    * math.sqrt(cfg.hidden_channels), dim=1,
+                ) * math.sqrt(max(1, int(alive_ports.sum())))
+                external[:, port_compact] = (
+                    self.input_value(drive).unsqueeze(1) * coefficients.unsqueeze(2)
+                ).to(external.dtype)
+                input_signal[port_compact] = coefficients.detach().abs().mean(dim=0)
+                token_compact = port_compact[coefficients.argmax(dim=1)]
+                alive_batch = torch.ones(batch, device=tokens.device, dtype=torch.bool)
+                rows = batch_rows
+            else:
+                token_compact = input_compact[tokens[:, position]]
+                alive_batch = token_compact >= 0
+                rows = batch_rows[alive_batch]
+                external[rows, token_compact[alive_batch]] = drive[alive_batch].to(
+                    external.dtype
                 )
-                input_signal /= batch
+                if alive_batch.any():
+                    input_signal.index_add_(
+                        0, token_compact[alive_batch],
+                        torch.ones_like(
+                            token_compact[alive_batch], dtype=input_signal.dtype
+                        ),
+                    )
+                    input_signal /= batch
+            external[:, ~responsive] = 0
             if capture_trace:
                 position_stimulation = torch.zeros_like(stimulation)
                 position_load = torch.zeros_like(load)
@@ -305,13 +389,14 @@ class CellularSequenceModel(nn.Module):
                 query = self.message_query(normalized)
                 key = self.message_key(normalized)
                 value = self.message_value(normalized)
-                emit = torch.sigmoid(self.emit_gate(normalized))
+                emit = torch.sigmoid(self.emit_gate(normalized)) * responsive.view(1, -1, 1)
                 write_score = torch.einsum(
                     "bnh,sh->bns", self.broadcast_key(normalized), slot_keys
                 ) / hidden_scale
                 write_attention = torch.softmax(write_score, dim=1)
                 proposed_workspace = torch.einsum(
-                    "bns,bnh->bsh", write_attention, self.broadcast_value(normalized)
+                    "bns,bnh->bsh", write_attention,
+                    self.broadcast_value(normalized) * responsive.view(1, -1, 1)
                 )
                 workspace_state = (
                     cfg.broadcast_decay * workspace_state
@@ -367,6 +452,7 @@ class CellularSequenceModel(nn.Module):
                 incoming = torch.zeros_like(hidden)
                 incoming.index_add_(1, target_compact, edge_message)
                 incoming = incoming + broadcast_message + fast_message
+                incoming = incoming * responsive.view(1, -1, 1)
                 if entropy_valid.any():
                     target_entropy = torch.zeros_like(denominator)
                     target_entropy.index_add_(
@@ -399,7 +485,10 @@ class CellularSequenceModel(nn.Module):
                     rule_input, hidden, incoming, cell_memory
                 )
                 updated = updated * (1 + film_scale.unsqueeze(0)) + film_bias.unsqueeze(0)
-                hidden = self.state_norm(updated + incoming)
+                next_hidden = self.state_norm(updated + incoming)
+                hidden = torch.where(
+                    responsive.view(1, -1, 1), next_hidden, hidden
+                )
             if use_binding_memory:
                 assert self.binding_value is not None
                 assert binding_owner_addresses is not None
@@ -446,10 +535,20 @@ class CellularSequenceModel(nn.Module):
                 if frame_callback is not None:
                     frame_callback(frame, position_logits.detach())
 
+        next_runtime_state = SequenceRuntimeState(
+            sites,
+            hidden,
+            cell_memory,
+            workspace_state,
+            fast_memory,
+            binding_memory,
+            previous_binding_key,
+            start_position + length,
+        )
         return SequenceForward(
             torch.stack(logits, dim=1), sites, hidden, retained, frames,
             stimulation, load, edge_flow, advertised_query, advertised_key,
-            emission, float(entropy_total),
+            emission, float(entropy_total), next_runtime_state,
         )
 
     def make_frame(
@@ -554,6 +653,6 @@ class CellularSequenceModel(nn.Module):
 
 
 __all__ = [
-    "CellularSequenceModel", "SequenceForward", "SequenceFrame",
+    "CellularSequenceModel", "SequenceForward", "SequenceFrame", "SequenceRuntimeState",
     "SequenceFrameCallback",
 ]

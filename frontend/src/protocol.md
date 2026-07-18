@@ -33,7 +33,9 @@ Types every server snapshot and viewer command at the Python/TypeScript boundary
 - **Rationale**: Recall and language diagnostics stay explicit without weakening
   the MNIST image and curriculum contract.
 - **Does**: Corpus tasks additionally publish dataset size/source, context length,
-  prompt text, generated suffix, and the next greedy-token diagnostic.
+  tokenizer, prompt text, generated suffix, and the next greedy-token diagnostic.
+- **Does**: Publishes stun/recovery counts and excitotoxic death separately from
+  ordinary turnover.
 
 ### `HyperparameterSnapshot`
 - **Does**: Types one authoritative numeric slider definition and current value.
@@ -43,7 +45,7 @@ Types every server snapshot and viewer command at the Python/TypeScript boundary
 
 ### `ExperimentCommand`
 - **Does**: Restricts outbound messages to experiment selection, supported
-  interventions, and atomic configuration changes.
+  lifecycle actions, and atomic configuration changes; lesion commands are absent.
 - **Interacts with**: Backend `ExperimentRuntime.handle_command`.
 - **Does**: Includes corpus prompt replacement and single-token generation.
 - **Does**: Includes explicit entry to and exit from headless trace-free sequence training.

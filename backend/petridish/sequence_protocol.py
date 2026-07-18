@@ -29,7 +29,8 @@ def build_sequence_snapshot(experiment: SequenceExperiment) -> dict[str, Any]:
             substrate.neuron_utility[sites], substrate.genotype[sites].norm(dim=1),
             substrate.emission_ema[sites], substrate.neuron_age[sites].float(),
             substrate.homeostatic_stress[sites], substrate.lineage_depth[sites].float(),
-            substrate.parent_site[sites].float(),
+            substrate.parent_site[sites].float(), substrate.stunned[sites].float(),
+            substrate.excitotoxic_damage[sites],
         ),
         dim=1,
     )
@@ -122,6 +123,8 @@ def build_sequence_snapshot(experiment: SequenceExperiment) -> dict[str, Any]:
             ) if experiment.stage_accuracy_history else 0.0,
             "datasetName": experiment.task.dataset_name,
             "datasetCharacters": experiment.task.dataset_characters,
+            "datasetTokens": experiment.task.dataset_tokens,
+            "tokenizerName": experiment.task.tokenizer_name,
             "contextLength": experiment.task.sequence_length,
             "interactive": experiment.task.encode is not None,
             "interactivePrompt": experiment.interactive_prompt,
@@ -143,6 +146,10 @@ def build_sequence_snapshot(experiment: SequenceExperiment) -> dict[str, Any]:
             "cumulativeBirths": experiment.cumulative_births,
             "cumulativeDeaths": experiment.cumulative_deaths,
             "cumulativeDeathCauses": experiment.cumulative_death_causes,
+            "stuns": experiment.last_stuns,
+            "recoveries": experiment.last_recoveries,
+            "cumulativeStuns": experiment.cumulative_stuns,
+            "cumulativeRecoveries": experiment.cumulative_recoveries,
         },
         "metrics": {
             "reward": round(experiment.last_reward, 5),
@@ -151,6 +158,10 @@ def build_sequence_snapshot(experiment: SequenceExperiment) -> dict[str, Any]:
             "meanEnergy": round(float(substrate.energy[sites].mean()), 5),
             "meanAge": round(float(substrate.neuron_age[sites].float().mean()), 3),
             "stressedCells": int((substrate.homeostatic_stress[sites] >= 1).sum()),
+            "stunnedCells": int(substrate.stunned[sites].sum()),
+            "meanExcitotoxicDamage": round(
+                float(substrate.excitotoxic_damage[sites].mean()), 5
+            ),
             "turnoverEvents": experiment.cumulative_births + experiment.cumulative_deaths,
             "edgeCount": total_edge_count, "visibleEdgeCount": len(edge_payload["source"]),
             "meanWeight": round(mean_weight, 5),

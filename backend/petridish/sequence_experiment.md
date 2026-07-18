@@ -1,7 +1,8 @@
 # Sequence experiment lifecycle
 
 `SequenceExperiment` trains one persistent spatial organism on associative recall,
-synthetic autoregressive language, or cached character-level Tiny Shakespeare. It
+synthetic autoregressive language, cached character-level Tiny Shakespeare, or
+token-level TinyStories. It
 uses masked cross-entropy so recall is judged only at the query response, while
 language is judged at every next-token position. Synthetic held-out evaluation uses
 fresh generator streams; corpus evaluation uses the fixed validation split.
@@ -66,8 +67,15 @@ authoritative for optimizer parameters, state dictionaries, mutable substrate st
 and topology mutation; compilation is opt-in for controlled headless measurements.
 
 Corpus tasks expose `set_prompt` and `generate_token`. Prompt installation encodes
-only the trailing context window and replays it without training. Each generate call
-samples one character at temperature 0.85, appends it, and recomputes the visible
-trace. Generation never performs an optimizer or structural update. The snapshot
+only the trailing context window once. Each generate call samples one character or
+wordpiece at temperature 0.85, advances the saved organism runtime state by that one
+token, and records its measured frame. Generation never performs an optimizer or structural update. The snapshot
 also reports the greedy next-token prediction so sampling can be distinguished from
 the model's modal choice.
+
+Training records stun and recovery events separately from births/deaths. Excitotoxic
+death counts only cumulative damage; transient overload is not classified as death.
+
+Corpus construction primes the viewer with only four measured tokens; this avoids a
+full training-context forward pass while the runtime lock is switching experiments.
+Training batches and explicit prompts retain their configured context length.

@@ -28,6 +28,7 @@ from petridish.sequence_tasks import (
     associative_recall_batch,
     resolve_sequence_task,
 )
+from petridish.token_corpus_task import build_token_task
 from petridish.train_shakespeare import _migrate_model_state
 
 
@@ -416,3 +417,73 @@ def test_corpus_prompt_can_generate_one_more_character() -> None:
     assert snapshot["task"]["interactive"] is True
     assert snapshot["task"]["interactivePrompt"] == "ab"
     assert snapshot["task"]["generatedText"] == generated
+
+
+def test_token_corpus_uses_distributed_ports_and_incremental_state() -> None:
+    text = "".join(
+        f"Once upon a time, a small fox found number {index}.\n"
+        for index in range(80)
+    )
+    task = build_token_task(text, context_length=8, vocabulary_size=48)
+    config = sequence_config(
+        width=20, height=20, hidden_channels=8, genotype_channels=6,
+        initial_density=0.30, batch_size=2, message_steps=1,
+        candidate_probes=12, local_radius=4, max_visible_edges=100,
+    )
+    layout = sequence_layout(task.key, len(task.vocabulary))
+    model = CellularSequenceModel(
+        config, layout=layout, vocab_size=len(task.vocabulary), max_length=8, seed=41
+    )
+    batch = task.batch(2, torch.Generator().manual_seed(41))
+
+    full = model(batch.tokens, capture_trace=False)
+    prefix = model(batch.tokens[:, :3], capture_trace=False)
+    suffix = model(
+        batch.tokens[:, 3:], capture_trace=False, runtime_state=prefix.runtime_state
+    )
+
+    assert model.distributed_io is True
+    assert layout.input_count == 64
+    assert layout.output_count == 64
+    assert full.logits.shape == (2, 8, len(task.vocabulary))
+    assert torch.allclose(full.logits[:, 3:], suffix.logits, atol=1e-5, rtol=1e-5)
+
+
+def test_excitotoxicity_stuns_recovers_and_only_repetition_becomes_lethal() -> None:
+    config = sequence_config(
+        width=20, height=20, hidden_channels=8, genotype_channels=6,
+        initial_density=0.30, batch_size=2, message_steps=1,
+        candidate_probes=12, local_radius=4, max_visible_edges=100,
+        stun_load_threshold=0.01, stun_recovery_probability=1.0,
+        stun_min_generations=1, excitotoxic_damage_per_stun=0.05,
+        excitotoxic_death_threshold=0.5, max_deaths_per_generation=1,
+    )
+    substrate = SpatialSubstrate(config, layout="tiny_language", seed=43)
+    sites = substrate.living_sites
+    count = sites.numel()
+    zeros = torch.zeros(count)
+    zero_edges = torch.zeros_like(substrate.synapse_weight)
+    zero_vectors = torch.zeros(count, config.hidden_channels)
+
+    events = substrate.record_trial(
+        sites, zeros, torch.ones(count), zeros, zero_edges, zero_edges,
+        zero_vectors, zero_vectors, zeros, 0.0, homeostasis_active=True,
+    )
+    stunned = substrate.stunned.clone()
+    update = substrate.structural_step(apply_lifecycle=True, apply_topology=False)
+
+    assert any(event["type"] == "stunned" for event in events)
+    assert bool(stunned.any())
+    assert update.deaths == 0
+    assert update.recoveries == int(stunned.sum())
+    assert not bool(substrate.stunned.any())
+
+    victim = int((substrate.occupied & ~substrate.anchor_mask).nonzero()[0])
+    substrate.neuron_age[victim] = config.juvenile_trials
+    substrate.energy[victim] = 1.0
+    substrate.excitotoxic_damage[victim] = config.excitotoxic_death_threshold
+    lethal = substrate.structural_step(apply_lifecycle=True, apply_topology=False)
+
+    assert lethal.deaths == 1
+    assert lethal.death_causes["excitotoxicity"] == 1
+    assert not bool(substrate.occupied[victim])

@@ -71,6 +71,13 @@ class MnistModelConfig:
     energy_recovery: float = 0.012
     starvation_cost: float = 0.30
     overload_cost: float = 0.30
+    stun_enabled: int = 1
+    stun_load_threshold: float = 0.55
+    stun_recovery_probability: float = 0.35
+    stun_min_generations: int = 1
+    excitotoxic_damage_per_stun: float = 0.20
+    excitotoxic_damage_recovery: float = 0.02
+    excitotoxic_death_threshold: float = 1.0
     maintenance_cost: float = 0.00035
     task_energy_bonus: float = 0.006
     death_energy: float = 0.035

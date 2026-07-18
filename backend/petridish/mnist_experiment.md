@@ -31,6 +31,8 @@ only measured forward, credit, and turnover phases.
   plasticity still waits for accuracy competence or a measured plateau.
 - **Rationale**: By default lifecycle begins after the fixed-reservoir readout
   probe, avoiding selection pressure on a representation that has not learned yet.
+- **Rationale**: Death accounting distinguishes cumulative excitotoxic damage from
+  transient stunned episodes; overload itself is no longer a death cause.
 - **Rationale**: Gradients are still measured for scientific credit while only
   readout parameters, then the shared rule, then synapses are allowed to update.
 - **Rationale**: The convex linear reservoir probe is not recurrent-gradient
