@@ -491,3 +491,37 @@ control's rolling accuracy was 18.90%; at update 104 the 4090 local organism was
 17.07%. Both remain below the unigram baseline, so this early modal learning is not
 credited as contextual prediction. Fixed-seed held-out, state, and graph audits begin
 at update 500 without resetting or pausing either organism.
+
+The first byte checkpoints did not yet learn language. The 2070 lineage completed
+1,000 updates with 32,000 tokens of persistent electrical age per lane. Its larger
+1,024-byte read-only audit measured 19.82% accuracy / 3.08944 loss: only +0.74 points
+above the unigram top-one baseline and far below the 31.86% bigram control. Generation
+collapsed to spaces. Silencing the graph worsened loss by 0.00343, rotating sources by
+0.02057, and reassigning weights among each neuron's unchanged dendrite sources by
+0.02981. These are small below-argmax graph effects, not useful text prediction. The
+broadcast ablation improved loss by 0.00158, so the configured shortcut was slightly
+harmful on this slice.
+
+At update 500, the 4090 local lineage measured 19.53% / 3.21387 on its scheduled
+256-byte audit. Its saved electrical state beat the zero-state ablation copy by
+1.56 points and 0.03182 loss. Graph silence worsened loss by 0.11750; globally rotating
+sources and reassigning weights within fixed incoming source sets produced much larger
+loss changes, 4.36250 and 2.35949 respectively. The slice is too small to treat those
+magnitudes as stable estimates, but it directly falsifies the claim that the saved
+connectome is irrelevant to propagation. The organism remained on the same lineage,
+with all 17,130 edges and 32,000 tokens of electrical age represented in its checkpoint.
+
+A supervisor deployment inadvertently signaled both trainers while they were active.
+Their signal handlers completed the current indivisible update and atomically saved
+the exact lineages at updates 678 and 249; continuation restored the same organism IDs,
+graphs, optimizer moments, RNG streams, corpus cursors, and electrical tensors. No
+checkpoint rollback occurred. Deployment now refuses to restart the service while any
+persistent trainer is active.
+
+The next same-lineage curriculum is a deterministic repeated byte prefix. It changes
+only which existing corpus experiences recur: checkpoint-owned cells, positions,
+dendrites, weights, optimizer, RNG, cursor, and electrical memory remain continuous.
+Validation stays the complete 2.25-million-byte split, and shard-fitted unigram/bigram
+controls remain visible. This tests whether the organism can first overfit a bounded
+language distribution before scaling experience, without discarding the structure it
+has already grown.
