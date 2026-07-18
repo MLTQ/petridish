@@ -118,6 +118,8 @@ validated launch or stop requests.
   shard label.
 - **Does**: Displays measured active/cold lane count and unique corpus-cursor phases,
   so allocating sixteen lanes cannot masquerade as sixteen distinct experiences.
+- **Does**: Displays minimum and maximum lane occupancy per cursor phase so full
+  coverage and balanced duplicate coverage remain distinguishable.
 - **Does**: Summarizes the newest four visits to every lane as mean and min–max
   accuracy, distinguishing broad consolidation from one inherited trajectory.
 - **Does**: When lanes occupy multiple stream domains, groups those same per-lane
@@ -146,11 +148,14 @@ validated launch or stop requests.
 - **Does**: Can expand a continued organism's persistent experience lanes without
   exposing a shrink operation; existing lane positions and electrical histories stay
   organism-owned while newly allocated lanes begin cold at independent phases.
-- **Does**: Supports up to thirty-two lanes so a sixteen-lane organism can retain all
-  old trajectories while appending sixteen new-domain trajectories. The UI explicitly
-  labels that new lanes—not old lanes—take the selected larger shard.
+- **Does**: Supports up to 128 lanes so an organism can retain every old trajectory
+  while appending enough new-domain trajectories to cover all 64 cursor phases. The
+  UI explicitly labels that new lanes—not old lanes—take the selected larger shard.
 - **Does**: Enables that control only when the serving backend advertises support,
   preventing an older API from silently ignoring the requested curriculum.
+- **Does**: Applies the backend-advertised maximum lane count to launch and
+  continuation controls; older 32-lane servers keep larger phase-coverage options
+  disabled.
 - **Does**: States the continuation invariant directly in the controls: cells,
   connectome, weights, optimizer, stream position, and electrical memory persist,
   while checkpoint evaluations operate only on disposable copies.

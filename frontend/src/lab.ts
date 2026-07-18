@@ -110,6 +110,8 @@ interface MetricRecord {
   maximumLaneStreamTokens?: number;
   uniqueCursorPhases?: number;
   cursorPhaseCoverage?: number;
+  minimumCursorPhaseLanes?: number;
+  maximumCursorPhaseLanes?: number;
   minimumElectricalStateTokens?: number;
   maximumElectricalStateTokens?: number;
   failureType?: string;
@@ -186,6 +188,8 @@ interface LaboratorySnapshot {
     trainingShardCurriculum?: boolean;
     stateLaneExpansion?: boolean;
     stateLaneDomains?: boolean;
+    maximumStateLanes?: number;
+    phaseBalancedLaneExpansion?: boolean;
     trajectoryLaneAudit?: boolean;
     checkpointFork?: boolean;
     sameLineageRetry?: boolean;
@@ -286,6 +290,7 @@ export class LaboratoryView {
   private readonly vocabularySelect = required<HTMLSelectElement>("#lab-vocabulary-size");
   private readonly messageStepsSelect = required<HTMLSelectElement>("#lab-message-steps");
   private readonly broadcastGainInput = required<HTMLInputElement>("#lab-broadcast-gain");
+  private readonly stateLanesInput = required<HTMLInputElement>("#lab-state-lanes");
   private readonly lifecycleProfileSelect = required<HTMLSelectElement>("#lab-lifecycle-profile");
   private readonly launchButton = required<HTMLButtonElement>("#lab-launch");
   private readonly launchStatus = required<HTMLOutputElement>("#lab-launch-status");
@@ -409,6 +414,11 @@ export class LaboratoryView {
       }
     }
     this.syncTokenizer();
+    const maximumStateLanes = snapshot.capabilities.maximumStateLanes ?? 32;
+    this.stateLanesInput.max = String(maximumStateLanes);
+    if (Number(this.stateLanesInput.value) > maximumStateLanes) {
+      this.stateLanesInput.value = String(maximumStateLanes);
+    }
     const canContinue = snapshot.controlEnabled && this.continueRunSelect.options.length > 0;
     for (const control of this.continueForm.elements) {
       if (control instanceof HTMLInputElement || control instanceof HTMLSelectElement || control instanceof HTMLButtonElement) {
@@ -837,7 +847,7 @@ export class LaboratoryView {
           : `state age ${diagnostic.electricalStateTokens.toLocaleString()} tokens`;
       const phaseCoverage = diagnostic?.uniqueCursorPhases === undefined
         ? ""
-        : ` · ${diagnostic.activeStateLanes ?? 0}/${diagnostic.stateLanes ?? run.configuration.stateLanes ?? 1} active lanes · ${diagnostic.uniqueCursorPhases}/${run.configuration.contextLength ?? 64} cursor phases`;
+        : ` · ${diagnostic.activeStateLanes ?? 0}/${diagnostic.stateLanes ?? run.configuration.stateLanes ?? 1} active lanes · ${diagnostic.uniqueCursorPhases}/${run.configuration.contextLength ?? 64} cursor phases${diagnostic.minimumCursorPhaseLanes === undefined ? "" : ` · ${diagnostic.minimumCursorPhaseLanes}–${diagnostic.maximumCursorPhaseLanes ?? diagnostic.minimumCursorPhaseLanes} lanes/phase`}`;
       const streamDomains = diagnostic?.laneStreamDomains?.length
         ? ` · domains ${diagnostic.laneStreamDomains.map((domain) => `${domain.lanes}×${domain.tokens.toLocaleString()}`).join(" + ")}`
         : "";
@@ -1213,20 +1223,24 @@ export class LaboratoryView {
   private syncContinuationPhase(force = false): void {
     const run = this.snapshot?.runs.find((candidate) => candidate.id === this.continueRunSelect.value);
     if (!run) return;
-    if (!force && this.continueForm.dataset.runId === run.id) return;
-    this.continueForm.dataset.runId = run.id;
-    this.continueStructureSelect.value = String(
-      run.configuration.topologyProfile
-      ?? (run.configuration.structure === false ? "fixed" : "adaptive")
-    );
-    this.continueLifecycleSelect.value = String(
-      run.configuration.lifecycleProfile ?? (run.configuration.lifecycle ? "baseline" : "off"),
-    );
-    this.continueTrainingShardSelect.value = "preserve";
-    this.continueStateLanesSelect.value = "preserve";
+    if (force || this.continueForm.dataset.runId !== run.id) {
+      this.continueForm.dataset.runId = run.id;
+      this.continueStructureSelect.value = String(
+        run.configuration.topologyProfile
+        ?? (run.configuration.structure === false ? "fixed" : "adaptive")
+      );
+      this.continueLifecycleSelect.value = String(
+        run.configuration.lifecycleProfile ?? (run.configuration.lifecycle ? "baseline" : "off"),
+      );
+      this.continueTrainingShardSelect.value = "preserve";
+      this.continueStateLanesSelect.value = "preserve";
+    }
     const currentLanes = Number(run.configuration.stateLanes ?? 1);
+    const maximumStateLanes = this.snapshot?.capabilities.maximumStateLanes ?? 32;
     for (const option of this.continueStateLanesSelect.options) {
-      option.disabled = option.value !== "preserve" && Number(option.value) < currentLanes;
+      option.disabled = option.value !== "preserve" && (
+        Number(option.value) < currentLanes || Number(option.value) > maximumStateLanes
+      );
     }
   }
 

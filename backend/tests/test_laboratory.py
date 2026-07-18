@@ -235,6 +235,8 @@ def test_snapshot_advertises_checkpoint_evaluation_route(
     assert capabilities["trainingShardCurriculum"] is True
     assert capabilities["stateLaneExpansion"] is True
     assert capabilities["stateLaneDomains"] is True
+    assert capabilities["maximumStateLanes"] == 128
+    assert capabilities["phaseBalancedLaneExpansion"] is True
     assert capabilities["checkpointFork"] is True
     assert capabilities["sameLineageRetry"] is True
     assert capabilities["tokenizerProfiles"] == ["wordpiece", "byte"]
@@ -830,10 +832,10 @@ def test_laboratory_records_continuous_experience_or_cold_control(tmp_path: Path
         )
     with pytest.raises(ValueError, match="state lanes"):
         laboratory._validate_spec(
-            LaunchSpec("invalid", "GPU-example", state_lanes=33)
+            LaunchSpec("invalid", "GPU-example", state_lanes=129)
         )
     laboratory._validate_spec(
-        LaunchSpec("valid", "GPU-example", state_lanes=32)
+        LaunchSpec("valid", "GPU-example", state_lanes=128)
     )
 
 

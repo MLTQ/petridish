@@ -46,7 +46,7 @@ evaluation actions.
   laboratory performs exact validation before process launch.
 - **Does**: Bounds state retention from zero through one for recorded electrical
   relaxation experiments.
-- **Does**: Bounds persistent trajectory lanes from one through thirty-two separately
+- **Does**: Bounds persistent trajectory lanes from one through 128 separately
   from CUDA tensor batch size.
 - **Rationale**: The API never accepts a shell command or arbitrary path.
 
@@ -55,7 +55,7 @@ evaluation actions.
   policy for an existing checkpointed organism.
 - **Does**: Accepts an optional repeated-shard curriculum for a continuation phase;
   omission preserves the active stream and zero selects the full corpus.
-- **Does**: Accepts an optional one-to-thirty-two target lane count for append-only
+- **Does**: Accepts an optional one-to-128 target lane count for append-only
   persistent experience expansion; the laboratory rejects any requested shrink.
 - **Does**: Accepts fixed, adaptive, or prune-only topology; the laboratory performs
   categorical validation and records the resolved phase policy.
@@ -71,7 +71,7 @@ evaluation actions.
   optimizer step.
 - **Does**: Accepts `trajectory` as the third explicit audit condition for the exact
   next checkpointed cursor/state lane.
-- **Does**: Optionally bounds an explicit trajectory lane from zero through thirty-one;
+- **Does**: Optionally bounds an explicit trajectory lane from zero through 127;
   the laboratory rejects it for every non-trajectory evaluation.
 
 ### `LabForkRequest`

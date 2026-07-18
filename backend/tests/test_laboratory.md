@@ -64,7 +64,7 @@ control-enable contracts without requiring NVIDIA hardware or launching trainers
   experience mode and rejects values above one.
 - **Does**: Preserves fixed, adaptive, and prune-only topology profiles in commands,
   manifests, and continuation phase records while rejecting unknown policies.
-- **Does**: Preserves one to thirty-two round-robin persistent state lanes independently
+- **Does**: Preserves one to 128 round-robin persistent state lanes independently
   from tensor batch and rejects larger banks.
 - **Does**: Reports a persisted pre-checkpoint trainer failure and its bounded detail
   as failed rather than stopped.
@@ -101,6 +101,8 @@ control-enable contracts without requiring NVIDIA hardware or launching trainers
   frontend enables that phase control.
 - **Does**: Requires the server to advertise state-lane expansion before the frontend
   enables the append-only lane control.
+- **Does**: Requires the advertised 128-lane bound and phase-balanced expansion
+  capability so newer phase-coverage controls remain safe against older servers.
 
 ## Contracts
 

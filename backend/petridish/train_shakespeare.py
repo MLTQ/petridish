@@ -26,7 +26,7 @@ from .lifecycle_profiles import (
 from .token_corpus_task import TOKENIZER_PROFILES, load_tiny_stories_task
 from .mnist_config import MnistModelConfig
 from .sequence_config import sequence_config
-from .sequence_experiment import SequenceExperiment
+from .sequence_experiment import MAX_STATE_LANES, SequenceExperiment
 from .sequence_cells import CELL_ARCHITECTURES
 from .sequence_tasks import STREAM_MODES
 from .topology_profiles import (
@@ -225,8 +225,10 @@ def expand_persistent_state_lanes(
     """Add cold experience lanes without replacing any checkpoint-owned lane."""
 
     current_lanes = experiment.state_lanes
-    if target_lanes > 32:
-        raise ValueError("state lanes must be between one and thirty-two")
+    if target_lanes > MAX_STATE_LANES:
+        raise ValueError(
+            f"state lanes must be between one and {MAX_STATE_LANES}"
+        )
     if target_lanes < current_lanes:
         raise ValueError("state-lane continuation cannot discard existing lanes")
     if target_lanes == current_lanes:
@@ -241,9 +243,15 @@ def expand_persistent_state_lanes(
         raise RuntimeError("continuous stream domains were not restored")
     preserved_positions = positions.unsqueeze(0) if current_lanes == 1 else positions
     added = target_lanes - current_lanes
-    added_positions = experiment.task.initial_stream_positions(
+    sampled_positions = experiment.task.initial_stream_positions(
         experiment.config.batch_size * added, experiment.generator
     ).reshape(added, experiment.config.batch_size).to(device=positions.device)
+    added_positions = _phase_balanced_added_positions(
+        sampled_positions,
+        preserved_positions,
+        stream_tokens=experiment.task.training_stream_tokens,
+        sequence_length=experiment.task.sequence_length,
+    )
     experiment._training_stream_positions = torch.cat(
         (preserved_positions, added_positions), dim=0
     )
@@ -266,6 +274,43 @@ def expand_persistent_state_lanes(
         )
     experiment._training_runtime_bank = preserved_bank + [None] * added
     experiment.state_lanes = target_lanes
+
+
+def _phase_balanced_added_positions(
+    sampled_positions: torch.Tensor,
+    preserved_positions: torch.Tensor,
+    *,
+    stream_tokens: int,
+    sequence_length: int,
+) -> torch.Tensor:
+    """Place only new lanes at least-represented phases using their sampled bases."""
+
+    if sampled_positions.is_meta or preserved_positions.is_meta:
+        return sampled_positions
+    sampled = sampled_positions.detach().to(device="cpu", dtype=torch.long).flatten()
+    preserved = preserved_positions.detach().to(device="cpu", dtype=torch.long).flatten()
+    phase_counts = torch.bincount(
+        preserved.remainder(sequence_length), minlength=sequence_length
+    )
+    balanced: list[int] = []
+    for raw_position in sampled.tolist():
+        candidates = (phase_counts == phase_counts.min()).nonzero(
+            as_tuple=False
+        ).flatten()
+        phase = int(candidates[raw_position % candidates.numel()])
+        base = raw_position % stream_tokens
+        position = base - (base % sequence_length) + phase
+        if position >= stream_tokens:
+            position -= sequence_length
+        if position < 0:
+            raise RuntimeError("phase-balanced stream position fell outside its domain")
+        balanced.append(position)
+        phase_counts[phase] += 1
+    return torch.tensor(
+        balanced,
+        dtype=sampled_positions.dtype,
+        device=sampled_positions.device,
+    ).reshape_as(sampled_positions)
 
 
 def plasticity_phase_config(
@@ -388,6 +433,15 @@ def _scientific_metrics(experiment: SequenceExperiment) -> dict[str, Any]:
             ).numel()
         )
     )
+    cursor_phase_counts = (
+        torch.zeros(experiment.task.sequence_length, dtype=torch.long)
+        if stream_positions is None
+        else torch.bincount(
+            stream_positions.detach().to(device="cpu", dtype=torch.long)
+            .flatten().remainder(experiment.task.sequence_length),
+            minlength=experiment.task.sequence_length,
+        )
+    )
     plateau_age = experiment.training_step - experiment.last_accuracy_improvement_step
     return {
         "electricalStateTokens": (
@@ -410,6 +464,8 @@ def _scientific_metrics(experiment: SequenceExperiment) -> dict[str, Any]:
         "cursorPhaseCoverage": (
             unique_cursor_phases / experiment.task.sequence_length
         ),
+        "minimumCursorPhaseLanes": int(cursor_phase_counts.min()),
+        "maximumCursorPhaseLanes": int(cursor_phase_counts.max()),
         "topologyProfile": experiment.topology_profile,
         "minimumElectricalStateTokens": min(lane_ages, default=0),
         "maximumElectricalStateTokens": max(lane_ages, default=0),
@@ -770,16 +826,18 @@ def main() -> None:
         parser.error("--broadcast-gain must be between 0 and 2")
     if not 0 <= args.state_retention <= 1:
         parser.error("--state-retention must be between 0 and 1")
-    if args.state_lanes is not None and not 1 <= args.state_lanes <= 32:
-        parser.error("--state-lanes must be between 1 and 32")
+    if args.state_lanes is not None and not 1 <= args.state_lanes <= MAX_STATE_LANES:
+        parser.error(f"--state-lanes must be between 1 and {MAX_STATE_LANES}")
     if args.trajectory_lane is not None and (
         not args.evaluate_only or args.evaluation_split != "trajectory"
     ):
         parser.error(
             "--trajectory-lane requires --evaluate-only --evaluation-split trajectory"
         )
-    if args.trajectory_lane is not None and not 0 <= args.trajectory_lane < 32:
-        parser.error("--trajectory-lane must be between 0 and 31")
+    if args.trajectory_lane is not None and not 0 <= args.trajectory_lane < MAX_STATE_LANES:
+        parser.error(
+            f"--trajectory-lane must be between 0 and {MAX_STATE_LANES - 1}"
+        )
     if args.phase_index is not None and args.phase_index < 0:
         parser.error("--phase-index must be non-negative")
 

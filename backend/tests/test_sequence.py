@@ -809,6 +809,12 @@ def test_state_lane_expansion_preserves_every_existing_trajectory(
     assert torch.equal(
         experiment._training_stream_positions[:starting_lanes], expected_positions
     )
+    old_phases = set(expected_positions.flatten().remainder(8).tolist())
+    new_phases = experiment._training_stream_positions[
+        starting_lanes:
+    ].flatten().remainder(8).tolist()
+    assert len(set(new_phases)) == len(new_phases)
+    assert old_phases.isdisjoint(new_phases)
     expected_lengths = (
         original_lengths.unsqueeze(0) if starting_lanes == 1 else original_lengths
     )
@@ -848,6 +854,8 @@ def test_state_lane_expansion_preserves_every_existing_trajectory(
     assert metrics["cursorPhaseCoverage"] == pytest.approx(
         metrics["uniqueCursorPhases"] / 8
     )
+    assert metrics["minimumCursorPhaseLanes"] == 0
+    assert metrics["maximumCursorPhaseLanes"] >= 1
 
     checkpoint = tmp_path / f"lanes-{starting_lanes}.pt"
     save_checkpoint(
@@ -875,6 +883,30 @@ def test_state_lane_expansion_preserves_every_existing_trajectory(
     )
     with pytest.raises(ValueError, match="cannot discard"):
         expand_persistent_state_lanes(experiment, 2)
+
+
+def test_large_lane_expansion_fills_every_cursor_phase_without_moving_old_lanes() -> None:
+    text = "One fox ran. Two birds flew. Three cats slept. " * 100
+    task = build_token_task(text, context_length=64, vocabulary_size=32)
+    experiment = SequenceExperiment(
+        task, replace(corpus_config(), batch_size=1), seed=62, device="cpu",
+        stream_mode="continuous", state_lanes=32,
+    )
+    preserved = torch.tensor(list(range(26)) + list(range(6))).reshape(32, 1)
+    experiment._training_stream_positions = preserved.clone()
+    experiment._training_stream_lengths = torch.full_like(
+        preserved, task.training_stream_tokens
+    )
+
+    expand_persistent_state_lanes(experiment, 96)
+    metrics = _scientific_metrics(experiment)
+
+    assert torch.equal(experiment._training_stream_positions[:32], preserved)
+    assert experiment._training_runtime_bank[:32] == [None] * 32
+    assert experiment._training_runtime_bank[32:] == [None] * 64
+    assert metrics["uniqueCursorPhases"] == 64
+    assert metrics["minimumCursorPhaseLanes"] == 1
+    assert metrics["maximumCursorPhaseLanes"] == 2
 
 
 def test_lane_expansion_preserves_old_domain_and_assigns_new_domain_only_to_new_lanes(

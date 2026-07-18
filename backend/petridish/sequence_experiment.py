@@ -31,6 +31,9 @@ from .sequence_tasks import (
 )
 
 
+MAX_STATE_LANES = 128
+
+
 class SequenceExperiment:
     """Learn a synthetic sequence distribution in one persistent organism."""
 
@@ -59,8 +62,10 @@ class SequenceExperiment:
             raise ValueError(f"task {self.task.key} has no contiguous training stream")
         if not 0 <= state_retention <= 1:
             raise ValueError("state retention must be between zero and one")
-        if not 1 <= state_lanes <= 32:
-            raise ValueError("state lanes must be between one and thirty-two")
+        if not 1 <= state_lanes <= MAX_STATE_LANES:
+            raise ValueError(
+                f"state lanes must be between one and {MAX_STATE_LANES}"
+            )
         self.stream_mode = stream_mode
         self.state_retention = state_retention
         self.state_lanes = state_lanes

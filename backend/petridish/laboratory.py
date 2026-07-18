@@ -18,6 +18,7 @@ from typing import Any
 import uuid
 
 from .sequence_cells import CELL_ARCHITECTURES
+from .sequence_experiment import MAX_STATE_LANES
 from .sequence_tasks import STREAM_MODES
 from .token_corpus_task import TOKENIZER_PROFILES
 from .lifecycle_profiles import LIFECYCLE_PROFILES, resolve_lifecycle_profile
@@ -145,6 +146,8 @@ class Laboratory:
                 "trainingShardCurriculum": True,
                 "stateLaneExpansion": True,
                 "stateLaneDomains": True,
+                "maximumStateLanes": MAX_STATE_LANES,
+                "phaseBalancedLaneExpansion": True,
                 "trajectoryLaneAudit": True,
                 "checkpointFork": True,
                 "sameLineageRetry": True,
@@ -258,8 +261,13 @@ class Laboratory:
             raise PermissionError("laboratory process control is disabled")
         if spec.additional_updates < 1:
             raise ValueError("additional updates must be positive")
-        if spec.state_lanes is not None and not 1 <= spec.state_lanes <= 32:
-            raise ValueError("state lanes must be between one and thirty-two")
+        if (
+            spec.state_lanes is not None
+            and not 1 <= spec.state_lanes <= MAX_STATE_LANES
+        ):
+            raise ValueError(
+                f"state lanes must be between one and {MAX_STATE_LANES}"
+            )
         if spec.lifecycle_profile not in LIFECYCLE_PROFILES:
             raise ValueError("unknown lifecycle profile")
         topology_profile = resolve_topology_profile(
@@ -747,8 +755,10 @@ class Laboratory:
             raise ValueError("unknown corpus stream mode")
         if not 0 <= spec.state_retention <= 1:
             raise ValueError("state retention must be between zero and one")
-        if not 1 <= spec.state_lanes <= 32:
-            raise ValueError("state lanes must be between one and thirty-two")
+        if not 1 <= spec.state_lanes <= MAX_STATE_LANES:
+            raise ValueError(
+                f"state lanes must be between one and {MAX_STATE_LANES}"
+            )
         if spec.batch_size < 1 or spec.batch_size > 256:
             raise ValueError("batch size must be between 1 and 256")
         if spec.message_steps < 1 or spec.message_steps > 16:
@@ -858,8 +868,13 @@ class Laboratory:
             )
         if trajectory_lane is not None and evaluation_split != "trajectory":
             raise ValueError("trajectory lane requires the trajectory evaluation split")
-        if trajectory_lane is not None and not 0 <= trajectory_lane < 32:
-            raise ValueError("trajectory lane must be between 0 and 31")
+        if (
+            trajectory_lane is not None
+            and not 0 <= trajectory_lane < MAX_STATE_LANES
+        ):
+            raise ValueError(
+                f"trajectory lane must be between 0 and {MAX_STATE_LANES - 1}"
+            )
         command = [
             sys.executable, "-m", "petridish.train_shakespeare",
             "--device", "cuda", "--checkpoint-dir", str(directory),
