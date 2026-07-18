@@ -43,6 +43,7 @@ class LabLaunchRequest(BaseModel):
     batchSize: int = Field(default=16, ge=1, le=256)
     contextLength: int = Field(default=64, ge=8, le=256)
     vocabularySize: int = Field(default=2_048, ge=64, le=2_048)
+    streamMode: str = "continuous"
     messageSteps: int = Field(default=2, ge=1, le=16)
     broadcastGain: float = Field(default=0.3, ge=0, le=2)
     updates: int = Field(default=100_000, ge=1)
@@ -116,6 +117,7 @@ async def launch_lab_run(request: LabLaunchRequest) -> dict[str, object]:
         batch_size=request.batchSize,
         context_length=request.contextLength,
         vocabulary_size=request.vocabularySize,
+        stream_mode=request.streamMode,
         message_steps=request.messageSteps,
         broadcast_gain=request.broadcastGain,
         updates=request.updates,

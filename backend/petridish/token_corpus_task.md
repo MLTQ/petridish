@@ -20,6 +20,8 @@ runtime or the multi-gigabyte training split.
   lookup baseline with vectorized counts.
 - **Rationale**: Leading spaces remain part of pieces, so concatenating decoded
   predictions produces readable text without a language-specific detokenizer.
+- **Does**: Retains the split token tensors as explicit contiguous streams for
+  state-carrying truncated-backpropagation experiments.
 
 ### `_next_token_baselines`
 - **Does**: Fits the most-common global token and one-step transition table on the

@@ -43,6 +43,9 @@ from petridish.train_shakespeare import (
     _fresh_config,
     _migrate_model_state,
     _scientific_metrics,
+    load_checkpoint,
+    restore_checkpoint,
+    save_checkpoint,
 )
 
 
@@ -592,6 +595,93 @@ def test_token_corpus_uses_distributed_ports_and_incremental_state() -> None:
     assert task.bigram_baseline_accuracy > task.unigram_baseline_accuracy
     assert full.logits.shape == (2, 8, len(task.vocabulary))
     assert torch.allclose(full.logits[:, 3:], suffix.logits, atol=1e-5, rtol=1e-5)
+
+
+def test_corpus_stream_windows_are_contiguous_across_training_updates() -> None:
+    text = "One fox ran. Two birds flew. Three cats slept. " * 30
+    task = build_token_task(text, context_length=8, vocabulary_size=32)
+    positions = torch.tensor([3, 11])
+
+    first, next_positions = task.stream_batch(positions)
+    second, _ = task.stream_batch(next_positions)
+
+    assert torch.equal(first.targets[:, -1], second.tokens[:, 0])
+    assert torch.equal(next_positions, positions + task.sequence_length)
+
+
+def test_continuous_training_carries_detached_neuron_state_between_updates() -> None:
+    text = "One fox ran. Two birds flew. Three cats slept. " * 30
+    task = build_token_task(text, context_length=8, vocabulary_size=32)
+    config = replace(
+        corpus_config(), batch_size=1, structural_enabled=0, lifecycle_enabled=0
+    )
+    experiment = SequenceExperiment(
+        task, config, seed=44, device="cpu", stream_mode="continuous"
+    )
+    initial_positions = experiment._training_stream_positions.clone()
+
+    experiment.train_updates(1)
+    first_state = experiment._training_runtime_state
+    experiment.train_updates(1)
+
+    assert first_state is not None
+    assert experiment._training_runtime_state is not None
+    assert first_state.hidden.grad_fn is None
+    assert experiment._training_runtime_state.position == task.sequence_length * 2
+    assert torch.equal(
+        experiment._training_stream_positions,
+        initial_positions + task.sequence_length * 2,
+    )
+
+
+def test_continuous_training_state_survives_checkpoint_resume(tmp_path: Path) -> None:
+    text = "One fox ran. Two birds flew. Three cats slept. " * 30
+    task = build_token_task(text, context_length=8, vocabulary_size=32)
+    config = replace(
+        corpus_config(), batch_size=1, structural_enabled=0, lifecycle_enabled=0
+    )
+    original = SequenceExperiment(
+        task, config, seed=45, device="cpu", stream_mode="continuous"
+    )
+    original.train_updates(1)
+    checkpoint = tmp_path / "latest.pt"
+    save_checkpoint(checkpoint, original, context_length=8, amp_mode="off")
+
+    restored = SequenceExperiment(
+        task, config, seed=45, device="cpu", stream_mode="continuous"
+    )
+    restore_checkpoint(restored, load_checkpoint(checkpoint, torch.device("cpu")))
+
+    assert restored.stream_mode == "continuous"
+    assert torch.equal(
+        restored._training_stream_positions, original._training_stream_positions
+    )
+    assert torch.equal(
+        restored._training_runtime_state.hidden,
+        original._training_runtime_state.hidden,
+    )
+
+
+def test_cell_death_preserves_surviving_continuous_state() -> None:
+    text = "One fox ran. Two birds flew. Three cats slept. " * 30
+    task = build_token_task(text, context_length=8, vocabulary_size=32)
+    model = CellularSequenceModel(
+        corpus_config(), layout=sequence_layout(task.key, len(task.vocabulary)),
+        vocab_size=len(task.vocabulary), max_length=8, seed=46,
+    )
+    batch = task.stream_batch(torch.tensor([5]))[0]
+    state = model(batch.tokens, capture_trace=False).runtime_state.detached()
+    protected = set(model.substrate.input_sites.tolist() + model.substrate.output_sites.tolist())
+    victim = next(site for site in state.sites.tolist() if site not in protected)
+    survivor = next(site for site in state.sites.tolist() if site not in protected and site != victim)
+    old_index = int((state.sites == survivor).nonzero()[0])
+    model.substrate.occupied[victim] = False
+
+    reconciled = model.reconcile_runtime_state(state)
+    new_index = int((reconciled.sites == survivor).nonzero()[0])
+
+    assert victim not in reconciled.sites.tolist()
+    assert torch.equal(reconciled.hidden[:, new_index], state.hidden[:, old_index])
 
 
 def test_token_corpus_uses_one_64_port_column_per_boundary() -> None:

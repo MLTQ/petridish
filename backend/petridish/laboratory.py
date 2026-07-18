@@ -15,6 +15,7 @@ import time
 from typing import Any
 
 from .sequence_cells import CELL_ARCHITECTURES
+from .sequence_tasks import STREAM_MODES
 from .lifecycle_profiles import LIFECYCLE_PROFILES, resolve_lifecycle_profile
 
 
@@ -37,6 +38,7 @@ class LaunchSpec:
     batch_size: int = 16
     context_length: int = 64
     vocabulary_size: int = 2_048
+    stream_mode: str = "continuous"
     message_steps: int = 2
     broadcast_gain: float = 0.3
     updates: int = 100_000
@@ -135,6 +137,7 @@ class Laboratory:
                 "batchSize": spec.batch_size,
                 "contextLength": spec.context_length,
                 "vocabularySize": spec.vocabulary_size,
+                "streamMode": spec.stream_mode,
                 "messageSteps": spec.message_steps,
                 "broadcastGain": spec.broadcast_gain,
                 "updates": spec.updates,
@@ -204,6 +207,8 @@ class Laboratory:
             raise ValueError("context length must be between 8 and 256")
         if spec.vocabulary_size not in {64, 128, 256, 512, 1_024, 2_048}:
             raise ValueError("vocabulary size must be a supported power of two from 64 to 2048")
+        if spec.stream_mode not in STREAM_MODES:
+            raise ValueError("unknown corpus stream mode")
         if spec.batch_size < 1 or spec.batch_size > 256:
             raise ValueError("batch size must be between 1 and 256")
         if spec.message_steps < 1 or spec.message_steps > 16:
@@ -227,6 +232,7 @@ class Laboratory:
             "--batch-size", str(spec.batch_size),
             "--context-length", str(spec.context_length),
             "--vocabulary-size", str(spec.vocabulary_size),
+            "--stream-mode", spec.stream_mode,
             "--message-steps", str(spec.message_steps),
             "--broadcast-gain", str(spec.broadcast_gain),
             "--architecture", spec.architecture,

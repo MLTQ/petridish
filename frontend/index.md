@@ -32,6 +32,8 @@ experiment laboratory above the live organism.
   a hard local-only corpus run rather than an undocumented global shortcut.
 - **Does**: Exposes a 64–2,048 power-of-two TinyStories vocabulary curriculum while
   leaving the organism's 64 physical boundary ports unchanged.
+- **Does**: Makes continuous organism experience the default and labels the old
+  random-window electrical reset as a cold-window control.
 - **Does**: Selects fixed or adaptive topology independently from lifecycle.
 - **Does**: Exposes a bounded common learning-rate scale for controlled long-run
   stability experiments.

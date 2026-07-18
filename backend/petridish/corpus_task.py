@@ -83,6 +83,8 @@ def load_tiny_shakespeare_task(
         dataset_name="Tiny Shakespeare",
         dataset_characters=len(text),
         source_url=TINY_SHAKESPEARE_URL,
+        training_stream=train,
+        evaluation_stream=validation,
     )
 
 

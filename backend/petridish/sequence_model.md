@@ -22,6 +22,11 @@ which supports both a final delayed-recall target and autoregressive next-token 
 workspace, optional fast/binding memory, and absolute token position between calls.
 Interactive generation therefore consumes only the newly sampled token after the
 prompt has initialized the organism; it does not replay the context window.
+`SequenceRuntimeState.detached` preserves that complete electrical state while
+cutting autograd history at a truncated-backpropagation boundary. If lifecycle
+changes the population, `reconcile_runtime_state` maps every survivor by physical
+site, initializes only newborn state, and retains workspace and address memories;
+cell death therefore never resets the surviving organism.
 
 Stunned neurons retain their private state and physical dendrites but are gated out
 of external drive, sending, receiving, recurrent updates, and readout until recovery.

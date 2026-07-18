@@ -16,6 +16,10 @@ path from spatial classification to language modeling.
 - **Does**: Optionally supplies a distinct validation generator, text encoder and
   decoder, character/token counts, tokenizer metadata, source URL, and measured
   unigram/bigram validation baselines for cached corpus tasks.
+- **Does**: Optionally exposes raw training/validation token streams and slices
+  contiguous, wrapping windows from explicit per-lane positions.
+- **Rationale**: Persistent organisms must receive adjacent experience without
+  hiding mutable cursors inside the task or sampler.
 
 ### `associative_recall_batch`
 - **Does**: Generates one to three random key/value bindings and a delayed query
@@ -40,3 +44,4 @@ path from spatial classification to language modeling.
 | `sequence_experiment.py` | Masked targets use `-100` outside supervision | Mask semantics |
 | Frontend | Vocabulary indices remain stable within a run | Token reordering |
 | Benchmarks | Generators are deterministic for a supplied torch generator | RNG source |
+| Continuous trainer | Returned next position begins at the previous window's target token | Stream stride or wrapping |

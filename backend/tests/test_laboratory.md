@@ -46,6 +46,8 @@ control-enable contracts without requiring NVIDIA hardware or launching trainers
   rejects gains above the bounded workspace range.
 - **Does**: Preserves a power-of-two TinyStories vocabulary curriculum and rejects
   unsupported intermediate sizes.
+- **Does**: Preserves continuous versus windowed experience in the trainer command
+  and rejects unlabeled reset modes.
 
 ## Contracts
 

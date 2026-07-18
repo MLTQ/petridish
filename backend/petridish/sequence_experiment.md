@@ -7,6 +7,15 @@ uses masked cross-entropy so recall is judged only at the query response, while
 language is judged at every next-token position. Synthetic held-out evaluation uses
 fresh generator streams; corpus evaluation uses the fixed validation split.
 
+Corpus training supports two explicit experience modes. `continuous` advances each
+batch lane through adjacent windows and carries the complete detached neuron/runtime
+state between optimizer updates; detachment bounds gradient memory but does not clear
+activation, private cell memory, workspace, or fast/binding state. `windowed` samples
+unrelated contexts and reinitializes only fast electrical state as a cold-start
+control. Learned rules, genotypes, synapses, topology, and lifecycle state persist in
+both modes. Continuous validation similarly carries a fresh organism state across
+held-out windows, and metrics record the selected mode.
+
 Recall begins with one binding and advances to two and three only when the most
 recent 24 training batches exceed 90% accuracy. Tiny-language accuracy is reported
 on the context-dependent verb and object positions, while loss still trains every
@@ -92,6 +101,8 @@ Training records stun and recovery events separately from births/deaths. Excitot
 death counts only cumulative damage; transient overload is not classified as death.
 Exact edge-growth and pruning totals are retained independently from the bounded
 visual event stream and survive checkpoints.
+Population changes reconcile continuous runtime state by physical site, retaining
+survivors and initializing only births before the next token window.
 
 Corpus construction primes the viewer with only four measured tokens; this avoids a
 full training-context forward pass while the runtime lock is switching experiments.

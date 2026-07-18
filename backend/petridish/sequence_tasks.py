@@ -8,6 +8,9 @@ from typing import Callable
 import torch
 
 
+STREAM_MODES = ("windowed", "continuous")
+
+
 @dataclass(frozen=True, slots=True)
 class SequenceBatch:
     """Token inputs, aligned targets, and positions included in the loss."""
@@ -37,12 +40,46 @@ class SequenceTask:
     source_url: str | None = None
     unigram_baseline_accuracy: float | None = None
     bigram_baseline_accuracy: float | None = None
+    training_stream: torch.Tensor | None = None
+    evaluation_stream: torch.Tensor | None = None
 
     def batch(
         self, batch_size: int, generator: torch.Generator, *, evaluation: bool = False
     ) -> SequenceBatch:
         selected = self.evaluation_generator if evaluation else self.generator
         return (selected or self.generator)(batch_size, generator)
+
+    def initial_stream_positions(
+        self, batch_size: int, generator: torch.Generator, *, evaluation: bool = False
+    ) -> torch.Tensor:
+        """Choose deterministic independent starting points for contiguous lanes."""
+
+        source = self._stream(evaluation)
+        return torch.randint(0, source.numel(), (batch_size,), generator=generator)
+
+    def stream_batch(
+        self, positions: torch.Tensor, *, evaluation: bool = False
+    ) -> tuple[SequenceBatch, torch.Tensor]:
+        """Read one contiguous window per lane and return each lane's next position."""
+
+        source = self._stream(evaluation)
+        starts = positions.detach().to(device="cpu", dtype=torch.long)
+        offsets = torch.arange(self.sequence_length + 1)
+        indices = (starts.unsqueeze(1) + offsets.unsqueeze(0)) % source.numel()
+        rows = source[indices]
+        batch = SequenceBatch(
+            rows[:, :-1], rows[:, 1:],
+            torch.ones(rows.shape[0], self.sequence_length, dtype=torch.bool),
+        )
+        return batch, (starts + self.sequence_length) % source.numel()
+
+    def _stream(self, evaluation: bool) -> torch.Tensor:
+        source = self.evaluation_stream if evaluation else self.training_stream
+        if source is None:
+            raise ValueError(f"task {self.key} does not expose a contiguous token stream")
+        if source.ndim != 1 or source.numel() <= self.sequence_length:
+            raise ValueError("contiguous token stream is shorter than one context window")
+        return source
 
 
 def associative_recall_batch(
@@ -136,6 +173,6 @@ def resolve_sequence_task(task: str | SequenceTask) -> SequenceTask:
 
 
 __all__ = [
-    "SequenceBatch", "SequenceTask", "TASKS", "associative_recall_batch",
-    "resolve_sequence_task",
+    "STREAM_MODES", "SequenceBatch", "SequenceTask", "TASKS",
+    "associative_recall_batch", "resolve_sequence_task",
 ]

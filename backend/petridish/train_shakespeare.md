@@ -12,6 +12,11 @@ service files and checkpoints. Metrics report token throughput for both task typ
 `--vocabulary-size` selects a 64–2,048 power-of-two lexical curriculum without
 changing the 64-cell input/output population banks. Resume derives the saved size
 from checkpoint vocabulary metadata rather than silently restoring 2,048 pieces.
+`--stream-mode continuous` is the corpus default: adjacent windows carry the full
+detached cellular runtime state across optimizer steps. `windowed` retains the old
+random-context/cold-electrical-state behavior as a recorded control. Checkpoints save
+the stream lane positions and cellular runtime state, so resume continues the same
+experience rather than beginning a new one.
 The token profile retains its task-specific 500-update lifecycle and 1,000-update
 pruning warm-ups; the Shakespeare profile retains its conservative 5,000-update
 warm-ups. CLI lifecycle selection changes activation, not those task definitions.
@@ -45,6 +50,8 @@ generation preserves the training sampler and organism state. `latest.pt` is rep
 atomically and contains model parameters, optimizer moments, all substrate/topology
 buffers, generation and update counters, configuration, vocabulary, rolling metrics,
 and Python, NumPy, Torch, CUDA, sampler, evaluation, and substrate lifecycle random states.
+The payload also contains continuous corpus positions and detached neuron, private
+memory, workspace, fast-memory, and binding-memory state when active.
 
 By default a fresh invocation resumes `latest.pt` when present. Resume restores the
 saved configuration, context, seed, vocabulary contract, AMP mode, organism, and

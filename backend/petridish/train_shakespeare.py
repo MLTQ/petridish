@@ -26,6 +26,7 @@ from .mnist_config import MnistModelConfig
 from .sequence_config import sequence_config
 from .sequence_experiment import SequenceExperiment
 from .sequence_cells import CELL_ARCHITECTURES
+from .sequence_tasks import STREAM_MODES
 
 
 CHECKPOINT_VERSION = 1
@@ -54,6 +55,9 @@ def _experiment_state(experiment: SequenceExperiment) -> dict[str, Any]:
             "stage_accuracy_history": list(experiment.stage_accuracy_history),
             "substrate_generation": experiment.model.substrate.generation,
             "substrate_lifecycle_rng": experiment.model.substrate._lifecycle_generator.get_state(),
+            "stream_mode": experiment.stream_mode,
+            "_training_stream_positions": experiment._training_stream_positions,
+            "_training_runtime_state": experiment._training_runtime_state,
         }
     )
     return state
@@ -97,6 +101,7 @@ def save_checkpoint(
             "vocabulary": experiment.task.vocabulary,
             "amp_mode": amp_mode,
             "seed": experiment.seed,
+            "stream_mode": experiment.stream_mode,
         },
         "model": experiment.model.state_dict(),
         "optimizer": experiment.optimizer.state_dict(),
@@ -305,6 +310,7 @@ def main() -> None:
         choices=(64, 128, 256, 512, 1_024, 2_048), default=2_048,
     )
     parser.add_argument("--message-steps", type=int)
+    parser.add_argument("--stream-mode", choices=STREAM_MODES, default="continuous")
     parser.add_argument("--broadcast-gain", type=float)
     parser.add_argument("--architecture", choices=CELL_ARCHITECTURES, default="gru")
     parser.add_argument("--updates", type=int, default=100_000)
@@ -342,6 +348,7 @@ def main() -> None:
         args.seed = int(saved_task["seed"])
         args.amp = str(saved_task["amp_mode"])
         args.task = str(saved_task.get("key", "tiny_shakespeare"))
+        args.stream_mode = str(saved_task.get("stream_mode", "windowed"))
         args.vocabulary_size = len(tuple(saved_task.get("vocabulary", ())))
         config = MnistModelConfig(**payload["configuration"])
     else:
@@ -368,7 +375,8 @@ def main() -> None:
         raise ValueError("checkpoint vocabulary does not match the cached corpus")
 
     experiment = SequenceExperiment(
-        task, config, seed=args.seed, device=args.device, amp_mode=args.amp
+        task, config, seed=args.seed, device=args.device, amp_mode=args.amp,
+        stream_mode=args.stream_mode,
     )
     if payload is not None:
         restore_checkpoint(experiment, payload)
@@ -391,7 +399,7 @@ def main() -> None:
     print(
         f"starting at update {experiment.training_step} on {experiment.device}; "
         f"architecture={config.cell_architecture} batch={config.batch_size} "
-        f"amp={args.amp} compile={args.compile_mode}",
+        f"stream={args.stream_mode} amp={args.amp} compile={args.compile_mode}",
         flush=True,
     )
 
@@ -411,6 +419,7 @@ def main() -> None:
             "accuracy": experiment.last_batch_accuracy,
             "rollingLoss": experiment.rolling_loss,
             "rollingAccuracy": experiment.rolling_accuracy,
+            "streamMode": experiment.stream_mode,
             "updateSeconds": update_seconds,
             "targetCharactersPerSecond": config.batch_size * args.context_length / update_seconds,
             "targetTokensPerSecond": config.batch_size * args.context_length / update_seconds,

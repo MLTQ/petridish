@@ -12,6 +12,8 @@ once and cached under `data/tinyshakespeare/`.
 - **Does**: Downloads/caches the corpus, builds a deterministic character vocabulary,
   splits 90/10 by position, and returns train/validation chunk generators.
 - **Does**: Supplies prompt encode/decode functions and corpus metadata.
+- **Does**: Supplies the deterministic train/validation tensors for continuous
+  cellular experience as well as randomly sampled cold-window generators.
 - **Rationale**: Character tokenization keeps the vocabulary small enough to map onto
   physical ports while allowing arbitrary-length interactive prompting.
 
@@ -25,6 +27,7 @@ once and cached under `data/tinyshakespeare/`.
 |-----------|---------|------------------|
 | `sequence_tasks.py` | Lazy resolution avoids downloading until selected | Eager import/download |
 | `sequence_experiment.py` | `encode`/`decode` support prompt generation | Token mapping changes |
+| Continuous trainer | Adjacent windows preserve exact corpus order | Split or stream tensors |
 | Runtime | Cache path is workspace-relative and survives restarts | Cache location |
 
 The source corpus is a roughly 1 MB subset of Shakespeare used by `char-rnn`; the

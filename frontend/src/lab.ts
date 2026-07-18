@@ -557,7 +557,7 @@ export class LaboratoryView {
         ? `${diagnostic.livingCells ?? "—"} cells · ${diagnostic.edgeCount ?? "—"} physical · ${diagnostic.conductingEdgeCount ?? "—"} conducting`
         : "—";
       const routing = diagnostic
-        ? `${diagnostic.minimumOutputHops ?? "—"}/${diagnostic.medianOutputHops ?? "—"} hops · ${diagnostic.tokenReachableOutputs ?? 0}/${diagnostic.contextReachableOutputs ?? 0}/${diagnostic.reachableOutputs ?? 0} token/context/graph · broadcast ${String(run.configuration.broadcastGain ?? "legacy")}${(diagnostic.tokenReachableOutputs ?? 0) === 0 && Number(run.configuration.messageSteps ?? 0) < Number(diagnostic.minimumOutputHops ?? 0) ? ` · insufficient ${run.configuration.messageSteps ?? "—"} < ${diagnostic.minimumOutputHops ?? "—"}` : ""}`
+        ? `${String(run.configuration.streamMode ?? "windowed")} · ${diagnostic.minimumOutputHops ?? "—"}/${diagnostic.medianOutputHops ?? "—"} hops · ${diagnostic.tokenReachableOutputs ?? 0}/${diagnostic.contextReachableOutputs ?? 0}/${diagnostic.reachableOutputs ?? 0} token/context/graph · broadcast ${String(run.configuration.broadcastGain ?? "legacy")}${(diagnostic.tokenReachableOutputs ?? 0) === 0 && Number(run.configuration.messageSteps ?? 0) < Number(diagnostic.minimumOutputHops ?? 0) ? ` · insufficient ${run.configuration.messageSteps ?? "—"} < ${diagnostic.minimumOutputHops ?? "—"}` : ""}`
         : "—";
       const lifecycle = diagnostic
         ? `${String(run.configuration.lifecycleProfile ?? (run.configuration.lifecycle ? "baseline" : "off"))} · ${diagnostic.stunnedCells ?? 0} stunned · +${diagnostic.cumulativeBirths ?? 0}/−${diagnostic.cumulativeDeaths ?? 0} cells · ${diagnostic.cumulativeStuns ?? 0}/${diagnostic.cumulativeRecoveries ?? 0} stun/recover`
@@ -664,6 +664,7 @@ export class LaboratoryView {
       fieldSize: 68,
       batchSize: Number(form.get("batchSize")), contextLength: 64,
       vocabularySize: Number(form.get("vocabularySize")),
+      streamMode: String(form.get("streamMode")),
       messageSteps: Number(form.get("messageSteps")),
       broadcastGain: Number(form.get("broadcastGain")),
       updates: Number(form.get("updates")), seed: Number(form.get("seed")),

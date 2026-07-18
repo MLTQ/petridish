@@ -18,6 +18,7 @@ from .sequence_model import (
     CellularSequenceModel, SequenceForward, SequenceFrame, SequenceRuntimeState,
 )
 from .sequence_tasks import (
+    STREAM_MODES,
     SequenceBatch,
     SequenceTask,
     associative_recall_batch,
@@ -38,11 +39,17 @@ class SequenceExperiment:
         amp_mode: str = "off",
         recall_pair_count: int | None = None,
         recall_pair_max: int = 3,
+        stream_mode: str = "windowed",
     ) -> None:
         self.task = resolve_sequence_task(task)
         self.experiment_name = self.task.key
         self.config = config or sequence_config(self.task.key)
         self.seed = seed
+        if stream_mode not in STREAM_MODES:
+            raise ValueError(f"unknown sequence stream mode: {stream_mode}")
+        if stream_mode == "continuous" and self.task.training_stream is None:
+            raise ValueError(f"task {self.task.key} has no contiguous training stream")
+        self.stream_mode = stream_mode
         self.device = resolve_device(device)
         if amp_mode not in {"off", "bfloat16"}:
             raise ValueError("amp_mode must be 'off' or 'bfloat16'")
@@ -52,6 +59,11 @@ class SequenceExperiment:
         self.amp_dtype = torch.bfloat16 if amp_mode == "bfloat16" else None
         self.generator = torch.Generator().manual_seed(seed)
         self.eval_generator = torch.Generator().manual_seed(seed + 10_000)
+        self._training_stream_positions = (
+            self.task.initial_stream_positions(self.config.batch_size, self.generator)
+            if stream_mode == "continuous" else None
+        )
+        self._training_runtime_state: SequenceRuntimeState | None = None
         if self.task.key == "associative_recall":
             initial_pairs = 1 if recall_pair_count is None else recall_pair_count
             if initial_pairs not in {1, 2, 3} or recall_pair_max not in {1, 2, 3}:
@@ -162,6 +174,19 @@ class SequenceExperiment:
             batch.tokens.to(self.device), batch.targets.to(self.device), batch.loss_mask.to(self.device)
         )
 
+    def _continuous_batch(self) -> tuple[SequenceBatch, torch.Tensor]:
+        """Read the next corpus window without advancing state until update success."""
+
+        if self._training_stream_positions is None:
+            raise RuntimeError("continuous stream positions were not initialized")
+        batch, next_positions = self.task.stream_batch(
+            self._training_stream_positions
+        )
+        return SequenceBatch(
+            batch.tokens.to(self.device), batch.targets.to(self.device),
+            batch.loss_mask.to(self.device),
+        ), next_positions
+
     def _masked_loss_accuracy(
         self, logits: torch.Tensor, batch: SequenceBatch
     ) -> tuple[torch.Tensor, float]:
@@ -205,7 +230,13 @@ class SequenceExperiment:
         progress_callback: Callable[[str, int, int], None] | None = None,
     ) -> None:
         self.model.train()
-        batch = self._batch(self.config.batch_size)
+        if self.stream_mode == "continuous":
+            batch, next_stream_positions = self._continuous_batch()
+            runtime_state = self._training_runtime_state
+        else:
+            batch = self._batch(self.config.batch_size)
+            next_stream_positions = None
+            runtime_state = None
         if progress_callback is not None:
             self._begin_visible_trial(batch)
 
@@ -229,6 +260,7 @@ class SequenceExperiment:
                 batch.tokens,
                 capture_trace=capture_trace,
                 frame_callback=observe_frame if progress_callback is not None else None,
+                runtime_state=runtime_state,
             )
         task_loss, accuracy = self._masked_loss_accuracy(result.logits, batch)
         loss = task_loss + self.model.regularization()
@@ -367,6 +399,12 @@ class SequenceExperiment:
             self.cumulative_deaths += update.deaths
             for cause, count in update.death_causes.items():
                 self.cumulative_death_causes[cause] += count
+        if self.stream_mode == "continuous":
+            assert next_stream_positions is not None
+            self._training_stream_positions = next_stream_positions
+            self._training_runtime_state = self.model.reconcile_runtime_state(
+                result.runtime_state
+            )
         if capture_trace:
             current_sites = self.model.substrate.living_sites
             state_by_site = torch.zeros(
@@ -669,14 +707,38 @@ class SequenceExperiment:
         distractor_predictions = 0
         absent_value_predictions = 0
         batch_count = max(1, min(50, batches))
+        stream_positions = (
+            self.task.initial_stream_positions(
+                self.config.batch_size, self.eval_generator, evaluation=True
+            )
+            if self.stream_mode == "continuous" else None
+        )
+        runtime_state: SequenceRuntimeState | None = None
         for index in range(batch_count):
-            batch = self._batch(self.config.batch_size, evaluation=True)
+            if stream_positions is None:
+                batch = self._batch(self.config.batch_size, evaluation=True)
+            else:
+                cpu_batch, stream_positions = self.task.stream_batch(
+                    stream_positions, evaluation=True
+                )
+                batch = SequenceBatch(
+                    cpu_batch.tokens.to(self.device),
+                    cpu_batch.targets.to(self.device),
+                    cpu_batch.loss_mask.to(self.device),
+                )
             with torch.autocast(
                 device_type=self.device.type,
                 dtype=self.amp_dtype,
                 enabled=self.amp_dtype is not None,
             ):
-                logits = self.compute_model(batch.tokens, capture_trace=False).logits
+                evaluation_result = self.compute_model(
+                    batch.tokens, capture_trace=False, runtime_state=runtime_state
+                )
+                logits = evaluation_result.logits
+                runtime_state = (
+                    evaluation_result.runtime_state.detached()
+                    if stream_positions is not None else None
+                )
             selected_logits = logits[batch.loss_mask].float()
             selected_targets = batch.targets[batch.loss_mask]
             loss_sum += float(
@@ -723,6 +785,7 @@ class SequenceExperiment:
         metrics: dict[str, Any] = {
             "loss": loss_sum / max(1, loss_items),
             "accuracy": self.test_accuracy,
+            "streamMode": self.stream_mode,
             "positionIndices": [
                 position
                 for position, count in enumerate(position_total)

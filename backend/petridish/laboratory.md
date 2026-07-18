@@ -24,6 +24,8 @@ explicitly enabled trainer processes.
   microtick budget; zero is the hard physical-routing ablation.
 - **Does**: Records a 64–2,048 power-of-two token-vocabulary curriculum while
   preserving the same 64-port physical population code.
+- **Does**: Records continuous organism experience versus the random cold-window
+  control and passes that immutable mode to the trainer.
 - **Does**: Derives the compatibility lifecycle boolean from the resolved profile so
   the manifest and trainer command cannot disagree.
 

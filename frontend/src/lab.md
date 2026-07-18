@@ -80,6 +80,9 @@ validated launch or stop requests.
   local-only corpus routing is distinguishable from legacy/global runs.
 - **Does**: Launches a recorded power-of-two lexical curriculum independently from
   the fixed distributed I/O population size.
+- **Does**: Launches and displays continuous state-carrying experience separately
+  from the cold-window control; legacy runs are labeled windowed rather than guessed
+  to be continuous.
 - **Does**: Launches and displays fixed/adaptive topology independently from the
   selected lifecycle profile, and accepts a measured `failed` run state.
 - **Does**: Launches a bounded common learning-rate scale so stability controls are

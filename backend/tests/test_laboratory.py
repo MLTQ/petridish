@@ -130,6 +130,22 @@ def test_laboratory_preserves_token_vocabulary_curriculum(tmp_path: Path) -> Non
         )
 
 
+def test_laboratory_records_continuous_experience_or_cold_control(tmp_path: Path) -> None:
+    laboratory = Laboratory(tmp_path, run_root=tmp_path / "runs", control_enabled=True)
+    spec = LaunchSpec(
+        "trial", "GPU-example", task="tiny_stories", field_size=68,
+        stream_mode="continuous",
+    )
+
+    command = laboratory._trainer_command(spec, tmp_path / "runs" / "trial")
+
+    assert command[command.index("--stream-mode") + 1] == "continuous"
+    with pytest.raises(ValueError, match="stream mode"):
+        laboratory._validate_spec(
+            LaunchSpec("invalid", "GPU-example", stream_mode="reset-everything")
+        )
+
+
 def test_legacy_lifecycle_flag_resolves_to_recorded_baseline(tmp_path: Path) -> None:
     laboratory = Laboratory(tmp_path, run_root=tmp_path / "runs", control_enabled=True)
     spec = LaunchSpec(

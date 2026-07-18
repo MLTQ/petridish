@@ -131,6 +131,8 @@ def build_token_task(
         source_url=source_url,
         unigram_baseline_accuracy=unigram_accuracy,
         bigram_baseline_accuracy=bigram_accuracy,
+        training_stream=train,
+        evaluation_stream=validation,
     )
 
 

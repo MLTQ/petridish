@@ -56,6 +56,10 @@ vocabulary is encoded through fixed 64-cell population banks, and proves that a
 sequence split across incremental calls produces the same logits as one uninterrupted
 forward pass. It also requires exact unigram and train-fitted bigram validation
 baselines, with the contextual baseline outperforming global frequency. The
+continuous-experience regressions prove adjacent windows share the boundary token,
+optimizer updates carry detached neuron state, checkpoints resume the exact lane and
+runtime state, and cell death preserves each surviving neuron's state by physical
+site. The
 excitotoxicity regression verifies stun, seeded recovery without
 edge deletion, and lethal classification only after accumulated damage crosses the
 configured threshold.

@@ -65,6 +65,22 @@ class SequenceRuntimeState:
     previous_binding_key: torch.Tensor | None
     position: int
 
+    def detached(self) -> "SequenceRuntimeState":
+        """Cut autograd history while preserving every piece of organism state."""
+
+        return SequenceRuntimeState(
+            self.sites.detach(), self.hidden.detach(),
+            self.cell_memory.detach() if self.cell_memory is not None else None,
+            self.workspace.detach(),
+            self.fast_memory.detach() if self.fast_memory is not None else None,
+            self.binding_memory.detach() if self.binding_memory is not None else None,
+            (
+                self.previous_binding_key.detach()
+                if self.previous_binding_key is not None else None
+            ),
+            self.position,
+        )
+
 
 SequenceFrameCallback = Callable[[SequenceFrame, torch.Tensor], None]
 
@@ -199,6 +215,44 @@ class CellularSequenceModel(nn.Module):
         code = F.normalize(decoded.float(), dim=1)
         vocabulary = F.normalize(self.token_identity.weight.float(), dim=1)
         return code @ vocabulary.T * self.logit_scale.clamp(1, 20) + self.class_bias
+
+    @torch.no_grad()
+    def reconcile_runtime_state(
+        self, runtime_state: SequenceRuntimeState
+    ) -> SequenceRuntimeState:
+        """Carry survivor state through cell birth/death without resetting the field."""
+
+        state = runtime_state.detached()
+        sites = self.substrate.living_sites
+        if torch.equal(state.sites, sites):
+            return state
+        batch = state.hidden.shape[0]
+        genotype = self.substrate.genotype[sites]
+        hidden = self.context_rule(self._persistent_features(sites, batch))
+        hidden = hidden + torch.tanh(self.genotype_context(genotype)).unsqueeze(0)
+        hidden = hidden.to(state.hidden.dtype)
+        compact = torch.full(
+            (self.config.site_count,), -1, dtype=torch.long, device=sites.device
+        )
+        compact[state.sites] = torch.arange(state.sites.numel(), device=sites.device)
+        previous = compact[sites]
+        survivors = previous >= 0
+        hidden[:, survivors] = state.hidden[:, previous[survivors]]
+        cell_memory = self.cell_rule.initial_memory(hidden)
+        if cell_memory is not None and state.cell_memory is not None:
+            cell_memory[:, survivors] = state.cell_memory[:, previous[survivors]]
+        binding_memory: torch.Tensor | None = None
+        if state.binding_memory is not None:
+            binding_memory = state.binding_memory.new_zeros(
+                batch, sites.numel(), state.binding_memory.shape[-1]
+            )
+            binding_memory[:, survivors] = state.binding_memory[:, previous[survivors]]
+        return SequenceRuntimeState(
+            sites.detach(), hidden.detach(),
+            cell_memory.detach() if cell_memory is not None else None,
+            state.workspace, state.fast_memory, binding_memory,
+            state.previous_binding_key, state.position,
+        )
 
     def forward(
         self,
