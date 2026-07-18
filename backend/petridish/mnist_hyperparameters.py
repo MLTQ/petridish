@@ -21,15 +21,16 @@ class HyperparameterSpec:
 
 
 FIELD_SIZES = (16, 32, 64, 128, 256, 512, 1024)
-TINY_SHAKESPEARE_FIELD_SIZE = 68
+CORPUS_SINGLE_COLUMN_FIELD_SIZE = 68
+SINGLE_COLUMN_CORPUS_TASKS = frozenset(("tiny_shakespeare", "tiny_stories"))
 
 
 def field_sizes(*, include_sequence: bool, task_key: str | None = None) -> tuple[int, ...]:
     """Return task-specific square geometries without weakening global validation."""
 
     choices = FIELD_SIZES if include_sequence else FIELD_SIZES[1:]
-    if task_key == "tiny_shakespeare":
-        return tuple(sorted((*choices, TINY_SHAKESPEARE_FIELD_SIZE)))
+    if task_key in SINGLE_COLUMN_CORPUS_TASKS:
+        return tuple(sorted((*choices, CORPUS_SINGLE_COLUMN_FIELD_SIZE)))
     return choices
 
 
@@ -185,7 +186,7 @@ def configured(
         field_size = normalized.pop("field_size")
         allowed = field_sizes(include_sequence=True, task_key=task_key)
         if isinstance(field_size, bool) or field_size not in allowed:
-            if task_key == "tiny_shakespeare":
+            if task_key in SINGLE_COLUMN_CORPUS_TASKS:
                 raise ValueError(
                     "field_size must be 68 or a power of two from 16 through 1024"
                 )
@@ -232,6 +233,7 @@ if set(SPECS) != numeric_config_fields:
 
 
 __all__ = [
-    "FIELD_SIZES", "TINY_SHAKESPEARE_FIELD_SIZE", "HyperparameterSpec", "SPECS",
+    "CORPUS_SINGLE_COLUMN_FIELD_SIZE", "FIELD_SIZES", "SINGLE_COLUMN_CORPUS_TASKS",
+    "HyperparameterSpec", "SPECS",
     "configured", "field_sizes", "hyperparameter_payload",
 ]

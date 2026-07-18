@@ -42,6 +42,14 @@ def test_spec_preserves_single_column_geometry(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="68×68"):
         laboratory._validate_spec(LaunchSpec("trial", "GPU-example", field_size=64))
+    with pytest.raises(ValueError, match="68×68"):
+        laboratory._validate_spec(
+            LaunchSpec("trial", "GPU-example", task="tiny_stories", field_size=64)
+        )
+
+    laboratory._validate_spec(
+        LaunchSpec("trial", "GPU-example", task="tiny_stories", field_size=68)
+    )
 
 
 def test_discovery_summarizes_latest_train_and_evaluation(tmp_path: Path) -> None:

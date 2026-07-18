@@ -53,6 +53,8 @@ validated launch or stop requests.
 ### `launch` / `stop`
 - **Does**: Submit bounded, task-aware Tiny Shakespeare or TinyStories commands and
   preserve authoritative server status.
+- **Does**: Launch both corpus organisms at 68×68 so their 64- or 66-port banks
+  remain one physical column per boundary.
 
 ## Contracts
 

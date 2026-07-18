@@ -159,6 +159,30 @@ def _gradients_finite(experiment: SequenceExperiment) -> bool:
     )
 
 
+def _fresh_config(
+    task: str,
+    *,
+    field_size: int | None,
+    batch_size: int | None,
+    message_steps: int | None,
+    architecture: str,
+    lifecycle: bool,
+) -> MnistModelConfig:
+    """Apply launch overrides without erasing task-specific warm-up policy."""
+
+    defaults = sequence_config(task)
+    size = field_size or defaults.width
+    return sequence_config(
+        task,
+        width=size,
+        height=size,
+        batch_size=batch_size or defaults.batch_size,
+        message_steps=message_steps or defaults.message_steps,
+        cell_architecture=architecture,
+        lifecycle_enabled=int(lifecycle),
+    )
+
+
 def _append_metric(path: Path, record: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as stream:
@@ -207,18 +231,13 @@ def main() -> None:
         args.task = str(saved_task.get("key", "tiny_shakespeare"))
         config = MnistModelConfig(**payload["configuration"])
     else:
-        defaults = sequence_config(args.task)
-        field_size = args.field_size or defaults.width
-        config = sequence_config(
+        config = _fresh_config(
             args.task,
-            width=field_size,
-            height=field_size,
-            batch_size=args.batch_size or defaults.batch_size,
-            message_steps=args.message_steps or defaults.message_steps,
-            cell_architecture=args.architecture,
-            lifecycle_enabled=int(args.lifecycle),
-            lifecycle_warmup_trials=5_000,
-            structural_warmup_trials=5_000,
+            field_size=args.field_size,
+            batch_size=args.batch_size,
+            message_steps=args.message_steps,
+            architecture=args.architecture,
+            lifecycle=args.lifecycle,
         )
     task = (
         load_tiny_stories_task(args.context_length)

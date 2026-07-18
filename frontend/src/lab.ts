@@ -528,7 +528,7 @@ export class LaboratoryView {
       runId: String(form.get("runId")), gpuUuid: String(form.get("gpuUuid")),
       task: String(form.get("task")),
       architecture: String(form.get("architecture")),
-      fieldSize: String(form.get("task")) === "tiny_stories" ? 64 : 68,
+      fieldSize: 68,
       batchSize: Number(form.get("batchSize")), contextLength: 64,
       messageSteps: String(form.get("task")) === "tiny_stories" ? 4 : 2,
       updates: Number(form.get("updates")), seed: Number(form.get("seed")),

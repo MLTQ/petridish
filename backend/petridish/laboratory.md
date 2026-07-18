@@ -12,6 +12,8 @@ explicitly enabled trainer processes.
 ### `LaunchSpec`
 - **Does**: Defines validated, reproducible arguments for one unattended
   Tiny Shakespeare or distributed-token TinyStories run.
+- **Does**: Requires the 68×68 geometry that gives both corpus tasks one linear
+  input column and one linear output column.
 - **Rationale**: Process commands are assembled from typed fields rather than shell text.
 
 ### `Laboratory.snapshot`

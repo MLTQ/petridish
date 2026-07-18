@@ -16,8 +16,8 @@ in configuration but selected through the laboratory, not represented as a slide
 - **Rationale**: The backend owns scientific ranges so UI controls cannot drift
   from accepted values.
 - **Rationale**: One square-field control exposes powers of two from 16 through
-  1024. Tiny Shakespeare alone additionally exposes its exact 68×68 corpus-port
-  geometry. Width and height remain internal config fields so every live experiment
+  1024. Both corpus tasks additionally expose their exact 68×68 single-column
+  port geometry. Width and height remain internal config fields so every live experiment
   is square and a size change is atomic.
 - **Rationale**: Broadcast radius starts at one cell, meaning immediate-neighbor
   communication only. Its emitted maximum is derived from the current field, so
@@ -49,7 +49,7 @@ in configuration but selected through the laboratory, not represented as a slide
 - **Interacts with**: `ExperimentRuntime.handle_command`.
 - **Does**: Expands `field_size` into equal width and height, clamps a formerly
   valid radius when shrinking, and rejects non-power-of-two field sizes except
-  for the explicit Tiny Shakespeare 68×68 geometry.
+  for the explicit corpus-task 68×68 geometry.
 
 ## Contracts
 

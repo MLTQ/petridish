@@ -17,8 +17,9 @@ Corpus construction uses two recurrent updates per token. Lifecycle is disabled 
 the initial differentiable baseline and structural mutation waits at least 5,000
 optimizer updates. Those defaults are not a claim of language-model competitiveness.
 
-The token cellular-language profile uses a 64×64 field, at most 2,048 occupants,
+The token cellular-language profile uses a 68×68 field, at most 2,048 occupants,
 32 state channels, four cellular microticks per wordpiece, eight dendrites and
 sixteen axons per cell. Its 64 input and 64 output anchors are population-code
-interfaces, not vocabulary-sized neuron banks. Lifecycle starts after 500 updates;
+interfaces, not vocabulary-sized neuron banks. The four-cell height margin keeps
+each bank in one uninterrupted boundary column. Lifecycle starts after 500 updates;
 utility pruning waits at least 1,000 updates so early random traffic is not selected.

@@ -180,7 +180,7 @@ class Laboratory:
             raise ValueError("unknown corpus task")
         if spec.architecture not in CELL_ARCHITECTURES:
             raise ValueError("unknown sequence cell architecture")
-        required_field = 68 if spec.task == "tiny_shakespeare" else 64
+        required_field = 68
         if spec.field_size != required_field:
             raise ValueError(f"{spec.task} laboratory runs require a {required_field}×{required_field} field")
         if spec.context_length < 8 or spec.context_length > 256:

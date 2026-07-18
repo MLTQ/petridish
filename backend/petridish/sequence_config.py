@@ -55,8 +55,8 @@ def sequence_config(task: str | None = None, **overrides: object) -> MnistModelC
     if task == "tiny_stories":
         base = replace(
             base,
-            width=64,
-            height=64,
+            width=68,
+            height=68,
             hidden_channels=32,
             genotype_channels=16,
             edge_slots=8,

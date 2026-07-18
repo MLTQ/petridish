@@ -6,9 +6,17 @@ path used by live fast training and the CUDA benchmark. It defaults to the requi
 both lifecycle and structural warm-ups set to 5,000 updates. Measured batch/AMP
 choices can be supplied explicitly.
 
-`--task tiny_stories` selects the 64×64 distributed-token organism and its cached
+`--task tiny_stories` selects the 68×68 distributed-token organism and its cached
 2,048-piece TinyStories task. The historical module name remains stable for existing
 service files and checkpoints. Metrics report token throughput for both task types.
+The token profile retains its task-specific 500-update lifecycle and 1,000-update
+pruning warm-ups; the Shakespeare profile retains its conservative 5,000-update
+warm-ups. CLI lifecycle selection changes activation, not those task definitions.
+
+### `_fresh_config`
+
+Applies field, batch, microtick, architecture, and lifecycle launch choices while
+preserving all other task-specific defaults, including structural timing.
 
 `--architecture` selects a checkpointed homogeneous GRU, LSTM, ESN, or temporal
 transformer population. GRU remains the default and preserves existing checkpoints.

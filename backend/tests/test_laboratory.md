@@ -17,7 +17,8 @@ control-enable contracts without requiring NVIDIA hardware or launching trainers
   because its PID still exists.
 
 ### Geometry test
-- **Does**: Keeps 68×68 mandatory for the 66-port single-column corpus layout.
+- **Does**: Keeps 68×68 mandatory for both 66-port and 64-port single-column
+  corpus layouts.
 
 ## Contracts
 

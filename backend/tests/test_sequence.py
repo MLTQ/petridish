@@ -29,7 +29,7 @@ from petridish.sequence_tasks import (
     resolve_sequence_task,
 )
 from petridish.token_corpus_task import build_token_task
-from petridish.train_shakespeare import _migrate_model_state
+from petridish.train_shakespeare import _fresh_config, _migrate_model_state
 
 
 def small_config():
@@ -142,7 +142,7 @@ def test_tiny_shakespeare_uses_one_ordered_66_port_column_per_boundary() -> None
     )
 
 
-def test_68_field_size_is_available_only_for_tiny_shakespeare() -> None:
+def test_68_field_size_is_available_for_single_column_corpus_tasks() -> None:
     tiny = sequence_config("tiny_shakespeare")
     choices = hyperparameter_payload(
         tiny, include_sequence=True, task_key="tiny_shakespeare"
@@ -150,12 +150,36 @@ def test_68_field_size_is_available_only_for_tiny_shakespeare() -> None:
     assert choices == [16, 32, 64, 68, 128, 256, 512, 1024]
     assert configured(tiny, {"field_size": 68}, task_key="tiny_shakespeare").width == 68
 
+    stories = sequence_config("tiny_stories")
+    story_choices = hyperparameter_payload(
+        stories, include_sequence=True, task_key="tiny_stories"
+    )[0]["choices"]
+    assert story_choices == [16, 32, 64, 68, 128, 256, 512, 1024]
+    assert configured(stories, {"field_size": 68}, task_key="tiny_stories").width == 68
+
     regular = sequence_config("tiny_language")
     assert 68 not in hyperparameter_payload(
         regular, include_sequence=True, task_key="tiny_language"
     )[0]["choices"]
     with pytest.raises(ValueError, match="power of two"):
         configured(regular, {"field_size": 68}, task_key="tiny_language")
+
+
+def test_headless_token_launch_preserves_task_specific_warmups() -> None:
+    config = _fresh_config(
+        "tiny_stories",
+        field_size=None,
+        batch_size=1,
+        message_steps=None,
+        architecture="gru",
+        lifecycle=True,
+    )
+
+    assert (config.width, config.height) == (68, 68)
+    assert config.batch_size == 1
+    assert config.lifecycle_enabled == 1
+    assert config.lifecycle_warmup_trials == 500
+    assert config.structural_warmup_trials == 1_000
 
 
 def test_associative_recall_curriculum_preserves_queried_value() -> None:
@@ -447,6 +471,18 @@ def test_token_corpus_uses_distributed_ports_and_incremental_state() -> None:
     assert layout.output_count == 64
     assert full.logits.shape == (2, 8, len(task.vocabulary))
     assert torch.allclose(full.logits[:, 3:], suffix.logits, atol=1e-5, rtol=1e-5)
+
+
+def test_token_corpus_uses_one_64_port_column_per_boundary() -> None:
+    config = sequence_config("tiny_stories")
+    layout = sequence_layout("tiny_stories", vocabulary_size=2_048)
+    substrate = SpatialSubstrate(config, layout=layout, seed=41)
+
+    assert (config.width, config.height) == (68, 68)
+    assert (substrate.input_sites % config.width).unique().tolist() == [1]
+    assert (substrate.output_sites % config.width).unique().tolist() == [66]
+    assert sorted((substrate.input_sites // config.width).tolist()) == list(range(1, 65))
+    assert sorted((substrate.output_sites // config.width).tolist()) == list(range(1, 65))
 
 
 def test_excitotoxicity_stuns_recovers_and_only_repetition_becomes_lethal() -> None:
