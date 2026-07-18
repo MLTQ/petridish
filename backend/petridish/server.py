@@ -92,7 +92,8 @@ class LabEvaluateRequest(BaseModel):
     gpuUuid: str
     stateHorizons: bool = False
     evaluationSplit: str = Field(
-        default="validation", pattern="^(validation|training|trajectory)$"
+        default="validation",
+        pattern="^(validation|training|trajectory|random_context)$",
     )
     trajectoryLane: int | None = Field(
         default=None, ge=0, le=MAX_STATE_LANES - 1

@@ -165,6 +165,10 @@ its gain or projections, preventing a nominal ablation from learning to reactiva
 Headless diagnostics separately verify physical/conducting edges, one-token/context/
 graph reachability ordering, and exact pruning counts. Fixed-prompt greedy generation
 must be repeatable without consuming the training sampler or mutating interactive state.
+The independent-context audit regression draws each context separately with the
+evaluation RNG, starts only disposable probe activations cold, reproduces the exact
+seeded sample, and restores both training/evaluation RNG plus the living recurrent
+state and learned graph after every matched counterfactual.
 
 Benchmark artifact replacement is required to be atomic so the polling laboratory
 sees either the previous complete JSON document or the next one, never a partial write.

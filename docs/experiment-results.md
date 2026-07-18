@@ -1212,13 +1212,20 @@ treatment. Newly appended lane 105 reached 83.40% on control 4K and 71.19% on tr
 and broadcast silence to 12.70%. The organism therefore learned a causal continuation
 along that saved 8K experience rather than bypassing its connectome.
 
-That solution did not transfer to random offsets. The corrected fixed random audit
-measured 68.55% / 1.16260 for control 4K but only 12.11% / 4.58095 for treatment 8K.
+The historical fixed-seed training audit measured 68.55% / 1.16260 for control 4K
+but only 12.11% / 4.58095 for treatment 8K.
 Control's graph silence/rotation/reassignment accuracies were 3.61/6.64/5.86%; the
 treatment's were 2.54/7.91/3.52%. Saved electrical state added 16.80 points to control
-but only 0.39 points to the random 8K audit. The treatment can continue one learned
-trajectory with its saved state, but its shared cellular rule does not yet predict an
-arbitrary context in the enlarged domain.
+but only 0.39 points to the 8K audit.
+
+A subsequent sampler audit clarified that this condition chooses one seeded random
+start and then follows sixteen contiguous windows with cloned carried state. It is a
+warm random-start trajectory, not sixteen independent random offsets. Historical
+references through phase 17 to “random-offset competence” therefore mean transfer to
+that one random-start continuation and do not establish arbitrary-context
+generalization. Phase 18 adds a separate cold, read-only independent-context probe;
+it retains the organism's learned cells, directed graph, synapses, and parameters,
+zeros only disposable probe activations, and never writes the probe back.
 
 Held-out language likewise remains unsolved. Control measured 11.33% / 5.58403 and
 treatment 10.55% / 4.94956, both below the 19.09% unigram accuracy baseline; fixed

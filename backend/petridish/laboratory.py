@@ -154,6 +154,7 @@ class Laboratory:
                 "tokenizerProfiles": list(TOKENIZER_PROFILES),
                 "checkpointEvaluation": True,
                 "trainingShardAudit": True,
+                "randomContextAudit": True,
                 "trainingShardCurriculum": True,
                 "stateLaneExpansion": True,
                 "stateLaneDomains": True,
@@ -1050,9 +1051,12 @@ class Laboratory:
         evaluation_split: str,
         trajectory_lane: int | None,
     ) -> list[str]:
-        if evaluation_split not in {"validation", "training", "trajectory"}:
+        if evaluation_split not in {
+            "validation", "training", "trajectory", "random_context"
+        }:
             raise ValueError(
-                "evaluation split must be validation, training, or trajectory"
+                "evaluation split must be validation, training, trajectory, or "
+                "random_context"
             )
         if trajectory_lane is not None and evaluation_split != "trajectory":
             raise ValueError("trajectory lane requires the trajectory evaluation split")
@@ -1216,6 +1220,13 @@ class Laboratory:
                 ),
                 None,
             )
+            latest_random_context_audit = next(
+                (
+                    record for record in reversed(records)
+                    if record.get("type") == "random_context_audit"
+                ),
+                None,
+            )
             latest_trajectory_audit = next(
                 (
                     record for record in reversed(records)
@@ -1277,6 +1288,7 @@ class Laboratory:
                     "latestTrain": latest_train,
                     "latestHeldOut": latest_held_out,
                     "latestTrainingAudit": latest_training_audit,
+                    "latestRandomContextAudit": latest_random_context_audit,
                     "latestTrajectoryAudit": latest_trajectory_audit,
                     "latestTrajectoryAudits": latest_trajectory_audits,
                     "latestDiagnostics": latest_diagnostics,

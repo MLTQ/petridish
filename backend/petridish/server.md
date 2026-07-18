@@ -72,11 +72,10 @@ and exact-phase resume after a deliberate stop.
 ### `LabEvaluateRequest`
 - **Does**: Selects a measured GPU and optional state-horizon sweep for read-only
   evaluation of an existing checkpoint.
-- **Does**: Validates an explicit `validation` or `training` split; the training
-  choice audits the active repeated shard without invoking continuation or an
-  optimizer step.
-- **Does**: Accepts `trajectory` as the third explicit audit condition for the exact
-  next checkpointed cursor/state lane.
+- **Does**: Validates explicit `validation`, warm `training`, or cold
+  `random_context` splits; none invokes continuation or an optimizer step.
+- **Does**: Accepts `trajectory` as the warm exact-next checkpoint cursor/state-lane
+  audit condition.
 - **Does**: Optionally bounds an explicit trajectory lane from zero through 127;
   the laboratory rejects it for every non-trajectory evaluation.
 

@@ -198,9 +198,14 @@ validated launch or stop requests.
 - **Does**: Offers read-only evaluation on stopped checkpoints so new causal metrics
   can be collected without continuing training or changing plasticity phase; the
   button appears only when the serving backend advertises the matching route.
-- **Does**: Offers a separately labeled active-shard audit only when the current phase
-  has a bounded shard and the backend advertises support; validation stays a separate
-  action.
+- **Does**: Offers a separately labeled warm active-shard trajectory audit only when
+  the current phase has a bounded shard and the backend advertises support;
+  validation stays a separate action.
+- **Does**: Offers an explicitly cold, read-only independent-context probe. It keeps
+  the organism's learned cells, directed graph, and parameters, zeros only disposable
+  probe activations, and never installs probe state into the checkpoint. This is a
+  topology/parameter generalization diagnostic, not an organism reset and not the
+  authoritative warm conversational trajectory.
 - **Does**: Offers and displays an exact next-trajectory audit separately from the
   random-offset shard audit, including the matched recurrent lane and graph
   counterfactuals plus that lane's checkpointed stream domain.

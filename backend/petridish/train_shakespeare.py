@@ -614,10 +614,13 @@ def _held_out_diagnostics_from_current_sampler(
     evaluation_split: str = "validation",
     trajectory_lane: int | None = None,
 ) -> dict[str, Any]:
-    """Evaluate one checkpoint on a named split with matched counterfactuals."""
+    """Probe a checkpoint copy on a named split with matched counterfactuals."""
 
     matched_sampler_state = experiment.eval_generator.get_state().clone()
-    if experiment.stream_mode == "continuous":
+    if (
+        experiment.stream_mode == "continuous"
+        and evaluation_split != "random_context"
+    ):
         held_out, cold_state = experiment.evaluate_state_ablation(
             max(1, batches), evaluation_split=evaluation_split,
             trajectory_lane=trajectory_lane,
@@ -849,7 +852,8 @@ def main() -> None:
     parser.add_argument("--eval-interval", type=int, default=500)
     parser.add_argument("--eval-batches", type=int, default=4)
     parser.add_argument(
-        "--evaluation-split", choices=("validation", "training", "trajectory"),
+        "--evaluation-split",
+        choices=("validation", "training", "trajectory", "random_context"),
         default="validation",
         help="read-only audit split; scheduled training evaluation stays validation",
     )
@@ -1110,7 +1114,8 @@ def main() -> None:
             "type": (
                 "held_out" if args.evaluation_split == "validation"
                 else "training_audit" if args.evaluation_split == "training"
-                else "trajectory_audit"
+                else "trajectory_audit" if args.evaluation_split == "trajectory"
+                else "random_context_audit"
             ),
             "update": experiment.training_step,
             "organismId": organism_id, "phaseIndex": phase_index,

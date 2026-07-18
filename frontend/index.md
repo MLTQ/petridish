@@ -61,6 +61,9 @@ experiment laboratory above the live organism.
   domain and are balanced within it before any phase duplicate.
 - **Does**: Calls held-out zero-state comparisons disposable ablation copies so the
   interface never implies that the live organism was reset.
+- **Does**: Labels the independent-context action as a cold, read-only probe and the
+  active-shard action as a warm trajectory audit. Both preserve the organism's cells,
+  graph, parameters, recurrent lane bank, optimizer, RNG, and live checkpoint.
 - **Does**: Shows lineage and phase beside run status so a continuation cannot be
   mistaken for a newly initialized comparison organism.
 - **Does**: Exposes a bounded common learning-rate scale for controlled long-run

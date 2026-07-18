@@ -95,10 +95,13 @@ control-enable contracts without requiring NVIDIA hardware or launching trainers
   lineage/phase metadata, and can request state horizons without a plasticity override.
 - **Does**: Requires read-only audits to use sixteen fixed-seed batches rather than
   the smaller scheduled-training sample.
-- **Does**: Verifies the requested validation/training split reaches the read-only
-  trainer command and is advertised as a separate capability.
+- **Does**: Verifies validation, warm training-trajectory, and cold independent-context
+  splits reach the read-only trainer command and are advertised as separate
+  capabilities.
 - **Does**: Keeps active-shard causal audits distinct from held-out records so a high
   overfit result never overwrites validation accuracy in run discovery.
+- **Does**: Keeps cold independent-context audits distinct from both warm active-shard
+  trajectories and held-out records in run discovery.
 - **Does**: Keeps exact-trajectory audits distinct from both validation and
   random-offset shard records.
 - **Does**: Forwards an explicit saved trajectory lane to the read-only trainer,

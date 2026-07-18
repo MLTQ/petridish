@@ -43,6 +43,12 @@ def test_training_shard_audit_is_not_mislabeled_as_validation(tmp_path: Path) ->
                 ),
                 json.dumps(
                     {
+                        "type": "random_context_audit", "update": 10,
+                        "accuracy": 0.6, "evaluationSplit": "random_context",
+                    }
+                ),
+                json.dumps(
+                    {
                         "type": "trajectory_audit", "update": 10,
                         "accuracy": 0.9, "evaluationSplit": "trajectory",
                         "trajectoryLane": 0, "trajectoryStreamTokens": 2_048,
@@ -73,6 +79,8 @@ def test_training_shard_audit_is_not_mislabeled_as_validation(tmp_path: Path) ->
     assert summary["latestHeldOut"]["accuracy"] == 0.2
     assert summary["latestTrainingAudit"]["accuracy"] == 0.8
     assert summary["latestTrainingAudit"]["evaluationSplit"] == "training"
+    assert summary["latestRandomContextAudit"]["accuracy"] == 0.6
+    assert summary["latestRandomContextAudit"]["evaluationSplit"] == "random_context"
     assert summary["latestTrajectoryAudit"]["accuracy"] == 1.0
     assert summary["latestTrajectoryAudit"]["evaluationSplit"] == "trajectory"
     assert [record["trajectoryLane"] for record in summary["latestTrajectoryAudits"]] == [
@@ -235,6 +243,7 @@ def test_snapshot_advertises_checkpoint_evaluation_route(
     capabilities = laboratory.snapshot()["capabilities"]
     assert capabilities["checkpointEvaluation"] is True
     assert capabilities["trainingShardAudit"] is True
+    assert capabilities["randomContextAudit"] is True
     assert capabilities["trainingShardCurriculum"] is True
     assert capabilities["stateLaneExpansion"] is True
     assert capabilities["stateLaneDomains"] is True
@@ -797,6 +806,16 @@ def test_checkpoint_evaluation_is_read_only_and_keeps_the_phase(
     assert command[command.index("--organism-id") + 1] == "organism-test"
     assert command[command.index("--phase-index") + 1] == "2"
     assert manifest["phaseHistory"] == phase_history
+
+    random_context_command = laboratory._evaluation_command(
+        run, organism_id="organism-test", phase_index=2,
+        phase_name="adaptive topology", state_horizons=False,
+        evaluation_split="random_context", trajectory_lane=None,
+    )
+    assert random_context_command[
+        random_context_command.index("--evaluation-split") + 1
+    ] == "random_context"
+    assert "--resume-plasticity" not in random_context_command
 
 
 def test_checkpoint_evaluation_selects_one_saved_trajectory_lane(

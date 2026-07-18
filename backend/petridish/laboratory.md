@@ -181,8 +181,8 @@ explicitly enabled trainer processes.
   including the electrical-memory horizon, without appending a phase or optimizer step.
 - **Does**: Uses sixteen fixed-seed batches for a larger checkpoint-comparable causal
   audit than the four-batch scheduled training diagnostic.
-- **Does**: Accepts an explicit validation or active-training-shard split and forwards
-  it to the same read-only checkpoint evaluator.
+- **Does**: Accepts explicit validation, warm active-training-shard, or independent
+  cold-context splits and forwards them to the same read-only checkpoint evaluator.
 - **Does**: Also exposes the exact next saved trajectory as a separately recorded
   audit, preserving the distinction between aligned competence and random-offset
   shard competence.
@@ -191,6 +191,8 @@ explicitly enabled trainer processes.
 - **Does**: Discovers active-shard `training_audit` records separately from
   `held_out` validation records so higher memorization accuracy cannot replace the
   laboratory's generalization result.
+- **Does**: Discovers `random_context_audit` separately as a cold topology/parameter
+  probe; it never replaces the authoritative warm trajectory or validation records.
 - **Rationale**: Causal state/topology diagnostics can be refreshed after code changes
   without altering the organism being measured.
 

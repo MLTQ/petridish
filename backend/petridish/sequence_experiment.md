@@ -23,13 +23,16 @@ synapses silenced and with conducting source endpoints deterministically rotated
 It restores every source, weight, diagnostic cache, and RNG state, measuring whether
 the actual learned connectome causally improves prediction rather than merely existing.
 Both ablations accept an explicit `validation` or `training` split. The training
-split samples the active repeated shard with the independent evaluation RNG; it never
-advances the corpus cursor or overwrites checkpoint electrical state. This attributes
-bounded overfit to the graph without reporting it as held-out generalization.
+split chooses one seeded start on the active repeated shard and then follows
+contiguous windows with cloned carried state; it never advances the live corpus
+cursor or overwrites checkpoint electrical state. This attributes bounded warm
+trajectory competence to the graph without reporting it as held-out generalization.
 The distinct `trajectory` split clones the exact next saved corpus position and its
 matching state lane. It measures the aligned recurrent behavior seen by the trainer
-without advancing that cursor, while the random-offset training split separately
-tests phase-shift generalization within the same shard.
+without advancing that cursor, while `random_context` separately samples independent
+shard contexts and gives each a fresh disposable activation state. That cold probe
+still traverses the learned cells, directed graph, synapses, and shared rule. It is
+read-only and cannot be installed into the living checkpoint.
 Callers may select an explicit saved trajectory lane; otherwise the next round-robin
 lane remains the default. The selected cursor, stream domain, and recurrent state are
 kept aligned through saved/cold-state and every graph counterfactual, and invalid or

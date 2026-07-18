@@ -107,6 +107,15 @@ altering the organism being measured.
 writes a distinct `training_audit` record. Validation remains the default and the
 only split used by scheduled trainer evaluations, so memorization cannot replace or
 masquerade as held-out performance.
+This historical split chooses one seeded start and then follows contiguous windows
+with cloned carried state; it is a warm random-start trajectory audit, not a set of
+independent random offsets.
+`--evaluation-split random_context` writes `random_context_audit` and measures
+independently sampled training contexts with fresh disposable activation state for
+each context. The loaded cells, graph, synaptic weights, and learned rules remain in
+force. Evaluate-only never writes those probe activations or counterfactual graph
+changes back to the checkpoint, so this is a cold read-only diagnostic rather than an
+organism reset.
 `--evaluation-split trajectory` writes `trajectory_audit` and begins from a clone of
 the exact next saved stream position plus its matching recurrent state lane. It is
 the causal counterpart to rolling training accuracy, not a claim of random-offset or

@@ -218,8 +218,16 @@ class SequenceExperiment:
             raise ValueError(f"unsupported compile mode: {mode}")
         self.compute_model = torch.compile(self.model, mode=mode)
 
-    def _batch(self, size: int, *, evaluation: bool = False) -> SequenceBatch:
-        generator = self.eval_generator if evaluation else self.generator
+    def _batch(
+        self,
+        size: int,
+        *,
+        evaluation: bool = False,
+        generator: torch.Generator | None = None,
+    ) -> SequenceBatch:
+        generator = generator or (
+            self.eval_generator if evaluation else self.generator
+        )
         batch = (
             associative_recall_batch(size, generator, self.recall_pair_count)
             if self.task.key == "associative_recall"
@@ -868,16 +876,20 @@ class SequenceExperiment:
         evaluation_split: str = "validation",
         trajectory_lane: int | None = None,
     ) -> dict[str, Any]:
-        """Return validation or active-shard metrics without mutating training state."""
+        """Measure a named read-only split without mutating the living organism."""
 
-        if evaluation_split not in {"validation", "training", "trajectory"}:
+        if evaluation_split not in {
+            "validation", "training", "trajectory", "random_context"
+        }:
             raise ValueError(
-                "evaluation split must be 'validation', 'training', or 'trajectory'"
+                "evaluation split must be 'validation', 'training', 'trajectory', "
+                "or 'random_context'"
             )
         selected_trajectory_lane = self._trajectory_lane_for_evaluation(
             evaluation_split, trajectory_lane
         )
         use_validation_stream = evaluation_split == "validation"
+        random_contexts = evaluation_split == "random_context"
         if carry_state is not None and self.stream_mode != "continuous":
             raise ValueError("state-carry evaluation requires a continuous corpus stream")
         if initial_runtime_state is not None and self.stream_mode != "continuous":
@@ -889,7 +901,11 @@ class SequenceExperiment:
                 raise ValueError("state horizon requires a continuous corpus stream")
             if state_horizon_windows < 1:
                 raise ValueError("state horizon must be at least one window")
-        state_carry = self.stream_mode == "continuous" and carry_state is not False
+        state_carry = (
+            self.stream_mode == "continuous"
+            and carry_state is not False
+            and not random_contexts
+        )
 
         self.model.eval()
         correct = 0
@@ -926,7 +942,7 @@ class SequenceExperiment:
                     self.config.batch_size, self.eval_generator,
                     evaluation=use_validation_stream,
                 )
-                if self.stream_mode == "continuous" else None
+                if self.stream_mode == "continuous" and not random_contexts else None
             )
         runtime_state = (
             initial_runtime_state.cloned_detached()
@@ -934,7 +950,13 @@ class SequenceExperiment:
         )
         initial_state_tokens = runtime_state.position if runtime_state is not None else 0
         for index in range(batch_count):
-            if stream_positions is None:
+            if random_contexts:
+                batch = self._batch(
+                    self.config.batch_size,
+                    evaluation=False,
+                    generator=self.eval_generator,
+                )
+            elif stream_positions is None:
                 batch = self._batch(
                     self.config.batch_size, evaluation=use_validation_stream
                 )
@@ -1179,8 +1201,10 @@ class SequenceExperiment:
         *,
         trajectory_lane: int | None = None,
     ) -> SequenceRuntimeState | None:
-        """Return the checkpoint state aligned with a named read-only split."""
+        """Clone warm checkpoint state, except for an explicit cold-context probe."""
 
+        if evaluation_split == "random_context":
+            return None
         if evaluation_split != "trajectory" or self.state_lanes == 1:
             return self._training_runtime_state
         lane = self._trajectory_lane_for_evaluation(

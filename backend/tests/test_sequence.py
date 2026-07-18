@@ -1390,6 +1390,28 @@ def test_fixed_seed_checkpoint_audit_is_repeatable_and_sampler_read_only() -> No
     assert shard.get("trainingShardTokens") is None
     assert torch.equal(before, experiment.eval_generator.get_state())
 
+    training_rng_before = experiment.generator.get_state().clone()
+    random_context = _held_out_diagnostics(
+        experiment, 3, evaluation_seed=12345,
+        evaluation_split="random_context",
+    )
+    repeated_random_context = _held_out_diagnostics(
+        experiment, 3, evaluation_seed=12345,
+        evaluation_split="random_context",
+    )
+    assert random_context == repeated_random_context
+    assert random_context["evaluationSplit"] == "random_context"
+    assert random_context["evaluationSeed"] == 12345
+    assert random_context["stateCarry"] is False
+    assert "coldStateAccuracy" not in random_context
+    assert "stateCarryAccuracyDelta" not in random_context
+    assert random_context["accuracy"] == random_context["graphReferenceAccuracy"]
+    assert random_context["loss"] == pytest.approx(
+        random_context["graphReferenceLoss"]
+    )
+    assert torch.equal(training_rng_before, experiment.generator.get_state())
+    assert torch.equal(before, experiment.eval_generator.get_state())
+
     trajectory = _held_out_diagnostics(
         experiment, 3, evaluation_seed=12345, evaluation_split="trajectory",
         trajectory_lane=0,
@@ -1470,6 +1492,19 @@ def test_graph_ablation_is_causal_matched_and_restores_the_organism() -> None:
     assert training_silenced["evaluationSplit"] == "training"
     assert torch.equal(experiment.model.substrate.dendrite_source, sources)
     assert torch.equal(experiment.model.substrate.synapse_weight, weights)
+
+    random_reference, random_silenced, *_ = experiment.evaluate_graph_ablation(
+        2, evaluation_split="random_context"
+    )
+    assert random_reference["evaluationSplit"] == "random_context"
+    assert random_reference["stateCarry"] is False
+    assert random_silenced["evaluationSplit"] == "random_context"
+    assert torch.equal(experiment.model.substrate.dendrite_source, sources)
+    assert torch.equal(experiment.model.substrate.synapse_weight, weights)
+    assert experiment._training_runtime_state.position == checkpoint_state.position
+    assert torch.equal(
+        experiment._training_runtime_state.hidden, checkpoint_state.hidden
+    )
 
 
 def test_zero_broadcast_graph_audit_reports_identical_reference_branch() -> None:
