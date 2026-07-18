@@ -14,7 +14,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from .laboratory import ContinueSpec, EvaluateSpec, Laboratory, LaunchSpec
+from .laboratory import ContinueSpec, EvaluateSpec, ForkSpec, Laboratory, LaunchSpec
 from .runtime import ExperimentRuntime
 
 
@@ -71,6 +71,12 @@ class LabContinueRequest(BaseModel):
     phaseName: str | None = Field(default=None, max_length=120)
     trainingShardTokens: int | None = Field(default=None, ge=0)
     stateLanes: int | None = Field(default=None, ge=1, le=16)
+
+
+class LabForkRequest(BaseModel):
+    """Browser-safe name for an exact stopped-checkpoint branch."""
+
+    forkRunId: str = Field(pattern=r"^[a-z0-9][a-z0-9-]{0,62}$")
 
 
 class LabEvaluateRequest(BaseModel):
@@ -221,6 +227,21 @@ async def evaluate_lab_run(
                 state_horizons=request.stateHorizons,
                 evaluation_split=request.evaluationSplit,
             ),
+        )
+    except PermissionError as error:
+        raise HTTPException(status_code=403, detail=str(error)) from error
+    except (OSError, ValueError) as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+
+@app.post("/api/lab/runs/{run_id}/fork", status_code=201)
+async def fork_lab_run(run_id: str, request: LabForkRequest) -> dict[str, object]:
+    """Branch an exact stopped checkpoint without constructing a new organism."""
+
+    try:
+        return await asyncio.to_thread(
+            laboratory.fork_run,
+            ForkSpec(source_run_id=run_id, fork_run_id=request.forkRunId),
         )
     except PermissionError as error:
         raise HTTPException(status_code=403, detail=str(error)) from error

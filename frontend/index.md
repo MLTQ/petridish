@@ -43,6 +43,9 @@ experiment laboratory above the live organism.
   dendrites but cannot replace them; fixed still conducts through the saved graph.
 - **Does**: Provides a separate continuation form for moving a stopped checkpoint
   into adaptive topology or lifecycle while explicitly retaining the same organism.
+- **Does**: Accepts an optional counterfactual branch ID so continuation can first
+  copy and fingerprint the exact stopped checkpoint, enabling paired GPU interventions
+  without replacing or overwriting the source organism.
 - **Does**: Lets that same-organism continuation optionally repeat a deterministic
   TinyStories shard; the default preserves the current stream and zero explicitly
   returns to the full corpus.

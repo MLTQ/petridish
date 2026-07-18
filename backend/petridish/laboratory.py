@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
 import json
 import math
 import os
 from pathlib import Path
 import re
+import shutil
 import signal
 import subprocess
 import sys
@@ -78,6 +80,14 @@ class ContinueSpec:
 
 
 @dataclass(frozen=True, slots=True)
+class ForkSpec:
+    """Create a counterfactual branch from one stopped organism checkpoint."""
+
+    source_run_id: str
+    fork_run_id: str
+
+
+@dataclass(frozen=True, slots=True)
 class EvaluateSpec:
     """Read-only held-out evaluation for one checkpointed organism."""
 
@@ -125,6 +135,7 @@ class Laboratory:
                 "trainingShardAudit": True,
                 "trainingShardCurriculum": True,
                 "stateLaneExpansion": True,
+                "checkpointFork": True,
             },
             "gpus": gpus,
             "runs": self._discover_runs(active_runs),
@@ -427,6 +438,86 @@ class Laboratory:
             "phaseIndex": phase_index,
             "pid": process.pid,
             "status": "running",
+        }
+
+    def fork_run(self, spec: ForkSpec) -> dict[str, Any]:
+        """Clone one stopped checkpoint into a traceable counterfactual branch."""
+
+        if not self.control_enabled:
+            raise PermissionError("laboratory process control is disabled")
+        source = self._run_directory(spec.source_run_id)
+        destination = self._run_directory(spec.fork_run_id)
+        manifest = self._read_json(source / "manifest.json")
+        checkpoint = source / "latest.pt"
+        if not checkpoint.is_file():
+            raise ValueError("run has no checkpoint to fork")
+        pid = int(manifest.get("pid", 0) or 0)
+        if pid > 0 and self._pid_alive(pid):
+            raise ValueError("organism is already running")
+        if destination.exists():
+            raise ValueError(f"run already exists: {spec.fork_run_id}")
+        organism_id = str(manifest.get("organismId") or "")
+        if not organism_id:
+            raise ValueError("checkpoint manifest has no organism lineage ID")
+
+        records = self.metrics(spec.source_run_id, limit=2_000)
+        latest_train = next(
+            (record for record in reversed(records) if record.get("type") == "train"),
+            {},
+        )
+        update = int(latest_train.get("update", 0) or 0)
+        checkpoint_sha256 = self._file_sha256(checkpoint)
+        parent_checkpoint = {
+            "runId": spec.source_run_id,
+            "update": update,
+            "sha256": checkpoint_sha256,
+        }
+        temporary = self.run_root / f".{spec.fork_run_id}.fork-{uuid.uuid4().hex}"
+        temporary.mkdir(parents=True)
+        try:
+            shutil.copy2(checkpoint, temporary / "latest.pt")
+            if self._file_sha256(temporary / "latest.pt") != checkpoint_sha256:
+                raise OSError("forked checkpoint failed SHA-256 verification")
+            metrics_path = source / "metrics.jsonl"
+            if metrics_path.is_file():
+                shutil.copy2(metrics_path, temporary / "metrics.jsonl")
+            branch_manifest = dict(manifest)
+            branch_manifest.update(
+                {
+                    "runId": spec.fork_run_id,
+                    "pid": 0,
+                    "command": [],
+                    "commit": self._git_commit(),
+                    "parentCheckpoint": parent_checkpoint,
+                    "branchRootRunId": manifest.get(
+                        "branchRootRunId", spec.source_run_id
+                    ),
+                    "branchDepth": int(manifest.get("branchDepth", 0) or 0) + 1,
+                    "branchedAt": time.time(),
+                }
+            )
+            self._write_json(temporary / "manifest.json", branch_manifest)
+            self._append_jsonl(
+                temporary / "metrics.jsonl",
+                {
+                    "type": "branch",
+                    "update": update,
+                    "organismId": organism_id,
+                    "sourceRunId": spec.source_run_id,
+                    "forkRunId": spec.fork_run_id,
+                    "checkpointSha256": checkpoint_sha256,
+                    "timestamp": time.time(),
+                },
+            )
+            os.replace(temporary, destination)
+        except BaseException:
+            shutil.rmtree(temporary, ignore_errors=True)
+            raise
+        return {
+            "runId": spec.fork_run_id,
+            "organismId": organism_id,
+            "parentCheckpoint": parent_checkpoint,
+            "status": "checkpointed",
         }
 
     def stop_run(self, run_id: str) -> dict[str, Any]:
@@ -798,6 +889,9 @@ class Laboratory:
                     "configuration": configuration,
                     "organismId": manifest.get("organismId"),
                     "phaseHistory": phase_history,
+                    "parentCheckpoint": manifest.get("parentCheckpoint"),
+                    "branchRootRunId": manifest.get("branchRootRunId"),
+                    "branchDepth": manifest.get("branchDepth", 0),
                     "commit": manifest.get("commit"),
                     "latestTrain": latest_train,
                     "latestHeldOut": latest_held_out,
@@ -952,6 +1046,14 @@ class Laboratory:
             raise ValueError("run path escapes laboratory root")
         return directory
 
+    @staticmethod
+    def _file_sha256(path: Path) -> str:
+        digest = hashlib.sha256()
+        with path.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+        return digest.hexdigest()
+
     def _git_commit(self) -> str | None:
         try:
             return subprocess.run(
@@ -1000,4 +1102,4 @@ class Laboratory:
             os.fsync(stream.fileno())
 
 
-__all__ = ["ContinueSpec", "EvaluateSpec", "Laboratory", "LaunchSpec"]
+__all__ = ["ContinueSpec", "EvaluateSpec", "ForkSpec", "Laboratory", "LaunchSpec"]

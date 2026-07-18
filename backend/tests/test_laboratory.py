@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
-from petridish.laboratory import ContinueSpec, EvaluateSpec, Laboratory, LaunchSpec
+from petridish.laboratory import (
+    ContinueSpec, EvaluateSpec, ForkSpec, Laboratory, LaunchSpec,
+)
 
 
 def test_metrics_are_bounded_and_ignore_partial_json(tmp_path: Path) -> None:
@@ -126,6 +129,77 @@ def test_launch_is_disabled_by_default(tmp_path: Path) -> None:
         laboratory.launch(LaunchSpec("trial", "GPU-example"))
 
 
+def test_checkpoint_fork_preserves_exact_organism_and_records_parent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    run_root = tmp_path / "runs"
+    source = run_root / "source"
+    source.mkdir(parents=True)
+    checkpoint = b"persistent cells, graph, weights, optimizer, rng, and state"
+    (source / "latest.pt").write_bytes(checkpoint)
+    manifest = {
+        "version": 2,
+        "runId": "source",
+        "organismId": "organism-preserved",
+        "pid": 0,
+        "phaseHistory": [{"index": 3, "name": "consolidated"}],
+        "configuration": {"stateLanes": 16},
+    }
+    (source / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    (source / "metrics.jsonl").write_text(
+        json.dumps({"type": "train", "update": 5250}) + "\n",
+        encoding="utf-8",
+    )
+    laboratory = Laboratory(tmp_path, run_root=run_root, control_enabled=True)
+    monkeypatch.setattr(laboratory, "_git_commit", lambda: "fork-commit")
+
+    result = laboratory.fork_run(ForkSpec("source", "prune-branch"))
+
+    branch = run_root / "prune-branch"
+    branch_manifest = json.loads((branch / "manifest.json").read_text())
+    branch_records = [
+        json.loads(line) for line in (branch / "metrics.jsonl").read_text().splitlines()
+    ]
+    digest = hashlib.sha256(checkpoint).hexdigest()
+    assert result == {
+        "runId": "prune-branch",
+        "organismId": "organism-preserved",
+        "parentCheckpoint": {"runId": "source", "update": 5250, "sha256": digest},
+        "status": "checkpointed",
+    }
+    assert (branch / "latest.pt").read_bytes() == checkpoint
+    assert (branch / "latest.pt").stat().st_ino != (source / "latest.pt").stat().st_ino
+    assert branch_manifest["organismId"] == manifest["organismId"]
+    assert branch_manifest["phaseHistory"] == manifest["phaseHistory"]
+    assert branch_manifest["parentCheckpoint"] == result["parentCheckpoint"]
+    assert branch_manifest["branchRootRunId"] == "source"
+    assert branch_manifest["branchDepth"] == 1
+    assert branch_manifest["pid"] == 0
+    assert branch_records[-1]["type"] == "branch"
+    assert branch_records[-1]["checkpointSha256"] == digest
+    assert json.loads((source / "manifest.json").read_text()) == manifest
+
+
+def test_checkpoint_fork_rejects_a_running_source(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = tmp_path / "runs" / "source"
+    source.mkdir(parents=True)
+    (source / "latest.pt").write_bytes(b"state")
+    (source / "manifest.json").write_text(
+        json.dumps({"organismId": "organism-live", "pid": 42}), encoding="utf-8"
+    )
+    laboratory = Laboratory(
+        tmp_path, run_root=tmp_path / "runs", control_enabled=True
+    )
+    monkeypatch.setattr(laboratory, "_pid_alive", lambda _: True)
+
+    with pytest.raises(ValueError, match="already running"):
+        laboratory.fork_run(ForkSpec("source", "unsafe-branch"))
+
+    assert not (tmp_path / "runs" / "unsafe-branch").exists()
+
+
 def test_snapshot_advertises_checkpoint_evaluation_route(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -139,6 +213,7 @@ def test_snapshot_advertises_checkpoint_evaluation_route(
     assert capabilities["trainingShardAudit"] is True
     assert capabilities["trainingShardCurriculum"] is True
     assert capabilities["stateLaneExpansion"] is True
+    assert capabilities["checkpointFork"] is True
     assert capabilities["tokenizerProfiles"] == ["wordpiece", "byte"]
 
 

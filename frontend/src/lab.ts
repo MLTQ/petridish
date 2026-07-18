@@ -153,6 +153,9 @@ interface RunSnapshot {
   configuration: Record<string, unknown>;
   organismId: string | null;
   phaseHistory: OrganismPhase[];
+  parentCheckpoint?: { runId: string; update: number; sha256: string } | null;
+  branchRootRunId?: string | null;
+  branchDepth?: number;
   commit: string | null;
   latestTrain: MetricRecord | null;
   latestHeldOut: MetricRecord | null;
@@ -176,6 +179,7 @@ interface LaboratorySnapshot {
     trainingShardAudit?: boolean;
     trainingShardCurriculum?: boolean;
     stateLaneExpansion?: boolean;
+    checkpointFork?: boolean;
   };
   gpus: GpuSnapshot[];
   runs: RunSnapshot[];
@@ -278,6 +282,7 @@ export class LaboratoryView {
   private readonly launchStatus = required<HTMLOutputElement>("#lab-launch-status");
   private readonly continueForm = required<HTMLFormElement>("#laboratory-continue-form");
   private readonly continueRunSelect = required<HTMLSelectElement>("#lab-continue-run");
+  private readonly continueForkRunInput = required<HTMLInputElement>("#lab-continue-fork-run");
   private readonly continueGpuSelect = required<HTMLSelectElement>("#lab-continue-gpu");
   private readonly continueLifecycleSelect = required<HTMLSelectElement>("#lab-continue-lifecycle-profile");
   private readonly continueStructureSelect = required<HTMLSelectElement>("#lab-continue-structure");
@@ -413,6 +418,10 @@ export class LaboratoryView {
     if (!snapshot.capabilities.stateLaneExpansion) {
       this.continueStateLanesSelect.value = "preserve";
     }
+    this.continueForkRunInput.disabled = !(
+      canContinue && snapshot.capabilities.checkpointFork
+    );
+    if (!snapshot.capabilities.checkpointFork) this.continueForkRunInput.value = "";
     this.launchStatus.value = snapshot.controlEnabled
       ? "new runs receive immutable manifests"
       : "launch control disabled on server";
@@ -1048,7 +1057,8 @@ export class LaboratoryView {
     this.continueButton.disabled = true;
     this.continueStatus.value = "continuing checkpoint lineage";
     const form = new FormData(this.continueForm);
-    const runId = String(form.get("runId"));
+    let runId = String(form.get("runId"));
+    const forkRunId = String(form.get("forkRunId") ?? "").trim();
     const lifecycleProfile = String(form.get("lifecycleProfile"));
     const topologyProfile = String(form.get("topologyProfile"));
     const phaseName = String(form.get("phaseName") ?? "").trim();
@@ -1066,6 +1076,24 @@ export class LaboratoryView {
       stateLanes: laneSelection === "preserve" ? null : Number(laneSelection),
     };
     try {
+      if (forkRunId) {
+        const forkResponse = await fetch(
+          `/api/lab/runs/${encodeURIComponent(runId)}/fork`,
+          {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ forkRunId }),
+          },
+        );
+        const forkPayload = await forkResponse.json() as {
+          runId?: string; organismId?: string; detail?: string;
+        };
+        if (!forkResponse.ok) {
+          throw new Error(forkPayload.detail ?? `checkpoint fork failed (${forkResponse.status})`);
+        }
+        runId = forkPayload.runId ?? forkRunId;
+        this.continueStatus.value = `${runId}: exact checkpoint fork created; continuing same organism`;
+      }
       const response = await fetch(`/api/lab/runs/${encodeURIComponent(runId)}/continue`, {
         method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
       });
@@ -1075,6 +1103,7 @@ export class LaboratoryView {
       if (!response.ok) throw new Error(payload.detail ?? `continuation failed (${response.status})`);
       this.continueStatus.value = `${payload.runId} · same organism · phase ${payload.phaseIndex}`;
       if (payload.runId) this.selectedRuns.add(payload.runId);
+      this.continueForkRunInput.value = "";
       await this.refresh();
     } catch (error) {
       this.continueStatus.value = error instanceof Error ? error.message : "continuation failed";
@@ -1110,7 +1139,10 @@ export class LaboratoryView {
       ? ` · repeat ${phase.trainingShardTokens.toLocaleString()}`
       : phase?.trainingShardTokens === 0 ? " · full stream" : "";
     const lanes = phase?.stateLanes ?? Number(run.configuration.stateLanes ?? 1);
-    return `${lineage} · p${phase?.index ?? 0} ${phase?.name ?? "training"}${curriculum} · ${lanes} lane${lanes === 1 ? "" : "s"}`;
+    const branch = run.parentCheckpoint
+      ? ` · fork ← ${run.parentCheckpoint.runId}@${run.parentCheckpoint.update.toLocaleString()}`
+      : "";
+    return `${lineage} · p${phase?.index ?? 0} ${phase?.name ?? "training"}${curriculum} · ${lanes} lane${lanes === 1 ? "" : "s"}${branch}`;
   }
 
   private populateSelect(select: HTMLSelectElement, choices: { value: string; label: string }[]): void {

@@ -118,6 +118,7 @@
       <summary>Continue persistent organism</summary>
       <form id="laboratory-continue-form" class="laboratory-control-form">
         <label>Organism run <select id="lab-continue-run" name="runId" required></select></label>
+        <label>Counterfactual branch ID <input id="lab-continue-fork-run" name="forkRunId" pattern="[a-z0-9][a-z0-9-]{0,62}" placeholder="optional exact-checkpoint fork"></label>
         <label>GPU <select id="lab-continue-gpu" name="gpuUuid" required></select></label>
         <label>Additional updates <input name="additionalUpdates" type="number" min="1" value="1000" required></label>
         <label>Experience curriculum <select id="lab-continue-training-shard" name="trainingShardTokens"><option value="preserve" selected>preserve current stream</option><option value="0">full training stream</option><option value="128">repeat 128-token shard</option><option value="512">repeat 512-token shard</option><option value="1024">repeat 1,024-token shard</option><option value="2048">repeat 2,048-token shard</option><option value="8192">repeat 8,192-token shard</option><option value="32768">repeat 32,768-token shard</option><option value="131072">repeat 131,072-token shard</option></select></label>

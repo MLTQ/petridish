@@ -127,6 +127,10 @@ validated launch or stop requests.
   recorded in the immutable manifest rather than applied out of band.
 - **Does**: Continues a checkpointed organism into a named topology/lifecycle phase
   without accepting architecture, geometry, connectome, weight, or state replacements.
+- **Does**: Optionally forks the selected stopped checkpoint before continuation so
+  two named branches can receive different interventions from byte-identical cells,
+  graph, weights, optimizer, RNG, cursors, and electrical memory. Branch ancestry and
+  checkpoint update remain visible beside the immutable organism lineage.
 - **Does**: Can change a continued TinyStories organism to a deterministic repeated
   experience shard without resetting or replacing any organism-owned state.
 - **Does**: Can expand a continued organism's persistent experience lanes without

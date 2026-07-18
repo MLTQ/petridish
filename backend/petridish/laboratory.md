@@ -46,6 +46,8 @@ explicitly enabled trainer processes.
   version mismatch cannot silently discard a curriculum request.
 - **Does**: Advertises append-only state-lane expansion explicitly so an older
   backend can never misinterpret phase-diversity controls as ordinary continuation.
+- **Does**: Advertises exact checkpoint forking explicitly so the frontend cannot
+  present paired counterfactual controls against an older copy-only backend.
 - **Interacts with**: `/api/lab` in `server.py` and `lab.ts`.
 
 ### `Laboratory.metrics`
@@ -108,6 +110,16 @@ explicitly enabled trainer processes.
   later diagnostics can report phase-local change separately from lifetime totals.
 - **Rationale**: Structural warm-up, adaptive pruning, and lifecycle pressure must be
   phases of one organism rather than separately initialized comparison runs.
+
+### `ForkSpec` / `Laboratory.fork_run`
+- **Does**: Copies a stopped atomic checkpoint and its metric history into a new,
+  separately named counterfactual branch without constructing a model or organism.
+- **Does**: Preserves the organism ID and records the parent run, checkpoint update,
+  SHA-256 checkpoint identity, root run, and branch depth in the branch manifest.
+- **Does**: Publishes the branch directory atomically and rejects running sources,
+  missing lineage IDs, missing checkpoints, and existing destination names.
+- **Rationale**: Two GPUs can compare fixed, pruning, or lifecycle interventions from
+  byte-identical evolved structure without overwriting the sole original lineage.
 
 ### `EvaluateSpec` / `Laboratory.evaluate_run`
 - **Does**: Starts read-only held-out evaluation from a stopped checkpoint, optionally
