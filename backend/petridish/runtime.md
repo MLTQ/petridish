@@ -44,6 +44,13 @@ training and intervention mutations behind one lock.
 - **Rationale**: Checkpoints use trusted local PyTorch payloads; the WebSocket
   command cannot escape the repository run directory.
 
+### `checkpoint_root_from_environment`
+- **Does**: Uses `PETRIDISH_RUN_ROOT` as the shared checkpoint catalog, falling back
+  to the deploy-local `runs/` directory for ordinary standalone execution.
+- **Interacts with**: The same service setting used by `Laboratory` run discovery.
+- **Rationale**: Training and interactive inference must refer to one authoritative
+  checkpoint rather than silently looking in different worktrees.
+
 ### `_run_sequence_visual_update`
 - **Does**: Runs one sequence optimizer update in a worker while relaying sampled
   snapshots produced from actual token, feedback, and structural frames.
@@ -81,6 +88,7 @@ training and intervention mutations behind one lock.
 | Frontend | Command `type` names and payload fields remain stable | Command schema |
 | Scientific state | Commands never race a physics tick or optimizer update | Removing lock discipline |
 | Hyperparameters | Values validate before a new organism replaces the old one | In-place config mutation |
+| Service deployment | `PETRIDISH_RUN_ROOT` controls both run monitoring and viewer loading | Environment name or path semantics |
 
 ## Notes
 

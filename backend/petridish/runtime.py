@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from contextlib import suppress
+import os
 from pathlib import Path
 import time
 from typing import Any
@@ -23,6 +24,17 @@ from .train_shakespeare import load_checkpoint, restore_checkpoint
 LiveExperiment = MnistExperiment | SequenceExperiment
 
 
+def checkpoint_root_from_environment() -> Path:
+    """Resolve the shared trainer run catalog used by the laboratory service."""
+
+    configured = os.environ.get("PETRIDISH_RUN_ROOT")
+    return (
+        Path(configured)
+        if configured
+        else Path(__file__).resolve().parents[2] / "runs"
+    )
+
+
 class SequenceUpdateInterrupted(RuntimeError):
     """Stop a visual update before its optimizer mutates model state."""
 
@@ -38,7 +50,7 @@ class ExperimentRuntime:
         }
         self.experiment: LiveExperiment = self.experiments["mnist"]
         self.experiment_name = "mnist"
-        self.checkpoint_root = Path(__file__).resolve().parents[2] / "runs"
+        self.checkpoint_root = checkpoint_root_from_environment()
         self.saved_organisms = self._discover_saved_organisms()
         self.experiment_sources: dict[str, str] = {}
         self.running = True

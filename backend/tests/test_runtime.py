@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from petridish.runtime import ExperimentRuntime
+from petridish.runtime import ExperimentRuntime, checkpoint_root_from_environment
 
 
 def runtime_shell() -> ExperimentRuntime:
@@ -73,6 +73,12 @@ def test_saved_organism_discovery_lists_only_checkpoint_directories(tmp_path) ->
     assert runtime._discover_saved_organisms() == [
         {"id": "complete", "label": "complete"}
     ]
+
+
+def test_checkpoint_catalog_uses_shared_run_root(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("PETRIDISH_RUN_ROOT", str(tmp_path))
+
+    assert checkpoint_root_from_environment() == tmp_path
 
 
 def test_saved_organism_rejects_paths_outside_run_directory(tmp_path) -> None:
