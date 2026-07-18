@@ -179,6 +179,14 @@ validated launch or stop requests.
   expose branch depth, parent update, and the first twelve hexadecimal digits of the
   byte-identical parent-checkpoint fingerprint so a copied organism cannot be mistaken
   for a fresh initialization.
+- **Does**: Displays the exact source-checkpoint fingerprint for ordinary continued
+  phases as well as counterfactual branches, making full-state continuation directly
+  auditable instead of merely implied by a shared organism ID.
+- **Does**: Calls a fixed-topology phase a learned graph that is frozen but still
+  conducting, so mutation control cannot be mistaken for bypassing the connectome.
+- **Does**: Keeps measured novel-token exposure visible after the one-time domain
+  expansion phase; later phases retain their wider carried domains even when they do
+  not reapply the expansion operation.
 - **Does**: Shows the current repeated-shard size or full-stream curriculum directly
   beside the lineage phase before the next held-out audit is available.
 - **Does**: Displays rolling training and held-out accuracy separately in the run

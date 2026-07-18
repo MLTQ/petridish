@@ -350,7 +350,8 @@ class Laboratory:
             raise ValueError(
                 "persistent domain expansion requires an explicit broader curriculum"
             )
-        if not (directory / "latest.pt").is_file():
+        checkpoint = directory / "latest.pt"
+        if not checkpoint.is_file():
             raise ValueError("run has no checkpoint to continue")
         pid = int(manifest.get("pid", 0) or 0)
         if pid > 0 and self._pid_alive(pid):
@@ -370,6 +371,7 @@ class Laboratory:
         )
         start_update = int((latest_train or {}).get("update", 0))
         target_update = start_update + spec.additional_updates
+        checkpoint_sha256 = self._file_sha256(checkpoint)
         organism_id = str(manifest.get("organismId") or f"organism-{uuid.uuid4().hex}")
         history = list(manifest.get("phaseHistory") or [])
         if not history:
@@ -550,6 +552,7 @@ class Laboratory:
             "startBirths": int((latest_diagnostic or {}).get("cumulativeBirths", 0)),
             "startDeaths": int((latest_diagnostic or {}).get("cumulativeDeaths", 0)),
             "startedAt": time.time(),
+            "sourceCheckpointSha256": checkpoint_sha256,
         }
         history.append(phase)
         configuration.update(
@@ -576,6 +579,7 @@ class Laboratory:
                 "phaseHistory": history,
                 "commit": self._git_commit(),
                 "command": command,
+                "lastContinuationCheckpointSha256": checkpoint_sha256,
             }
         )
         self._write_json(directory / "manifest.json", manifest)
@@ -600,6 +604,7 @@ class Laboratory:
                 "startPrunedEdges": phase["startPrunedEdges"],
                 "startBirths": phase["startBirths"],
                 "startDeaths": phase["startDeaths"],
+                "sourceCheckpointSha256": checkpoint_sha256,
                 "timestamp": time.time(),
             },
         )
@@ -610,6 +615,7 @@ class Laboratory:
             "runId": spec.run_id,
             "organismId": organism_id,
             "phaseIndex": phase_index,
+            "checkpointSha256": checkpoint_sha256,
             "pid": process.pid,
             "status": "running",
         }

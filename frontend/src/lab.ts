@@ -167,6 +167,7 @@ interface OrganismPhase {
   startPrunedEdges?: number;
   startBirths?: number;
   startDeaths?: number;
+  sourceCheckpointSha256?: string;
 }
 
 interface RunSnapshot {
@@ -958,7 +959,7 @@ export class LaboratoryView {
         : this.snapshot?.capabilities.persistentStateTraining
           ? " · persistent-state gradients only"
           : " · random-offset aux off";
-      const novelStreamSummary = run.configuration.expandedExistingLaneDomains
+      const novelStreamSummary = run.latestTrain?.novelStreamTokenFraction !== undefined
         ? ` · novel sensory tokens ${this.percent(run.latestTrain?.novelStreamTokenFraction)}${run.latestTrain?.novelStreamRows === undefined ? "" : ` · ${run.latestTrain.novelStreamRows} novel rows`}`
         : "";
       const shardCausality = shardAudit?.graphReferenceAccuracy === undefined
@@ -985,7 +986,7 @@ export class LaboratoryView {
         ?? (run.configuration.structure === false ? "fixed" : "adaptive")
       );
       const topologyStatus = topologyProfile === "fixed"
-        ? "fixed conducting"
+        ? "learned graph frozen, still conducting"
         : `${topologyProfile.replace("_", "-")} ${diagnostic?.structureUnlocked ? "active" : "locked"}`;
       const phase = (run.phaseHistory ?? []).at(-1);
       const phaseTurnover = diagnostic && phase?.startGrownEdges !== undefined
@@ -1372,10 +1373,11 @@ export class LaboratoryView {
         method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
       });
       const payload = await response.json() as {
-        runId?: string; organismId?: string; phaseIndex?: number; detail?: string;
+        runId?: string; organismId?: string; phaseIndex?: number;
+        checkpointSha256?: string; detail?: string;
       };
       if (!response.ok) throw new Error(payload.detail ?? `continuation failed (${response.status})`);
-      this.continueStatus.value = `${payload.runId} · same organism · phase ${payload.phaseIndex}`;
+      this.continueStatus.value = `${payload.runId} · same organism · phase ${payload.phaseIndex} · source checkpoint ${payload.checkpointSha256?.slice(0, 12) ?? "verified"}`;
       if (payload.runId) this.selectedRuns.add(payload.runId);
       this.continueForkRunInput.value = "";
       await this.refresh();
@@ -1449,7 +1451,10 @@ export class LaboratoryView {
     const branch = run.parentCheckpoint
       ? ` · exact fork d${run.branchDepth ?? "?"} ← ${run.parentCheckpoint.runId}@${run.parentCheckpoint.update.toLocaleString()} sha ${run.parentCheckpoint.sha256.slice(0, 12)}`
       : "";
-    return `organism ${lineage} · p${phase?.index ?? 0} ${phase?.name ?? "training"}${curriculum}${carriedExpansion}${auxiliaryLabel} · ${lanes} lane${lanes === 1 ? "" : "s"}${branch}`;
+    const continuation = phase?.sourceCheckpointSha256
+      ? ` · resumed exact state ${phase.sourceCheckpointSha256.slice(0, 12)}`
+      : "";
+    return `organism ${lineage} · p${phase?.index ?? 0} ${phase?.name ?? "training"}${curriculum}${carriedExpansion}${auxiliaryLabel} · ${lanes} lane${lanes === 1 ? "" : "s"}${continuation}${branch}`;
   }
 
   private populateSelect(select: HTMLSelectElement, choices: { value: string; label: string }[]): void {

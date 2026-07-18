@@ -74,6 +74,9 @@ control-enable contracts without requiring NVIDIA hardware or launching trainers
 - **Does**: Proves continuation reuses one run/organism ID, advances from the measured
   checkpoint update, records a phase boundary, and invokes resume-plasticity without
   the fresh-run flag.
+- **Does**: Proves every new continuation phase fingerprints the exact checkpoint it
+  resumes and publishes the same SHA-256 identity in its result, manifest, phase
+  history, and append-only phase record.
 - **Does**: Proves a repeated-shard curriculum is recorded in the same lineage's
   command, manifest, phase boundary, and append-only metric.
 - **Does**: Proves append-only lane expansion reaches the command, manifest, phase

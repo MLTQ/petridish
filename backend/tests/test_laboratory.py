@@ -582,9 +582,12 @@ def test_checkpoint_continuation_preserves_run_lineage_and_changes_only_phase(
         for line in (run / "metrics.jsonl").read_text(encoding="utf-8").splitlines()
     ]
     command = launched["command"]
+    checkpoint_sha256 = hashlib.sha256(b"").hexdigest()
     assert isinstance(command, list)
     assert result["runId"] == "trial"
     assert result["organismId"] == manifest["organismId"]
+    assert result["checkpointSha256"] == checkpoint_sha256
+    assert manifest["lastContinuationCheckpointSha256"] == checkpoint_sha256
     assert manifest["configuration"]["updates"] == 1_500
     assert manifest["configuration"]["structure"] is True
     assert manifest["configuration"]["topologyProfile"] == "prune_only"
@@ -603,6 +606,7 @@ def test_checkpoint_continuation_preserves_run_lineage_and_changes_only_phase(
     assert manifest["phaseHistory"][-1]["startPrunedEdges"] == 448
     assert manifest["phaseHistory"][-1]["startBirths"] == 3
     assert manifest["phaseHistory"][-1]["startDeaths"] == 5
+    assert manifest["phaseHistory"][-1]["sourceCheckpointSha256"] == checkpoint_sha256
     assert [phase["startUpdate"] for phase in manifest["phaseHistory"]] == [0, 500]
     assert command[command.index("--updates") + 1] == "1500"
     assert "--resume-plasticity" in command
@@ -623,6 +627,7 @@ def test_checkpoint_continuation_preserves_run_lineage_and_changes_only_phase(
     assert records[-1]["randomOffsetAuxiliaryScope"] == "full_corpus"
     assert records[-1]["startGrownEdges"] == 320
     assert records[-1]["startPrunedEdges"] == 448
+    assert records[-1]["sourceCheckpointSha256"] == checkpoint_sha256
 
 
 def test_curriculum_breadth_requires_append_only_lanes_and_never_shrinks(

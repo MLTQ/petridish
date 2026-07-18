@@ -111,6 +111,9 @@ explicitly enabled trainer processes.
 ### `ContinueSpec` / `Laboratory.continue_run`
 - **Does**: Advances a stopped checkpoint into a new topology/lifecycle phase in the
   same run directory and on the same organism lineage.
+- **Does**: Fingerprints the exact source checkpoint before every new phase and
+  records that SHA-256 identity in the phase history, append-only boundary metric,
+  manifest, and response; provenance is therefore verifiable even without a fork.
 - **Does**: Converts additional updates to an absolute target, appends a phase-boundary
   metric, and rejects continuation while the organism is already running.
 - **Does**: Records the resolved topology profile in the manifest, phase history,
