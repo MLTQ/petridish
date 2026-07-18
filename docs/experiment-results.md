@@ -682,3 +682,73 @@ was less harmful there, confirming genuine overfit. The next intervention should
 independently phased persistent experience lanes while preserving every existing
 lane, rather than scaling the corpus immediately. This directly tests whether one
 organism can consolidate the same local rule and graph across many cursor phases.
+
+### Persistent lanes converted trajectory memorization into phase-robust graph learning
+
+Both organisms then expanded their experience banks append-only to sixteen lanes.
+The 2070 organism retained its two 136,000-token lanes and appended fourteen cold
+lanes; the 4090 organism retained its 115,264-token lane and appended fifteen. Cells,
+positions, dendrites, synaptic weights, model parameters, optimizer moments, random
+streams, and existing runtime tensors were preserved. A device-placement fault in the
+first launch attempt stopped before an optimizer update or checkpoint write; the
+device-safe retry resumed the same checkpoint and was verified by exact cursor and
+age advancement rather than reseeding.
+
+On the unchanged 2070 organism, 1,000 phase updates over the same 1,024-byte shard
+rose monotonically by 100-update bin from 25.17%, 30.38%, 35.05%, 43.94%, 47.86%,
+53.88%, 60.13%, 64.50%, and 68.91% to 71.33%. The final-160 result was 70.95% /
+1.18772, and the final four visits to every lane ranged from 61.72% to 85.55% with a
+71.88% mean. This improvement was therefore distributed across newly appended lanes,
+not confined to the two inherited electrical trajectories. The final-160 gradient
+clip scale had median 0.103, tenth percentile 0.083, and 40.63% of updates at or below
+0.1.
+
+Read-only 1,024-token audits show that multi-lane competence remains genuinely
+physical. The exact next trajectory reached 72.85% / 1.06254; graph silence collapsed
+to 0.20%, global endpoint rotation to 9.96%, within-destination source/weight
+reassignment to 9.96%, broadcast silence to 16.80%, and cold electrical state to
+57.03%. More importantly, random offsets within the active shard reached 60.25% with
+the intact graph, versus 0.10% silenced, 8.59% rotated, 9.67% reassigned, 16.80% with
+broadcast silenced, and 46.39% from cold state. The earlier random-offset result was
+only 19.14%; sixteen persistent lanes therefore converted an aligned replay solution
+into broad cursor-phase competence while retaining strong dependence on the emerged
+connectome.
+
+This is not yet language generalization. The fixed-seed validation audit measured
+12.21% aggregate accuracy / 4.07420 loss, with the matched graph-reference branch at
+10.55%, below the 19.09% unigram baseline. Graph silence still fell to 0.10%, but
+rotating or reassigning an already out-of-distribution graph changed little. The
+generation sample was `oe ooee ao  lie `. Phase coverage solved an experience-alignment
+problem, not the corpus-breadth problem.
+
+The 4090 local-only organism independently produced an even cleaner result. Its
+100-update bins rose from 21.64% and 28.34% through 63.97% and 96.86% to 99.98% over
+the final 88 updates. It was checkpoint-stopped at update 2,289 after all sixteen
+lanes achieved 100% over their last four visits; its final-160 rolling result was
+99.36% / 0.29223. No broadcast workspace exists in this lineage.
+
+The exact-trajectory audit remained 100% at every one of 1,024 positions. Graph
+silence reduced accuracy to 7.91%, endpoint rotation to 6.15%, source/weight
+reassignment to 9.18%, and cold state to 82.03%. The random-offset active-shard audit
+reached 99.32%, versus 7.81% silenced, 6.84% rotated, 9.28% reassigned, and 80.47%
+from cold state. Before the lane intervention, random-offset accuracy was 26.76% and
+cold exact-trajectory accuracy 28.91%. A shared local rule and fixed dendritic graph
+therefore learned essentially the complete 128-byte conditional distribution across
+cursor phases without a global information shortcut. Validation remained 9.57% /
+4.65768 with a 10.94% graph-reference branch, again separating physical computation
+from transferable language.
+
+All six final audits ran on disposable model/state copies. The 2070 checkpoint stayed
+byte-identical at SHA-256 `a2d4552c35b145362a8d08b82e847e741216b079d09c24d23c31bd8222c01991`;
+the 4090 checkpoint stayed byte-identical at
+`818a9c58f84c9454ffde9bb21e6d423a7ecc8b68044ceacad0917a6736365c39`.
+
+The next experiment branches the exact 2070 update-5,250 checkpoint into two separate
+files with the same organism ID and SHA-256. Both preserve all sixteen lanes and move
+to a 2,048-byte shard for 1,000 updates. `nca2070-u5250-fixed-2k` keeps the connectome
+fixed; `nca2070-u5250-prune-2k` permits pruning but forbids replacement growth.
+Lifecycle remains off in both so cell turnover cannot confound the pruning contrast.
+Their first updates matched in loss, accuracy, gradients, population, graph, cursor,
+and lane age. Pruning remains governed by the checkpointed competence/plateau gate,
+so the two descendants stay matched until the organism's own structural policy
+activates.
