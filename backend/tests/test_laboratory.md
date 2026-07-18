@@ -44,6 +44,8 @@ control-enable contracts without requiring NVIDIA hardware or launching trainers
   stability controls.
 - **Does**: Preserves a zero corpus broadcast gain in the trainer command and
   rejects gains above the bounded workspace range.
+- **Does**: Preserves a power-of-two TinyStories vocabulary curriculum and rejects
+  unsupported intermediate sizes.
 
 ## Contracts
 

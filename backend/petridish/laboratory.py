@@ -36,6 +36,7 @@ class LaunchSpec:
     field_size: int = 68
     batch_size: int = 16
     context_length: int = 64
+    vocabulary_size: int = 2_048
     message_steps: int = 2
     broadcast_gain: float = 0.3
     updates: int = 100_000
@@ -133,6 +134,7 @@ class Laboratory:
                 "fieldSize": spec.field_size,
                 "batchSize": spec.batch_size,
                 "contextLength": spec.context_length,
+                "vocabularySize": spec.vocabulary_size,
                 "messageSteps": spec.message_steps,
                 "broadcastGain": spec.broadcast_gain,
                 "updates": spec.updates,
@@ -200,6 +202,8 @@ class Laboratory:
             raise ValueError(f"{spec.task} laboratory runs require a {required_field}×{required_field} field")
         if spec.context_length < 8 or spec.context_length > 256:
             raise ValueError("context length must be between 8 and 256")
+        if spec.vocabulary_size not in {64, 128, 256, 512, 1_024, 2_048}:
+            raise ValueError("vocabulary size must be a supported power of two from 64 to 2048")
         if spec.batch_size < 1 or spec.batch_size > 256:
             raise ValueError("batch size must be between 1 and 256")
         if spec.message_steps < 1 or spec.message_steps > 16:
@@ -222,6 +226,7 @@ class Laboratory:
             "--device", "cuda", "--field-size", str(spec.field_size),
             "--batch-size", str(spec.batch_size),
             "--context-length", str(spec.context_length),
+            "--vocabulary-size", str(spec.vocabulary_size),
             "--message-steps", str(spec.message_steps),
             "--broadcast-gain", str(spec.broadcast_gain),
             "--architecture", spec.architecture,

@@ -300,6 +300,10 @@ def main() -> None:
     parser.add_argument("--field-size", type=int)
     parser.add_argument("--batch-size", type=int)
     parser.add_argument("--context-length", type=int, default=64)
+    parser.add_argument(
+        "--vocabulary-size", type=int,
+        choices=(64, 128, 256, 512, 1_024, 2_048), default=2_048,
+    )
     parser.add_argument("--message-steps", type=int)
     parser.add_argument("--broadcast-gain", type=float)
     parser.add_argument("--architecture", choices=CELL_ARCHITECTURES, default="gru")
@@ -338,6 +342,7 @@ def main() -> None:
         args.seed = int(saved_task["seed"])
         args.amp = str(saved_task["amp_mode"])
         args.task = str(saved_task.get("key", "tiny_shakespeare"))
+        args.vocabulary_size = len(tuple(saved_task.get("vocabulary", ())))
         config = MnistModelConfig(**payload["configuration"])
     else:
         config = _fresh_config(
@@ -353,7 +358,7 @@ def main() -> None:
             structure=args.structure,
         )
     task = (
-        load_tiny_stories_task(args.context_length)
+        load_tiny_stories_task(args.context_length, args.vocabulary_size)
         if args.task == "tiny_stories"
         else load_tiny_shakespeare_task(args.context_length)
     )

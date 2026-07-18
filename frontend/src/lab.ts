@@ -663,6 +663,7 @@ export class LaboratoryView {
       architecture: String(form.get("architecture")),
       fieldSize: 68,
       batchSize: Number(form.get("batchSize")), contextLength: 64,
+      vocabularySize: Number(form.get("vocabularySize")),
       messageSteps: Number(form.get("messageSteps")),
       broadcastGain: Number(form.get("broadcastGain")),
       updates: Number(form.get("updates")), seed: Number(form.get("seed")),

@@ -22,6 +22,8 @@ explicitly enabled trainer processes.
   and synapse optimizer groups.
 - **Does**: Records a bounded broadcast-workspace gain independently from the
   microtick budget; zero is the hard physical-routing ablation.
+- **Does**: Records a 64–2,048 power-of-two token-vocabulary curriculum while
+  preserving the same 64-port physical population code.
 - **Does**: Derives the compatibility lifecycle boolean from the resolved profile so
   the manifest and trainer command cannot disagree.
 

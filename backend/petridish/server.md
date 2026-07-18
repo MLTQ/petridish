@@ -36,6 +36,8 @@ runtime device is configurable independently from trainer workers.
   controls.
 - **Does**: Bounds corpus broadcast gain from 0 through 2 so physical-only and
   global-workspace runs are explicit API interventions.
+- **Does**: Restricts token-vocabulary curriculum requests to 64–2,048 entries;
+  the laboratory applies the exact supported power-of-two set.
 - **Rationale**: The API never accepts a shell command or arbitrary path.
 
 ### `websocket_endpoint`

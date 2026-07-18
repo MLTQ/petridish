@@ -113,6 +113,23 @@ def test_laboratory_preserves_bounded_broadcast_gain(tmp_path: Path) -> None:
         )
 
 
+def test_laboratory_preserves_token_vocabulary_curriculum(tmp_path: Path) -> None:
+    laboratory = Laboratory(tmp_path, run_root=tmp_path / "runs", control_enabled=True)
+    spec = LaunchSpec(
+        "trial", "GPU-example", task="tiny_stories", field_size=68,
+        vocabulary_size=128,
+    )
+
+    laboratory._validate_spec(spec)
+    command = laboratory._trainer_command(spec, tmp_path / "runs" / "trial")
+
+    assert command[command.index("--vocabulary-size") + 1] == "128"
+    with pytest.raises(ValueError, match="vocabulary size"):
+        laboratory._validate_spec(
+            LaunchSpec("invalid", "GPU-example", vocabulary_size=100)
+        )
+
+
 def test_legacy_lifecycle_flag_resolves_to_recorded_baseline(tmp_path: Path) -> None:
     laboratory = Laboratory(tmp_path, run_root=tmp_path / "runs", control_enabled=True)
     spec = LaunchSpec(

@@ -30,6 +30,8 @@ experiment laboratory above the live organism.
   one-token routing budget is an explicit intervention.
 - **Does**: Exposes exact broadcast-workspace gain beside microticks; zero launches
   a hard local-only corpus run rather than an undocumented global shortcut.
+- **Does**: Exposes a 64–2,048 power-of-two TinyStories vocabulary curriculum while
+  leaving the organism's 64 physical boundary ports unchanged.
 - **Does**: Selects fixed or adaptive topology independently from lifecycle.
 - **Does**: Exposes a bounded common learning-rate scale for controlled long-run
   stability experiments.

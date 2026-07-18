@@ -9,6 +9,9 @@ choices can be supplied explicitly.
 `--task tiny_stories` selects the 68×68 distributed-token organism and its cached
 2,048-piece TinyStories task. The historical module name remains stable for existing
 service files and checkpoints. Metrics report token throughput for both task types.
+`--vocabulary-size` selects a 64–2,048 power-of-two lexical curriculum without
+changing the 64-cell input/output population banks. Resume derives the saved size
+from checkpoint vocabulary metadata rather than silently restoring 2,048 pieces.
 The token profile retains its task-specific 500-update lifecycle and 1,000-update
 pruning warm-ups; the Shakespeare profile retains its conservative 5,000-update
 warm-ups. CLI lifecycle selection changes activation, not those task definitions.
