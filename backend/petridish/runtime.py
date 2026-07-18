@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from contextlib import suppress
+import json
 import os
 from pathlib import Path
 import time
@@ -13,12 +14,13 @@ import torch
 from fastapi import WebSocket
 
 from .corpus_task import load_tiny_shakespeare_task
-from .token_corpus_task import load_tiny_stories_task
+from .graph_layout import sequence_layout
 from .mnist_config import MnistModelConfig
 from .mnist_experiment import MnistExperiment
 from .mnist_hyperparameters import configured
 from .protocol import build_snapshot
 from .sequence_experiment import SequenceExperiment
+from .token_corpus_task import load_tiny_stories_task
 from .train_shakespeare import load_checkpoint, restore_checkpoint
 
 
@@ -275,8 +277,27 @@ class ExperimentRuntime:
         return [
             {"id": directory.name, "label": directory.name}
             for directory in sorted(self.checkpoint_root.iterdir())
-            if directory.is_dir() and (directory / "latest.pt").is_file()
+            if (
+                directory.is_dir()
+                and (directory / "latest.pt").is_file()
+                and self._manifest_has_linear_port_banks(directory)
+            )
         ]
+
+    @staticmethod
+    def _manifest_has_linear_port_banks(directory: Path) -> bool:
+        """Hide known legacy corpus runs whose boundary ports wrap into a stripe."""
+
+        manifest = directory / "manifest.json"
+        if not manifest.is_file():
+            return True
+        try:
+            payload = json.loads(manifest.read_text())
+            task_key = str(payload.get("task", ""))
+            field_size = int(payload.get("configuration", {}).get("fieldSize", 0))
+        except (OSError, TypeError, ValueError, json.JSONDecodeError):
+            return True
+        return task_key not in {"tiny_shakespeare", "tiny_stories"} or field_size >= 68
 
     def _load_saved_organism(self, identifier: str) -> SequenceExperiment:
         """Reconstruct one trusted local checkpoint for testing in the viewer."""
@@ -311,6 +332,14 @@ class ExperimentRuntime:
         if not isinstance(config_payload, dict):
             raise ValueError("checkpoint configuration is invalid")
         config = MnistModelConfig(**config_payload)
+        layout = sequence_layout(task_key, len(task.vocabulary))
+        required_height = max(layout.input_count, layout.output_count) + 2
+        if config.height < required_height:
+            raise ValueError(
+                f"checkpoint {config.width}×{config.height} geometry wraps its "
+                f"{max(layout.input_count, layout.output_count)}-port boundary bank; "
+                f"at least {required_height} rows are required for one linear column"
+            )
         saved_amp = str(task_payload.get("amp_mode", "off"))
         amp_mode = saved_amp if device.type == "cuda" else "off"
         experiment = SequenceExperiment(

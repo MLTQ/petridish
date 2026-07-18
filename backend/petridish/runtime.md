@@ -39,6 +39,9 @@ training and intervention mutations behind one lock.
 ### `_discover_saved_organisms` / `_load_saved_organism`
 - **Does**: Discovers only `runs/*/latest.pt` files and exposes opaque directory
   identifiers rather than accepting arbitrary paths from the viewer.
+- **Does**: Omits manifest-described 64×64 corpus checkpoints whose 64- or
+  66-port banks wrap onto a second boundary column, and rejects any legacy
+  checkpoint whose restored task ports cannot fit into one interior-height column.
 - **Does**: Validates Tiny Shakespeare or TinyStories task metadata, vocabulary, and configuration,
   restores the complete trainer checkpoint, and rebuilds one measured visual trace.
 - **Rationale**: Checkpoints use trusted local PyTorch payloads; the WebSocket

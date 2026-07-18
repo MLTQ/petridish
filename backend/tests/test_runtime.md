@@ -18,6 +18,8 @@ throughput.
 
 ### Saved-organism tests
 - **Does**: Ensures discovery ignores directories without `latest.pt`.
+- **Does**: Ensures manifest-described 64×64 corpus runs are hidden when their
+  boundary ports would wrap into a second column.
 - **Does**: Ensures the runtime honors the same shared `PETRIDISH_RUN_ROOT` used by
   the remote laboratory.
 - **Does**: Rejects path traversal instead of accepting browser-provided paths.

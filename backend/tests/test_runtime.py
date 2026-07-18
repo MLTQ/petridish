@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from types import SimpleNamespace
 
 import pytest
@@ -72,6 +73,26 @@ def test_saved_organism_discovery_lists_only_checkpoint_directories(tmp_path) ->
 
     assert runtime._discover_saved_organisms() == [
         {"id": "complete", "label": "complete"}
+    ]
+
+
+def test_saved_organism_discovery_hides_known_wrapped_corpus_geometry(tmp_path) -> None:
+    runtime = runtime_shell()
+    runtime.checkpoint_root = tmp_path
+    legacy = tmp_path / "legacy-token-64"
+    current = tmp_path / "linear-token-68"
+    for directory, field_size in ((legacy, 64), (current, 68)):
+        directory.mkdir()
+        (directory / "latest.pt").touch()
+        (directory / "manifest.json").write_text(
+            json.dumps({
+                "task": "tiny_stories",
+                "configuration": {"fieldSize": field_size},
+            })
+        )
+
+    assert runtime._discover_saved_organisms() == [
+        {"id": "linear-token-68", "label": "linear-token-68"}
     ]
 
 
