@@ -261,6 +261,7 @@ export class LaboratoryView {
         "token_pipeline",
         "token_settling",
         "token_settled_pipeline",
+        "token_grammar",
       ].includes(benchmark.task);
       const topology = tokenControl
         ? `min ${benchmark.minimumOutputHops ?? "—"} hops · dependency ${benchmark.dependencyTokens ?? 0} tokens · ${benchmark.temporallyReachableOutputs ?? 0}/${benchmark.contextReachableOutputs ?? 0}/${benchmark.outputCount ?? "—"} token/context/graph · ${benchmark.messageSteps ?? "—"}×${benchmark.sequenceLength ?? "—"} ticks`

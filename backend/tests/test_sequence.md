@@ -72,6 +72,9 @@ output latency.
 The settled-pipeline fixture combines context clocks with delayed outputs and
 decorrelated bits, eliminating the period-two shortcut identified in the settling
 control.
+The autoregressive-grammar fixture enumerates all rule/seed states, aligns seven
+targets to the actual next stream symbol, and proves that rule-only, current-only,
+previous-only, position, and class-frequency baselines remain at 25%.
 The zero-broadcast regression requires a hard workspace bypass with no gradients into
 its gain or projections, preventing a nominal ablation from learning to reactivate.
 Headless diagnostics separately verify physical/conducting edges, one-token/context/

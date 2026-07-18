@@ -89,6 +89,8 @@ validated launch or stop requests.
   context-propagation time is not conflated with output latency.
 - **Does**: Treats the decorrelated settled pipeline as the combined causal control,
   preserving its longer dependency horizon and delayed position metrics.
+- **Does**: Treats the balanced second-order grammar as an autoregressive token
+  control with a measured 25% baseline and seven true next-token positions.
 - **Does**: Keeps broadcast-on/off identity in the persisted intervention label so
   global-workspace shortcuts are not conflated with physical dendritic routing.
 

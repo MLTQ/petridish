@@ -2,7 +2,7 @@
 
 This command runs reproducible, hardware-bounded learning sweeps for associative
 recall, tiny language, direct physical routing, delayed-copy memory, distributed
-context composition, and persistent contextual token streams.
+context composition, persistent contextual streams, and exact next-token grammar.
 Profiles vary field size and recurrent microsteps while
 holding the task, seed, optimizer, and lifecycle state constant. Lifecycle and
 structural mutation are disabled so a run measures the differentiable substrate
@@ -152,4 +152,19 @@ python -m petridish.benchmark_sequences --task token_settled_pipeline \
   --profile token_settled_pipeline68 --architecture esn --message-steps 16 \
   --broadcast-gain 0 --steps 800 \
   --output benchmarks/lab/token-settled-pipeline-esn-local.json
+```
+
+`token_grammar` with `token_grammar68` is the first literal autoregressive control.
+After a rule token and two initial symbols, every position predicts the actual next
+symbol in a four-symbol second-order modular language. All 32 rule/seed states are
+sampled in shuffled balanced cycles. At every position, the target is uniform and
+cannot be inferred from the rule, current symbol, previous symbol, or position alone.
+The last target is never presented as an input. This separates genuine next-token
+prediction from transformed labels and delayed copying.
+
+```bash
+python -m petridish.benchmark_sequences --task token_grammar \
+  --profile token_grammar68 --architecture esn --message-steps 16 \
+  --broadcast-gain 0 --steps 1200 \
+  --output benchmarks/lab/token-grammar-esn-local.json
 ```

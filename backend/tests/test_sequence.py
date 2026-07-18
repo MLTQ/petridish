@@ -32,6 +32,7 @@ from petridish.sequence_tasks import (
 )
 from petridish.token_corpus_task import build_token_task
 from petridish.token_context_task import token_context_task
+from petridish.token_grammar_task import token_grammar_task
 from petridish.token_memory_task import token_memory_task
 from petridish.token_pipeline_task import token_pipeline_task
 from petridish.token_routing_task import token_routing_task
@@ -703,6 +704,33 @@ def test_settled_pipeline_combines_context_setup_with_two_clock_output() -> None
         for current_bit in (3, 4):
             selected = batch.targets[batch.tokens[:, position] == current_bit, position]
             assert sorted(selected.unique().tolist()) == [5, 6]
+
+
+def test_autoregressive_grammar_requires_rule_and_two_symbol_context() -> None:
+    task = token_grammar_task()
+    batch = task.batch(32, torch.Generator().manual_seed(23))
+
+    assert task.key == "tiny_stories"
+    assert batch.tokens.shape == batch.targets.shape == (32, 9)
+    assert not bool(batch.loss_mask[:, :2].any())
+    assert bool(batch.loss_mask[:, 2:].all())
+    assert torch.equal(batch.targets[:, 2:8], batch.tokens[:, 3:9])
+    assert batch.tokens[:, 0].tolist().count(0) == 16
+    assert batch.tokens[:, 0].tolist().count(1) == 16
+    for position in range(2, 9):
+        assert sorted(batch.targets[:, position].unique().tolist()) == [2, 3, 4, 5]
+        for rule in (0, 1):
+            selected = batch.targets[batch.tokens[:, 0] == rule, position]
+            assert sorted(selected.unique().tolist()) == [2, 3, 4, 5]
+        for token in (2, 3, 4, 5):
+            current = batch.targets[batch.tokens[:, position] == token, position]
+            previous = batch.targets[batch.tokens[:, position - 1] == token, position]
+            assert sorted(current.unique().tolist()) == [2, 3, 4, 5]
+            assert sorted(previous.unique().tolist()) == [2, 3, 4, 5]
+    rule = batch.tokens[:, 0]
+    previous = batch.tokens[:, 7] - 2
+    current = batch.tokens[:, 8] - 2
+    assert torch.equal(batch.targets[:, 8], 2 + (previous + current + rule) % 4)
 
 
 def test_zero_broadcast_gain_is_a_hard_workspace_ablation() -> None:
