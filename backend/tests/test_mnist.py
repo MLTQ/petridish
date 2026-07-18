@@ -19,14 +19,14 @@ from petridish.protocol import build_snapshot
 def tiny_config() -> MnistModelConfig:
     return MnistModelConfig(
         width=24,
-        height=24,
+        height=52,
         hidden_channels=8,
         edge_slots=2,
         candidate_slots=2,
         candidate_probes=12,
         initial_density=0.4,
         local_radius=6,
-        message_steps=4,
+        message_steps=6,
         batch_size=4,
         structural_interval=2,
         evaluation_interval=2,
@@ -98,6 +98,8 @@ def test_hyperparameter_changes_are_typed_and_cross_validated() -> None:
 def test_persistent_spatial_graph_carries_gradients_without_topology_reset() -> None:
     config = tiny_config()
     model = CellularGraphClassifier(config, seed=3)
+    input_columns = (model.substrate.input_sites % config.width).unique().tolist()
+    input_rows = sorted((model.substrate.input_sites // config.width).tolist())
     images, labels = synthetic_digits(8).tensors
     before = model.substrate.dendrite_source.clone()
     result = model(images[:4])
@@ -105,6 +107,8 @@ def test_persistent_spatial_graph_carries_gradients_without_topology_reset() -> 
     loss.backward()
 
     assert result.logits.shape == (4, 10)
+    assert input_columns == [1]
+    assert input_rows == list(range(1, 50))
     assert result.trajectory_logits.shape == (4, config.message_steps, 10)
     assert result.final_state.shape[1] == model.substrate.occupied.sum()
     assert len(result.frames) == config.message_steps + 1

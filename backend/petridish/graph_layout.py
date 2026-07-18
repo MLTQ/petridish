@@ -44,7 +44,10 @@ LAYOUTS: dict[str, GraphLayout] = {
     "mnist": GraphLayout(
         key="mnist",
         title="Spatial MNIST",
-        description="Forty-nine patch sensors on the left classify into ten right-side outputs.",
+        description=(
+            "Forty-nine vectorized patch sensors form one left boundary column and "
+            "classify into ten right-side outputs."
+        ),
         input_count=49,
         output_count=10,
         input_side="left",

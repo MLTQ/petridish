@@ -16,6 +16,8 @@ memory, and autoregressive language experiments.
 ### `LAYOUTS`
 - **Does**: Registers MNIST, permuted-port associative recall, and reversed-flow
   tiny-language layouts.
+- **Does**: Defines MNIST's 49 patch values as an ordered vector presented through
+  one linear left boundary; patch-grid geometry does not leak into the substrate.
 - **Rationale**: The sequence tasks test memory/autoregression while also
   removing the ordered left-to-right geometry as a hidden shortcut.
 

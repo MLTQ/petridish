@@ -26,6 +26,8 @@ birth, inherited lineage, cause-classified death, content-aware growth, and prun
   sparse population cost from physical address-space dimensions.
 - **Does**: Places every semantic port in one ordered boundary column and rejects
   undersized fields instead of silently wrapping excess ports into another lane.
+- **Does**: Applies the same linear boundary contract to MNIST's 49 vectorized
+  patch features; image-grid position is semantic input order, not physical layout.
 - **Rationale**: A second port column changes physical distance and connectivity,
   confounding experiments that are meant to share one linear sensory/output boundary.
 

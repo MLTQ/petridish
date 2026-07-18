@@ -149,17 +149,7 @@ class SpatialSubstrate(nn.Module):
         self._diagnostic_cache: GraphDiagnostics | None = None
 
     def _input_sites(self) -> torch.Tensor:
-        cfg = self.config
-        if self.input_count == 49:
-            rows = torch.linspace(7, cfg.height - 8, 7).round().long()
-            sites = [
-                int(rows[row]) * cfg.width
-                + (1 + column if self.layout.input_side == "left" else cfg.width - 2 - column)
-                for row in range(7)
-                for column in range(7)
-            ]
-        else:
-            sites = self._boundary_sites(self.input_count, self.layout.input_side)
+        sites = self._boundary_sites(self.input_count, self.layout.input_side)
         order = torch.tensor(self.layout.input_position_order, dtype=torch.long)
         return torch.tensor(sites, dtype=torch.long)[order]
 

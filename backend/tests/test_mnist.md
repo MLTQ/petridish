@@ -6,12 +6,16 @@ Protects persistent spatial MNIST computation, exact gradient credit, sparse
 serialization, lesions, and lifecycle mutation using a small deterministic
 substrate and synthetic images.
 
+The compact fixture is 24×52 rather than square so it remains inexpensive while
+giving all 49 vectorized patch features one ordered physical boundary column.
+
 ## Components
 
 ### Persistent graph gradient test
 - **Does**: Verifies topology does not reset during a trial while patch, GRU,
   genotype, local query/key, synapse, output-bank probe, attention-scale, and
   message-flow gradients remain nonzero.
+- **Does**: Verifies all 49 input ports occupy rows 1–49 of one left column.
 
 ### Feedback/protocol integration test
 - **Does**: Runs one optimizer update, advances to the feedback phase, and
