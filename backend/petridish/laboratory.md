@@ -38,6 +38,8 @@ explicitly enabled trainer processes.
   from completed evidence.
 - **Does**: Preserves optional neuron-owner address diagnostics for relational-memory
   experiments without synthesizing values for baseline artifacts.
+- **Does**: Preserves message-microtick, output-count, and chance-baseline metadata
+  for one-token physical-routing controls.
 - **Does**: Preserves the deterministic-execution flag from benchmark artifacts.
 - **Does**: Preserves an explicit process-global branch-RNG match flag; deterministic
   kernels alone do not prove stochastic lifecycle branches received the same stream.

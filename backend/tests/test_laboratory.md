@@ -12,6 +12,8 @@ control-enable contracts without requiring NVIDIA hardware or launching trainers
   latest training/held-out measurements remain distinct.
 - **Does**: Keeps the latest scientific diagnostic separate from optimizer and
   held-out/generation records.
+- **Does**: Preserves physical-routing microticks, output count, and chance accuracy
+  from benchmark artifacts.
 
 ### Safety tests
 - **Does**: Reject path traversal and process launch when control is disabled.

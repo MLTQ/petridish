@@ -24,6 +24,10 @@ experiment laboratory above the live organism.
   frames and therefore remains independent from the WebSocket renderer.
 - **Does**: Launches named off/baseline/balanced lifecycle interventions without
   hiding their scientific identity behind a boolean checkbox.
+- **Does**: Exposes cellular microticks per token beside corpus launch controls so
+  one-token routing budget is an explicit intervention.
+- **Does**: Uses a task-neutral stepping-stone table and chart for recall and direct
+  physical-routing overfit controls.
 
 ### `.visual-column` / `.task-panel`
 - **Does**: Keeps the dynamic task/context readout directly below the network

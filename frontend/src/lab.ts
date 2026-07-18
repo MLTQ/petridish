@@ -127,6 +127,9 @@ interface BenchmarkSnapshot {
   edgeCount: number | null;
   minimumOutputHops: number | null;
   temporallyReachableOutputs: number | null;
+  messageSteps: number | null;
+  outputCount: number | null;
+  chanceAccuracy: number | null;
   checkpoints: BenchmarkCheckpoint[];
   artifactMtime: number;
 }
@@ -152,6 +155,7 @@ export class LaboratoryView {
   private readonly gpuSelect = required<HTMLSelectElement>("#lab-gpu");
   private readonly taskSelect = required<HTMLSelectElement>("#lab-task");
   private readonly architectureSelect = required<HTMLSelectElement>("#lab-architecture");
+  private readonly messageStepsSelect = required<HTMLSelectElement>("#lab-message-steps");
   private readonly lifecycleProfileSelect = required<HTMLSelectElement>("#lab-lifecycle-profile");
   private readonly launchButton = required<HTMLButtonElement>("#lab-launch");
   private readonly launchStatus = required<HTMLOutputElement>("#lab-launch-status");
@@ -169,6 +173,9 @@ export class LaboratoryView {
   public start(): void {
     this.refreshButton.addEventListener("click", () => void this.refresh());
     this.form.addEventListener("submit", (event) => void this.launch(event));
+    this.taskSelect.addEventListener("change", () => {
+      this.messageStepsSelect.value = this.taskSelect.value === "tiny_stories" ? "12" : "2";
+    });
     void this.refresh();
     this.timer = window.setInterval(() => void this.refresh(), 3000);
     window.addEventListener("beforeunload", () => {
@@ -238,7 +245,14 @@ export class LaboratoryView {
   private renderBenchmarks(benchmarks: BenchmarkSnapshot[]): void {
     const rows = benchmarks.map((benchmark) => {
       const final = benchmark.checkpoints.at(-1);
-      const peak = Math.max(...benchmark.checkpoints.map((checkpoint) => checkpoint.heldOutAccuracy));
+      const peak = benchmark.checkpoints.length
+        ? Math.max(...benchmark.checkpoints.map((checkpoint) => checkpoint.heldOutAccuracy))
+        : undefined;
+      const topology = benchmark.task === "token_routing"
+        ? `min ${benchmark.minimumOutputHops ?? "—"} hops · ${benchmark.temporallyReachableOutputs ?? 0}/${benchmark.outputCount ?? "—"} within ${benchmark.messageSteps ?? "—"} ticks`
+        : final?.livingCells === undefined
+          ? "—"
+          : `${final.livingCells} cells · ${final.edgeCount ?? "—"} edges · +${final.cumulativeBirths ?? 0}/−${final.cumulativeDeaths ?? 0}`;
       const row = document.createElement("tr");
       const values = [
         benchmark.id,
@@ -246,18 +260,18 @@ export class LaboratoryView {
         benchmark.architecture.toUpperCase(),
         benchmark.seed?.toString() ?? "—",
         `${benchmark.completedSteps.toLocaleString()} / ${benchmark.steps?.toLocaleString() ?? "—"}`,
-        final?.recallPairs?.toString() ?? "—",
+        benchmark.task === "token_routing"
+          ? `${benchmark.messageSteps ?? "—"} ticks`
+          : final?.recallPairs?.toString() ?? "—",
         this.percent(peak),
         this.percent(final?.heldOutAccuracy),
         final?.heldOutSlotAccuracy?.length
           ? final.heldOutSlotAccuracy.map((accuracy) => this.percent(accuracy)).join(" / ")
           : "—",
-        final?.heldOutPresentedValueRate === undefined
+        benchmark.task !== "associative_recall" || final?.heldOutPresentedValueRate === undefined
           ? "—"
           : `${this.percent(final.heldOutPresentedValueRate)} (${this.percent(final.heldOutDistractorRate)} distractor)`,
-        final?.livingCells === undefined
-          ? "—"
-          : `${final.livingCells} cells · ${final.edgeCount ?? "—"} edges · +${final.cumulativeBirths ?? 0}/−${final.cumulativeDeaths ?? 0}`,
+        topology,
         benchmark.bindingDiagnostics
           ? `${benchmark.bindingDiagnostics.distinctOwners}/${benchmark.bindingDiagnostics.vocabularySize} · H ${benchmark.bindingDiagnostics.meanAddressEntropy.toFixed(2)} · overlap ${benchmark.bindingDiagnostics.meanAddressOverlap.toFixed(2)}`
           : "—",
@@ -293,7 +307,10 @@ export class LaboratoryView {
       && benchmark.steps === newest.steps
     ));
     const rngStatus = newest.globalRngMatched ? " · branch RNG matched" : "";
-    this.benchmarkSummary.value = `${newest.profile} · ${newest.recallMode.replace("_", " ")} · seed ${newest.seed ?? "—"} · ${newest.deterministic ? "deterministic" : "seeded"}${rngStatus} · ${newest.steps ?? "—"} updates`;
+    const chance = newest.chanceAccuracy === null
+      ? ""
+      : ` · chance ${this.percent(newest.chanceAccuracy)}`;
+    this.benchmarkSummary.value = `${newest.profile} · ${newest.recallMode.replace("_", " ")} · seed ${newest.seed ?? "—"} · ${newest.deterministic ? "deterministic" : "seeded"}${rngStatus}${chance} · ${newest.steps ?? "—"} updates`;
     const visibleCohort = cohort.slice(0, SERIES_CLASSES.length);
     this.drawBenchmarkChart(visibleCohort);
     this.drawBenchmarkTopologyChart(visibleCohort);
@@ -316,6 +333,18 @@ export class LaboratoryView {
       this.svg("line", { x1: String(left), y1: String(bottom), x2: String(right), y2: String(bottom), class: "lab-axis" }),
       this.svg("line", { x1: String(left), y1: String(top), x2: String(left), y2: String(bottom), class: "lab-axis" }),
     );
+    const chance = benchmarks[0]?.chanceAccuracy;
+    if (chance !== null && chance !== undefined) {
+      const chanceY = y(chance);
+      this.benchmarkChart.append(
+        this.svg("line", { x1: String(left), y1: String(chanceY), x2: String(right), y2: String(chanceY), class: "lab-axis" }),
+      );
+      const chanceLabel = this.svg("text", {
+        x: String(right - 4), y: String(chanceY - 4), "text-anchor": "end", class: "lab-axis-label",
+      });
+      chanceLabel.textContent = `chance ${this.percent(chance)}`;
+      this.benchmarkChart.append(chanceLabel);
+    }
     for (const [text, px, py, anchor] of [
       ["0", left, 184, "start"], [String(maxUpdate), right, 184, "end"],
       ["100%", left - 6, top + 4, "end"], ["0%", left - 6, bottom + 4, "end"],
@@ -497,7 +526,7 @@ export class LaboratoryView {
         ? `${diagnostic.livingCells ?? "—"} cells · ${diagnostic.edgeCount ?? "—"} physical · ${diagnostic.conductingEdgeCount ?? "—"} conducting`
         : "—";
       const routing = diagnostic
-        ? `${diagnostic.minimumOutputHops ?? "—"}/${diagnostic.medianOutputHops ?? "—"} hops · ${diagnostic.tokenReachableOutputs ?? 0}/${diagnostic.contextReachableOutputs ?? 0}/${diagnostic.reachableOutputs ?? 0} token/context/graph`
+        ? `${diagnostic.minimumOutputHops ?? "—"}/${diagnostic.medianOutputHops ?? "—"} hops · ${diagnostic.tokenReachableOutputs ?? 0}/${diagnostic.contextReachableOutputs ?? 0}/${diagnostic.reachableOutputs ?? 0} token/context/graph${(diagnostic.tokenReachableOutputs ?? 0) === 0 && Number(run.configuration.messageSteps ?? 0) < Number(diagnostic.minimumOutputHops ?? 0) ? ` · insufficient ${run.configuration.messageSteps ?? "—"} < ${diagnostic.minimumOutputHops ?? "—"}` : ""}`
         : "—";
       const lifecycle = diagnostic
         ? `${String(run.configuration.lifecycleProfile ?? (run.configuration.lifecycle ? "baseline" : "off"))} · ${diagnostic.stunnedCells ?? 0} stunned · +${diagnostic.cumulativeBirths ?? 0}/−${diagnostic.cumulativeDeaths ?? 0} cells · ${diagnostic.cumulativeStuns ?? 0}/${diagnostic.cumulativeRecoveries ?? 0} stun/recover`
@@ -600,7 +629,7 @@ export class LaboratoryView {
       architecture: String(form.get("architecture")),
       fieldSize: 68,
       batchSize: Number(form.get("batchSize")), contextLength: 64,
-      messageSteps: String(form.get("task")) === "tiny_stories" ? 4 : 2,
+      messageSteps: Number(form.get("messageSteps")),
       updates: Number(form.get("updates")), seed: Number(form.get("seed")),
       amp: String(form.get("amp")), lifecycle: lifecycleProfile !== "off",
       lifecycleProfile,

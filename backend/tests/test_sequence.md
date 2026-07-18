@@ -42,6 +42,9 @@ sequence split across incremental calls produces the same logits as one uninterr
 forward pass. The excitotoxicity regression verifies stun, seeded recovery without
 edge deletion, and lethal classification only after accumulated damage crosses the
 configured threshold.
+The direct-routing fixture supplies eight different tokens at the same single position
+with eight equally frequent targets, preventing position embeddings or class bias from
+masquerading as sensory-to-output learning.
 Headless diagnostics separately verify physical/conducting edges, one-token/context/
 graph reachability ordering, and exact pruning counts. Fixed-prompt greedy generation
 must be repeatable without consuming the training sampler or mutating interactive state.

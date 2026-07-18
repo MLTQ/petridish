@@ -30,6 +30,7 @@ from petridish.sequence_tasks import (
     resolve_sequence_task,
 )
 from petridish.token_corpus_task import build_token_task
+from petridish.token_routing_task import token_routing_task
 from petridish.train_shakespeare import (
     _fresh_config,
     _migrate_model_state,
@@ -511,6 +512,17 @@ def test_token_corpus_uses_one_64_port_column_per_boundary() -> None:
     assert (substrate.output_sites % config.width).unique().tolist() == [66]
     assert sorted((substrate.input_sites // config.width).tolist()) == list(range(1, 65))
     assert sorted((substrate.output_sites // config.width).tolist()) == list(range(1, 65))
+
+
+def test_token_routing_control_is_balanced_and_has_no_position_shortcut() -> None:
+    task = token_routing_task(mapping_size=8)
+    batch = task.batch(8, torch.Generator().manual_seed(3))
+
+    assert task.key == "tiny_stories"
+    assert batch.tokens.shape == batch.targets.shape == (8, 1)
+    assert batch.tokens[:, 0].tolist() == list(range(8))
+    assert batch.targets[:, 0].tolist() == list(range(8, 16))
+    assert bool(batch.loss_mask.all())
 
 
 def test_greedy_generation_diagnostic_preserves_training_state() -> None:

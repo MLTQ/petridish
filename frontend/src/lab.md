@@ -64,6 +64,11 @@ validated launch or stop requests.
   remain one physical column per boundary.
 - **Does**: Selects and displays named lifecycle interventions so baseline and
   balanced ablations remain distinguishable in manifests and diagnostics.
+- **Does**: Launches an explicit microtick budget and flags runs whose budget is
+  shorter than the measured minimum sensory-to-output route.
+- **Does**: Renders direct-routing controls with microticks, minimum hops, and
+  one-token output reach instead of recall-only columns, with the measured task's
+  chance baseline drawn directly on the accuracy plot.
 
 ## Contracts
 

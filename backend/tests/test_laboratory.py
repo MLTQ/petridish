@@ -156,6 +156,9 @@ def test_snapshot_discovers_bounded_benchmark_artifacts(
                 "status": "complete",
                 "completedSteps": 40,
                 "peakCudaAllocatedGiB": 1.25,
+                "messageSteps": 12,
+                "outputCount": 64,
+                "chanceAccuracy": 0.125,
                 "checkpoints": [
                     {"update": 20, "heldOutAccuracy": 0.75, "recallPairs": 1},
                     {"update": 40, "heldOutAccuracy": 0.5, "recallPairs": 2},
@@ -174,6 +177,9 @@ def test_snapshot_discovers_bounded_benchmark_artifacts(
     assert benchmark["recallMode"] == "fixed_2"
     assert benchmark["completedSteps"] == 40
     assert benchmark["peakCudaAllocatedGiB"] == 1.25
+    assert benchmark["messageSteps"] == 12
+    assert benchmark["outputCount"] == 64
+    assert benchmark["chanceAccuracy"] == 0.125
     assert benchmark["checkpoints"][-1]["recallPairs"] == 2
 
 

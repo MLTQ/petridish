@@ -1,7 +1,7 @@
 # benchmark_sequences.py
 
 This command runs reproducible, hardware-bounded learning sweeps for associative
-recall and tiny language. Profiles vary field size and recurrent microsteps while
+recall, tiny language, and direct one-token physical routing. Profiles vary field size and recurrent microsteps while
 holding the task, seed, optimizer, and lifecycle state constant. Lifecycle and
 structural mutation are disabled so a run measures the differentiable substrate
 before testing turnover as a separate intervention.
@@ -60,3 +60,16 @@ python -m petridish.benchmark_sequences --task associative_recall \
 
 These short sweeps compare local choices; they do not claim globally optimal
 hyperparameters.
+
+`token_routing` with `token_route68` repeats eight balanced one-token mappings on
+the production 68×68 distributed-I/O substrate. `--message-steps` is the sole
+intervention, allowing four-microtick and route-covering controls to share initial
+weights, topology, optimizer, seed, and target distribution. Checkpoints retain
+gradient norms for the token input, input projection, cell rule, physical synapses,
+broadcast path, and output readout.
+
+```bash
+python -m petridish.benchmark_sequences --task token_routing \
+  --profile token_route68 --message-steps 12 --steps 200 \
+  --output benchmarks/lab/token-route-12.json
+```

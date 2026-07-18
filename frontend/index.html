@@ -67,19 +67,19 @@
       <div class="section-heading compact benchmark-heading">
         <div>
           <span class="eyebrow">controlled stepping stones</span>
-          <h2 id="benchmark-title">Associative recall curriculum</h2>
+        <h2 id="benchmark-title">Stepping-stone learning controls</h2>
         </div>
         <output id="benchmark-summary">no persisted benchmark artifacts</output>
       </div>
       <div class="benchmark-grid">
         <div class="run-table-wrap">
           <table class="run-table">
-            <thead><tr><th>Artifact</th><th>Intervention</th><th>Cell</th><th>Seed</th><th>Updates</th><th>Pairs</th><th>Peak held out</th><th>Final held out</th><th>Final by query slot</th><th>Presented values</th><th>Topology / turnover</th><th>Owner addresses</th><th>Peak GPU</th><th>Time</th><th>State</th></tr></thead>
+            <thead><tr><th>Artifact</th><th>Intervention</th><th>Cell</th><th>Seed</th><th>Updates</th><th>Pairs / ticks</th><th>Peak held out</th><th>Final held out</th><th>Final by query slot</th><th>Presented values</th><th>Topology / routing</th><th>Owner addresses</th><th>Peak GPU</th><th>Time</th><th>State</th></tr></thead>
             <tbody id="laboratory-benchmarks"></tbody>
           </table>
         </div>
         <div>
-          <svg id="benchmark-chart" viewBox="0 0 720 190" role="img" aria-label="Held-out associative recall accuracy by update, with curriculum transitions marked"></svg>
+          <svg id="benchmark-chart" viewBox="0 0 720 190" role="img" aria-label="Held-out stepping-stone accuracy by optimizer update"></svg>
           <div id="benchmark-chart-legend" class="laboratory-chart-legend"></div>
           <div class="benchmark-subchart-heading" hidden>
             <span>Topology retained</span>
@@ -97,6 +97,7 @@
         <label>Task <select id="lab-task" name="task" required></select></label>
         <label>Cell architecture <select id="lab-architecture" name="architecture" required></select></label>
         <label>Batch <input id="lab-batch" name="batchSize" type="number" min="1" max="256" value="16" required></label>
+        <label>Microticks / token <select id="lab-message-steps" name="messageSteps"><option value="2" selected>2</option><option value="4">4</option><option value="8">8</option><option value="10">10</option><option value="12">12</option><option value="16">16</option></select></label>
         <label>Updates <input id="lab-updates" name="updates" type="number" min="1" value="1000" required></label>
         <label>Seed <input id="lab-seed" name="seed" type="number" value="1" required></label>
         <label>AMP <select id="lab-amp" name="amp"><option value="bfloat16">bfloat16</option><option value="off">off</option></select></label>
