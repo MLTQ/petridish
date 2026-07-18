@@ -1397,3 +1397,49 @@ before launch. The descendant keeps the same organism ID, cells, graph, optimize
 RNG, cursors, domains, and all 169 carried states, changes only auxiliary weight
 0.25→0, and continues fixed-topology/lifecycle-off persistent-lane training from
 update 15,250 to 15,750. The source remains frozen.
+
+## Phase 20 — Persistent-only gradients strengthen the living trajectories
+
+The exact descendant completed all 500 planned updates on the free 2070. Every train
+record had auxiliary weight zero and no auxiliary loss field; no disposable context
+was computed. The organism ID remained
+`organism-b2505376398a491e8cf4150a5daf3fab`, with 2,224 cells, 169 checkpointed
+electrical/private/workspace trajectories, fixed topology, lifecycle off, and no
+change in cumulative births, deaths, grown edges, or pruned edges. The frozen source
+remained byte-identical at SHA
+`ac2441097d8e245e85fc55b0487a6790f3b5801c5eac4884ecca50543c09fab9`.
+The new terminal checkpoint is
+`407d11abdb986df9da64ca16f68033f02c4a7a028df2fd241a4320f577aa9567`.
+
+Persistent-only training reached 67.29% / 1.34451 overall and 68.05% / 1.31755 over
+the final 160 windows, compared with 63.39% / 1.46308 in the preceding full-corpus
+cold-gradient phase. Every lived domain improved: 2K reached 87.53% / 0.55723, 4K
+77.39% / 0.84809, and 8K 48.55% / 2.21357. The improvement was not caused by a
+larger update scale: median clip scale was 0.0659 and 85.4% of updates were still at
+or below 0.1.
+
+Exact trajectory audits confirm that this is computation in the emerged organism.
+Lane 16 measured 82.52% / 0.72734 and lane 105 measured 87.50% / 0.53189. Silencing
+the graph reduced them to 2.73% and 3.22%; rotating endpoints left 7.13% and 6.35%;
+reassigning sources/weights within targets left 5.86% and 4.98%; broadcast silence
+left 11.04% and 11.52%. Cold copies of the same tokens retained 60.45% and 64.84%,
+so both accumulated electrical state and learned physical routing are causally useful.
+
+Persistent specialization did not solve breadth. The active-8K independent cold
+probe was essentially flat at 39.75% / 2.57128 versus 39.94% / 2.46907 before the
+phase. The full-corpus cold probe fell from 9.77% / 4.24527 to 7.81% / 4.78165.
+Validation top-one rose slightly from 10.55% to 11.33%, but loss worsened from
+4.33441 to 4.90283 and remains below the 19.09% unigram baseline. Validation cold
+state was 10.94% / 4.50490. The organism is getting better at the experiences it
+actually lives through; the missing ingredient is broader persistent sensory
+experience, not more consolidation and not a return to cold gradients.
+
+The next intervention should expose carried trajectories to new corpus regions at a
+stream boundary while preserving their cells, graph, parameters, optimizer, RNG,
+electrical/private/workspace state, and monotonically increasing state age. It must
+not construct a fresh runtime state or remap an old cursor mid-context. A safe design
+is an explicit boundary-gated curriculum: each lane continues its current repeated
+domain until its next natural wrap, then proceeds into a larger corpus domain instead
+of wrapping to token zero. The transition becomes checkpointed lane metadata and is
+auditable independently for every lane. This widens what the living organism senses
+without resetting it or applying gradients from a disposable counterfactual.
