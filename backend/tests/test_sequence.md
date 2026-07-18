@@ -104,8 +104,9 @@ state-lane regression must alternate two independent persistent trajectories at
 batch one, retain both states, report their exact age range, and expose authoritative
 structure/lifecycle gate reasons. Append-only expansion from both one and two lanes
 must preserve every old cursor and runtime state, consume rather than reseed the
-saved training RNG for new positions, reject shrinking, and survive a checkpoint
-round trip with added lanes still cold. Pre-update process
+saved training RNG for new positions, co-locate new cursors with a CUDA-restored
+checkpoint, reject shrinking, and survive a checkpoint round trip with added lanes
+still cold. Pre-update process
 failures must persist a newline-free, bounded record. The
 excitotoxicity regression verifies stun, seeded recovery without
 edge deletion, and lethal classification only after accumulated damage crosses the

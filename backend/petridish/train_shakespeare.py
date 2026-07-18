@@ -194,7 +194,7 @@ def expand_persistent_state_lanes(
     added = target_lanes - current_lanes
     added_positions = experiment.task.initial_stream_positions(
         experiment.config.batch_size * added, experiment.generator
-    ).reshape(added, experiment.config.batch_size)
+    ).reshape(added, experiment.config.batch_size).to(device=positions.device)
     experiment._training_stream_positions = torch.cat(
         (preserved_positions, added_positions), dim=0
     )

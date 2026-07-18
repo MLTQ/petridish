@@ -806,6 +806,23 @@ def test_state_lane_expansion_preserves_every_existing_trajectory(
         expand_persistent_state_lanes(experiment, 2)
 
 
+def test_state_lane_expansion_places_new_cursors_on_checkpoint_device() -> None:
+    text = "One fox ran. Two birds flew. Three cats slept. " * 30
+    task = build_token_task(text, context_length=8, vocabulary_size=32)
+    experiment = SequenceExperiment(
+        task, replace(corpus_config(), batch_size=1), seed=59, device="cpu",
+        stream_mode="continuous", state_lanes=1,
+    )
+    experiment._training_stream_positions = (
+        experiment._training_stream_positions.to(device="meta")
+    )
+
+    expand_persistent_state_lanes(experiment, 2)
+
+    assert experiment._training_stream_positions.device.type == "meta"
+    assert experiment._training_stream_positions.shape == (2, 1)
+
+
 def test_continuous_training_state_survives_checkpoint_resume(tmp_path: Path) -> None:
     text = "One fox ran. Two birds flew. Three cats slept. " * 30
     task = build_token_task(
