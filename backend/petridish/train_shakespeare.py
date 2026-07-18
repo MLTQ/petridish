@@ -180,18 +180,12 @@ def plasticity_phase_config(
     )
 
 
-def reset_plasticity_phase_gates(experiment: SequenceExperiment) -> None:
-    """Re-evaluate policy gates after resume without touching physical organism state."""
+def reconcile_plasticity_phase_status(experiment: SequenceExperiment) -> None:
+    """Derive policy status from preserved history without resetting the organism."""
 
-    experiment.lifecycle_active = False
-    experiment.lifecycle_reason = (
-        "waiting for lifecycle warm-up"
-        if experiment.config.lifecycle_enabled else "disabled by configuration"
-    )
-    experiment.structure_unlocked = False
-    experiment.structure_unlock_reason = (
-        "disabled by configuration"
-        if not experiment.config.structural_enabled else "minimum learning warm-up"
+    experiment._should_activate_lifecycle(experiment.training_step)
+    experiment._should_unlock_structure(
+        experiment.training_step, experiment.last_batch_accuracy
     )
 
 
@@ -567,7 +561,7 @@ def main() -> None:
     if payload is not None:
         restore_checkpoint(experiment, payload)
         if args.resume_plasticity:
-            reset_plasticity_phase_gates(experiment)
+            reconcile_plasticity_phase_status(experiment)
     if args.compile_mode != "off":
         experiment.enable_compile(args.compile_mode)
 

@@ -631,6 +631,16 @@ export class LaboratoryView {
         failure.textContent = `${run.latestFailure.failureType ?? "failure"}: ${run.latestFailure.failureMessage ?? "no detail"}`;
         state.append(failure);
       }
+      if (
+        run.status !== "running" && run.hasCheckpoint
+        && this.snapshot?.controlEnabled
+      ) {
+        const evaluate = document.createElement("button");
+        evaluate.type = "button";
+        evaluate.textContent = "Evaluate";
+        evaluate.addEventListener("click", () => void this.evaluateCheckpoint(run, evaluate));
+        state.append(evaluate);
+      }
       row.append(state);
       return row;
     });
@@ -811,6 +821,30 @@ export class LaboratoryView {
     const response = await fetch(`/api/lab/runs/${encodeURIComponent(runId)}/stop`, { method: "POST" });
     const payload = await response.json() as { status?: string; detail?: string };
     this.status.value = response.ok ? `${runId}: ${payload.status}` : (payload.detail ?? "stop failed");
+    await this.refresh();
+  }
+
+  private async evaluateCheckpoint(
+    run: RunSnapshot, button: HTMLButtonElement
+  ): Promise<void> {
+    const gpuUuid = run.gpuUuid ?? this.snapshot?.gpus[0]?.uuid;
+    if (!gpuUuid) {
+      this.status.value = `${run.id}: no GPU available for evaluation`;
+      return;
+    }
+    button.disabled = true;
+    const response = await fetch(
+      `/api/lab/runs/${encodeURIComponent(run.id)}/evaluate`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ gpuUuid, stateHorizons: false }),
+      },
+    );
+    const payload = await response.json() as { status?: string; detail?: string };
+    this.status.value = response.ok
+      ? `${run.id}: ${payload.status ?? "evaluating"}`
+      : (payload.detail ?? "evaluation failed");
     await this.refresh();
   }
 

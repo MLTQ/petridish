@@ -48,7 +48,7 @@ from petridish.train_shakespeare import (
     _record_process_failure,
     load_checkpoint,
     plasticity_phase_config,
-    reset_plasticity_phase_gates,
+    reconcile_plasticity_phase_status,
     restore_checkpoint,
     save_checkpoint,
 )
@@ -694,7 +694,7 @@ def test_continuous_training_state_survives_checkpoint_resume(tmp_path: Path) ->
     )
     payload = load_checkpoint(checkpoint, torch.device("cpu"))
     restore_checkpoint(restored, payload)
-    reset_plasticity_phase_gates(restored)
+    reconcile_plasticity_phase_status(restored)
 
     assert payload["lineage"] == {
         "organism_id": "organism-test", "phase_index": 0, "phase_name": "warm-up",
@@ -720,6 +720,23 @@ def test_continuous_training_state_survives_checkpoint_resume(tmp_path: Path) ->
         restored.model.substrate.synapse_weight,
         original.model.substrate.synapse_weight,
     )
+    assert torch.equal(
+        restored.model.substrate.edge_age, original.model.substrate.edge_age
+    )
+    assert torch.equal(
+        restored.model.substrate.edge_utility, original.model.substrate.edge_utility
+    )
+    assert torch.equal(
+        restored.model.substrate.genotype, original.model.substrate.genotype
+    )
+    assert restored.model.substrate.generation == original.model.substrate.generation
+    assert restored.best_rolling_accuracy == original.best_rolling_accuracy
+    assert (
+        restored.last_accuracy_improvement_step
+        == original.last_accuracy_improvement_step
+    )
+    assert restored.cumulative_grown_edges == original.cumulative_grown_edges
+    assert restored.cumulative_pruned_edges == original.cumulative_pruned_edges
 
 
 def test_cell_death_preserves_surviving_continuous_state() -> None:

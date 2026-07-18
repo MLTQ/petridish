@@ -83,6 +83,12 @@ explicitly enabled trainer processes.
 - **Rationale**: Structural warm-up, adaptive pruning, and lifecycle pressure must be
   phases of one organism rather than separately initialized comparison runs.
 
+### `EvaluateSpec` / `Laboratory.evaluate_run`
+- **Does**: Starts read-only held-out evaluation from a stopped checkpoint, optionally
+  including the electrical-memory horizon, without appending a phase or optimizer step.
+- **Rationale**: Causal state/topology diagnostics can be refreshed after code changes
+  without altering the organism being measured.
+
 ### `Laboratory.stop_run`
 - **Does**: Sends SIGTERM so the trainer completes its current update and checkpoints.
 
@@ -104,7 +110,7 @@ explicitly enabled trainer processes.
 
 | Dependent | Expects | Breaking changes |
 |-----------|---------|------------------|
-| `server.py` | Snapshot, metrics, launch, continuation, and stop methods are synchronous | Method signatures |
+| `server.py` | Snapshot, metrics, launch, continuation, evaluation, and stop methods are synchronous | Method signatures |
 | `lab.ts` | camelCase GPU/run/benchmark fields and bounded histories | Payload field changes |
 | Trainer | SIGTERM is checkpoint-safe; CLI arguments remain supported | Trainer CLI changes |
 | Security | Run IDs cannot escape `runs/`; launch uses no shell | Path or subprocess handling |

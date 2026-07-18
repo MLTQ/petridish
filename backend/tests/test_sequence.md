@@ -61,7 +61,8 @@ continuous-experience regressions prove adjacent windows share the boundary toke
 optimizer updates carry detached neuron state, checkpoints resume the exact lane and
 runtime state, and cell death preserves each surviving neuron's state by physical
 site. The same checkpoint regression enables structural plasticity as a new phase
-without losing the population mask, dendrite sources, synaptic weights, lineage
+without losing the population mask, dendrite sources, synaptic weights, edge ages,
+edge utilities, genotypes, generation, competence history, turnover counters, lineage
 metadata, or continuous runtime state. Scientific diagnostics report zero electrical age before the first carried
 window. The paired held-out ablation must reuse the same contiguous tokens for carried
 and cold state, label both conditions, and advance the evaluation RNG only once. The

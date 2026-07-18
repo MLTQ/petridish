@@ -73,7 +73,7 @@ validated launch or stop requests.
 - **Rationale**: A high peak before a curriculum transition must not be mistaken
   for retention at the harder level.
 
-### `launch` / `stop`
+### `launch` / `stop` / `evaluateCheckpoint`
 - **Does**: Submit bounded, task-aware Tiny Shakespeare or TinyStories commands and
   preserve authoritative server status.
 - **Does**: Launch both corpus organisms at 68×68 so their 64- or 66-port banks
@@ -109,6 +109,8 @@ validated launch or stop requests.
   without accepting architecture, geometry, connectome, weight, or state replacements.
 - **Does**: Displays the immutable lineage ID and current phase, and marks measured
   phase boundaries directly on the existing rolling-loss trace.
+- **Does**: Offers read-only evaluation on stopped checkpoints so new causal metrics
+  can be collected without continuing training or changing plasticity phase.
 - **Does**: Renders direct-routing controls with microticks, minimum hops, and
   one-token output reach instead of recall-only columns, with the measured task's
   chance baseline drawn directly on the accuracy plot.

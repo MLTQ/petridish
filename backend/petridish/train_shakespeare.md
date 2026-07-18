@@ -93,10 +93,11 @@ state, optimizer moments, sampler positions, and RNG streams remain checkpoint-o
 Every checkpoint and metric carries an immutable organism ID plus phase index/name.
 An organism-ID mismatch is rejected instead of silently combining two lineages.
 
-### `plasticity_phase_config` / `reset_plasticity_phase_gates`
+### `plasticity_phase_config` / `reconcile_plasticity_phase_status`
 
-Change only structural/lifecycle policy in a restored configuration and force those
-policy gates to be re-evaluated. Neither helper mutates substrate or runtime tensors.
+Change only structural/lifecycle policy in a restored configuration and derive its
+status from the organism's preserved training history. Neither helper resets or mutates
+substrate, developmental history, optimizer, sampler, or runtime tensors.
 
 Compilation remains opt-in because the measured stable-forward attempt currently has
 dynamic topology graph breaks; production runs should use `--compile off`.

@@ -14,7 +14,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from .laboratory import ContinueSpec, Laboratory, LaunchSpec
+from .laboratory import ContinueSpec, EvaluateSpec, Laboratory, LaunchSpec
 from .runtime import ExperimentRuntime
 
 
@@ -66,6 +66,13 @@ class LabContinueRequest(BaseModel):
     lifecycleProfile: str = "off"
     structure: bool = True
     phaseName: str | None = Field(default=None, max_length=120)
+
+
+class LabEvaluateRequest(BaseModel):
+    """Browser-safe read-only checkpoint evaluation request."""
+
+    gpuUuid: str
+    stateHorizons: bool = False
 
 
 @asynccontextmanager
@@ -180,6 +187,27 @@ async def continue_lab_run(
     )
     try:
         return await asyncio.to_thread(laboratory.continue_run, spec)
+    except PermissionError as error:
+        raise HTTPException(status_code=403, detail=str(error)) from error
+    except (OSError, ValueError) as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+
+@app.post("/api/lab/runs/{run_id}/evaluate")
+async def evaluate_lab_run(
+    run_id: str, request: LabEvaluateRequest
+) -> dict[str, object]:
+    """Measure a checkpoint without an optimizer or plasticity step."""
+
+    try:
+        return await asyncio.to_thread(
+            laboratory.evaluate_run,
+            EvaluateSpec(
+                run_id=run_id,
+                gpu_uuid=request.gpuUuid,
+                state_horizons=request.stateHorizons,
+            ),
+        )
     except PermissionError as error:
         raise HTTPException(status_code=403, detail=str(error)) from error
     except (OSError, ValueError) as error:

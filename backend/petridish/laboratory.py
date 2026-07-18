@@ -66,6 +66,15 @@ class ContinueSpec:
     phase_name: str | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class EvaluateSpec:
+    """Read-only held-out evaluation for one checkpointed organism."""
+
+    run_id: str
+    gpu_uuid: str
+    state_horizons: bool = False
+
+
 class Laboratory:
     """Expose measured hardware/runs and supervise explicitly enabled jobs."""
 
@@ -316,6 +325,45 @@ class Laboratory:
         os.kill(pid, signal.SIGTERM)
         return {"runId": run_id, "status": "stopping"}
 
+    def evaluate_run(self, spec: EvaluateSpec) -> dict[str, Any]:
+        """Evaluate one stopped checkpoint without training or changing its phase."""
+
+        if not self.control_enabled:
+            raise PermissionError("laboratory process control is disabled")
+        available = {gpu["uuid"] for gpu in self._gpu_snapshot()[0]}
+        if spec.gpu_uuid not in available:
+            raise ValueError("unknown GPU UUID")
+        directory = self._run_directory(spec.run_id)
+        manifest = self._read_json(directory / "manifest.json")
+        if not (directory / "latest.pt").is_file():
+            raise ValueError("run has no checkpoint to evaluate")
+        pid = int(manifest.get("pid", 0) or 0)
+        if pid > 0 and self._pid_alive(pid):
+            raise ValueError("organism is already running")
+        history = list(manifest.get("phaseHistory") or [])
+        phase = history[-1] if history else {}
+        command = self._evaluation_command(
+            directory,
+            organism_id=manifest.get("organismId"),
+            phase_index=int(phase.get("index", 0)),
+            phase_name=str(phase.get("name", "training")),
+            state_horizons=spec.state_horizons,
+        )
+        process = self._start_process(
+            spec.run_id, spec.gpu_uuid, command, directory
+        )
+        manifest.update(
+            {
+                "pid": process.pid,
+                "gpuUuid": spec.gpu_uuid,
+                "command": command,
+                "commit": self._git_commit(),
+                "lastEvaluationRequestedAt": time.time(),
+            }
+        )
+        self._write_json(directory / "manifest.json", manifest)
+        return {"runId": spec.run_id, "pid": process.pid, "status": "evaluating"}
+
     def close(self) -> None:
         """Close server-owned log descriptors without stopping trainers."""
 
@@ -417,6 +465,31 @@ class Laboratory:
         ]
         command.append("--lifecycle" if lifecycle_profile != "off" else "--no-lifecycle")
         command.append("--structure" if structure else "--no-structure")
+        return command
+
+    def _evaluation_command(
+        self,
+        directory: Path,
+        *,
+        organism_id: object,
+        phase_index: int,
+        phase_name: str,
+        state_horizons: bool,
+    ) -> list[str]:
+        command = [
+            sys.executable, "-m", "petridish.train_shakespeare",
+            "--device", "cuda", "--checkpoint-dir", str(directory),
+            "--resume", "--evaluate-only", "--eval-batches", "8",
+        ]
+        if organism_id:
+            command.extend(
+                (
+                    "--organism-id", str(organism_id),
+                    "--phase-index", str(phase_index), "--phase-name", phase_name,
+                )
+            )
+        if state_horizons:
+            command.append("--state-horizon-eval")
         return command
 
     def _start_process(
@@ -715,4 +788,4 @@ class Laboratory:
             os.fsync(stream.fileno())
 
 
-__all__ = ["ContinueSpec", "Laboratory", "LaunchSpec"]
+__all__ = ["ContinueSpec", "EvaluateSpec", "Laboratory", "LaunchSpec"]

@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from petridish.laboratory import ContinueSpec, Laboratory, LaunchSpec
+from petridish.laboratory import ContinueSpec, EvaluateSpec, Laboratory, LaunchSpec
 
 
 def test_metrics_are_bounded_and_ignore_partial_json(tmp_path: Path) -> None:
@@ -148,6 +148,60 @@ def test_checkpoint_continuation_preserves_run_lineage_and_changes_only_phase(
     assert "--no-resume" not in command
     assert records[-1]["type"] == "phase"
     assert records[-1]["organismId"] == manifest["organismId"]
+
+
+def test_checkpoint_evaluation_is_read_only_and_keeps_the_phase(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    run = tmp_path / "runs" / "trial"
+    run.mkdir(parents=True)
+    (run / "latest.pt").touch()
+    phase_history = [
+        {
+            "index": 2, "name": "adaptive topology", "startUpdate": 1_000,
+            "targetUpdate": 1_500, "structure": True, "lifecycleProfile": "off",
+        }
+    ]
+    (run / "manifest.json").write_text(
+        json.dumps(
+            {
+                "runId": "trial", "organismId": "organism-test",
+                "phaseHistory": phase_history,
+            }
+        ),
+        encoding="utf-8",
+    )
+    laboratory = Laboratory(
+        tmp_path, run_root=tmp_path / "runs", control_enabled=True
+    )
+    monkeypatch.setattr(
+        laboratory, "_gpu_snapshot", lambda: ([{"uuid": "GPU-example"}], [])
+    )
+    launched: dict[str, object] = {}
+
+    def fake_start(
+        run_id: str, gpu_uuid: str, command: list[str], directory: Path
+    ) -> SimpleNamespace:
+        launched.update(command=command)
+        return SimpleNamespace(pid=4321)
+
+    monkeypatch.setattr(laboratory, "_start_process", fake_start)
+    monkeypatch.setattr(laboratory, "_git_commit", lambda: "eval-commit")
+
+    result = laboratory.evaluate_run(
+        EvaluateSpec("trial", "GPU-example", state_horizons=True)
+    )
+
+    manifest = json.loads((run / "manifest.json").read_text(encoding="utf-8"))
+    command = launched["command"]
+    assert isinstance(command, list)
+    assert result["status"] == "evaluating"
+    assert "--evaluate-only" in command
+    assert "--state-horizon-eval" in command
+    assert "--resume-plasticity" not in command
+    assert command[command.index("--organism-id") + 1] == "organism-test"
+    assert command[command.index("--phase-index") + 1] == "2"
+    assert manifest["phaseHistory"] == phase_history
 
 
 def test_laboratory_preserves_bounded_learning_rate_scale(tmp_path: Path) -> None:
