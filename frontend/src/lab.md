@@ -183,6 +183,8 @@ validated launch or stop requests.
 - **Does**: On a mixed-domain organism, offers one explicit read-only audit button for
   the first lane in each measured domain and displays the newest causal result for
   every audited lane instead of replacing them with the last completed audit.
+- **Does**: Infers representative lanes cumulatively for pre-selector diagnostics;
+  append-only domain ordering makes old persistent checkpoints immediately auditable.
 - **Does**: Displays fixed audit seed/sample size plus generation special/unknown
   rates and the validation unknown rate, so modal collapse cannot masquerade as
   readable token prediction.

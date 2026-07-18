@@ -772,8 +772,16 @@ export class LaboratoryView {
           ));
           state.append(shard);
           const domains = run.latestDiagnostics?.laneStreamDomains ?? [];
+          let legacyFirstLane = 0;
           const targets = this.snapshot.capabilities.trajectoryLaneAudit
-            ? domains.filter((domain) => domain.firstLane !== undefined)
+            ? domains.map((domain) => {
+              const target = {
+                ...domain,
+                firstLane: domain.firstLane ?? legacyFirstLane,
+              };
+              legacyFirstLane += domain.lanes;
+              return target;
+            })
             : [];
           if (targets.length > 0) {
             for (const domain of targets) {
