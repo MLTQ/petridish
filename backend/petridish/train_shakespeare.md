@@ -121,6 +121,9 @@ phased trajectories while retaining every saved position and recurrent state in 
 original lane. Lane counts may never decrease because doing so would discard
 organism-owned electrical histories. Added lane positions advance the preserved RNG
 normally; the generator is never reseeded.
+Scientific diagnostics report active versus still-cold lanes, the total number of
+tensor trajectories, and unique corpus-cursor phases modulo context length. This
+distinguishes nominal lane allocation from measured phase diversity.
 `--topology-profile fixed|adaptive|prune_only` names the phase policy independently
 from lifecycle. Fixed continues to route through the saved graph without endpoint
 mutation; adaptive prunes and grows; prune-only removes signed-low-utility dendrites

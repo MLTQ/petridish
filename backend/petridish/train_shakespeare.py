@@ -274,6 +274,18 @@ def _scientific_metrics(experiment: SequenceExperiment) -> dict[str, Any]:
         if experiment.state_lanes > 1 else [experiment._training_runtime_state]
     )
     lane_ages = [state.position if state is not None else 0 for state in lane_states]
+    active_state_lanes = sum(state is not None for state in lane_states)
+    stream_positions = experiment._training_stream_positions
+    experience_trajectories = 0 if stream_positions is None else stream_positions.numel()
+    unique_cursor_phases = (
+        0
+        if stream_positions is None
+        else int(
+            torch.unique(
+                stream_positions.remainder(experiment.task.sequence_length)
+            ).numel()
+        )
+    )
     plateau_age = experiment.training_step - experiment.last_accuracy_improvement_step
     return {
         "electricalStateTokens": (
@@ -282,6 +294,13 @@ def _scientific_metrics(experiment: SequenceExperiment) -> dict[str, Any]:
         ),
         "stateRetention": experiment.state_retention,
         "stateLanes": experiment.state_lanes,
+        "activeStateLanes": active_state_lanes,
+        "coldStateLanes": experiment.state_lanes - active_state_lanes,
+        "experienceTrajectoryCount": experience_trajectories,
+        "uniqueCursorPhases": unique_cursor_phases,
+        "cursorPhaseCoverage": (
+            unique_cursor_phases / experiment.task.sequence_length
+        ),
         "topologyProfile": experiment.topology_profile,
         "minimumElectricalStateTokens": min(lane_ages, default=0),
         "maximumElectricalStateTokens": max(lane_ages, default=0),

@@ -778,6 +778,15 @@ def test_state_lane_expansion_preserves_every_existing_trajectory(
                 assert value == original_value
     assert metrics["minimumElectricalStateTokens"] == 0
     assert metrics["maximumElectricalStateTokens"] == 8
+    assert metrics["activeStateLanes"] == starting_lanes
+    assert metrics["coldStateLanes"] == 4 - starting_lanes
+    assert metrics["experienceTrajectoryCount"] == 4
+    assert metrics["uniqueCursorPhases"] == len(
+        set(experiment._training_stream_positions.flatten().remainder(8).tolist())
+    )
+    assert metrics["cursorPhaseCoverage"] == pytest.approx(
+        metrics["uniqueCursorPhases"] / 8
+    )
 
     checkpoint = tmp_path / f"lanes-{starting_lanes}.pt"
     save_checkpoint(

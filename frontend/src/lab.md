@@ -113,6 +113,8 @@ validated launch or stop requests.
   electrical-memory horizon evaluation.
 - **Does**: Launches and displays persistent state-lane count and their measured age
   range independently from tensor batch size.
+- **Does**: Displays measured active/cold lane count and unique corpus-cursor phases,
+  so allocating sixteen lanes cannot masquerade as sixteen distinct experiences.
 - **Does**: Shows bounded explicit trainer failures in the authoritative run-status
   cell instead of labeling pre-checkpoint OOM as an ordinary stop.
 - **Does**: Launches and displays fixed/adaptive topology independently from the
