@@ -68,7 +68,8 @@ without losing the population mask, dendrite sources, synaptic weights, edge age
 edge utilities, genotypes, generation, competence history, turnover counters, lineage
 metadata, or continuous runtime state. Scientific diagnostics report zero electrical age before the first carried
 window. The paired held-out ablation must reuse the same contiguous tokens for carried
-and cold state, label both conditions, and advance the evaluation RNG only once. The
+and cold state, label both conditions, publish signed accuracy and loss value, and
+advance the evaluation RNG only once. The
 graph-causality regression requires intact, silenced, and source-rotated evaluations
 to use the same tokens, advance the sampler once, and restore all physical edges and
 weights exactly. It also reassigns weights only among each destination's existing

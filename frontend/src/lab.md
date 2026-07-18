@@ -99,7 +99,7 @@ validated launch or stop requests.
 - **Does**: Displays measured electrical-state age in tokens beside routing so a
   nominal continuous run cannot masquerade as one while repeatedly reinitializing.
 - **Does**: Displays a saved-state clone versus an identical-token, read-only cold
-  clone and their signed state-value delta. Both branches are evaluation-only;
+  clone and their signed accuracy/loss state-value deltas. Both branches are evaluation-only;
   neither overwrites or resets the checkpointed organism. The checkpoint electrical
   age is shown explicitly.
 - **Does**: Launches and displays the bounded electrical-retention intervention so

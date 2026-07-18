@@ -875,6 +875,9 @@ def test_state_ablation_reuses_identical_validation_stream_and_one_rng_advance()
     assert diagnostic["stateCarryAccuracyDelta"] == pytest.approx(
         diagnostic["accuracy"] - diagnostic["coldStateAccuracy"]
     )
+    assert diagnostic["stateCarryLossDelta"] == pytest.approx(
+        diagnostic["coldStateLoss"] - diagnostic["loss"]
+    )
 
     horizon_before = experiment.eval_generator.get_state().clone()
     curve = experiment.evaluate_state_horizons(4, horizons=(1, 2, 4))

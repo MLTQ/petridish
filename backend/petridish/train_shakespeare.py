@@ -353,6 +353,9 @@ def _held_out_diagnostics_from_current_sampler(
                 "stateCarryAccuracyDelta": (
                     held_out["accuracy"] - cold_state["accuracy"]
                 ),
+                "stateCarryLossDelta": (
+                    cold_state["loss"] - held_out["loss"]
+                ),
             }
         )
     else:

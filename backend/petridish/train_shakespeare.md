@@ -66,7 +66,8 @@ electrical age directly instead of inferring it from update count.
 Continuous held-out records begin from a tensor-cloned copy of the checkpoint's
 actual electrical/private/workspace state and report its seed age. An identical
 contiguous-token cold-state ablation begins without that state; their accuracy delta
-measures the value of the organism's real accumulated electricity.
+and cold-minus-saved loss delta measure the value of the organism's real accumulated
+electricity above and below the top-one decision boundary.
 They include matched intact, graph-silenced, and source-rotated loss/accuracy deltas;
 positive deltas mean the organism's dendritic computation or endpoint organization
 causally improves prediction on identical tokens.
