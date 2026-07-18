@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import copy
 import math
+import sys
 from dataclasses import replace
 from pathlib import Path
 
@@ -48,6 +49,7 @@ from petridish.train_shakespeare import (
     _scientific_metrics,
     _record_process_failure,
     load_checkpoint,
+    main as train_shakespeare_main,
     plasticity_phase_config,
     reconcile_plasticity_phase_status,
     restore_checkpoint,
@@ -82,6 +84,29 @@ def test_benchmark_artifact_replacement_is_atomic(tmp_path: Path) -> None:
 
     assert json.loads(output.read_text(encoding="utf-8"))["status"] == "complete"
     assert list(output.parent.glob(".*.tmp")) == []
+
+
+def test_plasticity_continuation_refuses_to_construct_a_fresh_organism(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "petridish.train_shakespeare",
+            "--device", "cpu",
+            "--checkpoint-dir", str(tmp_path),
+            "--resume-plasticity",
+        ],
+    )
+
+    with pytest.raises(SystemExit, match="2"):
+        train_shakespeare_main()
+
+    assert (
+        "requires resume to be enabled and an existing latest.pt"
+        in capsys.readouterr().err
+    )
 
 
 def test_recovery_branch_restores_process_global_rng() -> None:

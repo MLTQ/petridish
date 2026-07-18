@@ -656,6 +656,11 @@ def main() -> None:
         parser.error("--phase-index must be non-negative")
 
     latest = args.checkpoint_dir / "latest.pt"
+    if args.resume_plasticity and (not args.resume or not latest.is_file()):
+        parser.error(
+            "--resume-plasticity requires resume to be enabled and an existing "
+            "latest.pt checkpoint"
+        )
     payload: dict[str, Any] | None = None
     requested_device = torch.device(args.device)
     requested_training_shard_tokens = args.training_shard_tokens

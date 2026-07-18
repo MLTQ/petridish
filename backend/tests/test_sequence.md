@@ -32,6 +32,9 @@ The replacement profile additionally couples each cycle's birth cap to its measu
 deaths, preventing unused spatial capacity from causing unconditional population growth.
 The headless configuration regression independently disables adaptive topology while
 leaving lifecycle selection unchanged.
+The continuation CLI regression additionally requires `--resume-plasticity` to fail
+before task or model construction when no checkpoint exists, preventing a fresh
+organism from being mislabeled as another phase of an established lineage.
 
 The trace-free regression requires optimizer updates to advance metrics and examples
 without replacing the visible frame buffer, then verifies an explicit refresh rebuilds

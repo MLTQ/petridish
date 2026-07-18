@@ -146,6 +146,9 @@ lifecycle policy; population, positions, dendrites, weights, genotypes, electric
 state, optimizer moments, sampler positions, and RNG streams remain checkpoint-owned.
 Every checkpoint and metric carries an immutable organism ID plus phase index/name.
 An organism-ID mismatch is rejected instead of silently combining two lineages.
+Continuation also fails closed when resume is disabled or `latest.pt` is absent; it
+cannot fall through to the fresh-organism constructor while presenting itself as a
+plasticity phase.
 
 ### `plasticity_phase_config` / `reconcile_plasticity_phase_status`
 
