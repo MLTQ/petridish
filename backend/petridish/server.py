@@ -43,6 +43,7 @@ class LabLaunchRequest(BaseModel):
     batchSize: int = Field(default=16, ge=1, le=256)
     contextLength: int = Field(default=64, ge=8, le=256)
     messageSteps: int = Field(default=2, ge=1, le=16)
+    broadcastGain: float = Field(default=0.3, ge=0, le=2)
     updates: int = Field(default=100_000, ge=1)
     seed: int = 1
     learningRateScale: float = Field(default=1.0, ge=0.01, le=1.0)
@@ -114,6 +115,7 @@ async def launch_lab_run(request: LabLaunchRequest) -> dict[str, object]:
         batch_size=request.batchSize,
         context_length=request.contextLength,
         message_steps=request.messageSteps,
+        broadcast_gain=request.broadcastGain,
         updates=request.updates,
         seed=request.seed,
         learning_rate_scale=request.learningRateScale,

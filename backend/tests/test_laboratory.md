@@ -41,6 +41,8 @@ control-enable contracts without requiring NVIDIA hardware or launching trainers
   lifecycle and reports ended non-finite runs as failed.
 - **Does**: Preserves and bounds the common learning-rate scale used by long-run
   stability controls.
+- **Does**: Preserves a zero corpus broadcast gain in the trainer command and
+  rejects gains above the bounded workspace range.
 
 ## Contracts
 

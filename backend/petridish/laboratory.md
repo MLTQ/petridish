@@ -20,6 +20,8 @@ explicitly enabled trainer processes.
 - **Does**: Records adaptive versus fixed topology independently from lifecycle.
 - **Does**: Records and bounds one common learning-rate scale for rule, readout,
   and synapse optimizer groups.
+- **Does**: Records a bounded broadcast-workspace gain independently from the
+  microtick budget; zero is the hard physical-routing ablation.
 - **Does**: Derives the compatibility lifecycle boolean from the resolved profile so
   the manifest and trainer command cannot disagree.
 

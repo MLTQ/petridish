@@ -34,6 +34,8 @@ runtime device is configurable independently from trainer workers.
 - **Does**: Carries adaptive/fixed topology independently from lifecycle.
 - **Does**: Bounds a common learning-rate scale from 0.01 through 1.0 for stability
   controls.
+- **Does**: Bounds corpus broadcast gain from 0 through 2 so physical-only and
+  global-workspace runs are explicit API interventions.
 - **Rationale**: The API never accepts a shell command or arbitrary path.
 
 ### `websocket_endpoint`

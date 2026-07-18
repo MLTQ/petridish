@@ -164,6 +164,7 @@ export class LaboratoryView {
   private readonly taskSelect = required<HTMLSelectElement>("#lab-task");
   private readonly architectureSelect = required<HTMLSelectElement>("#lab-architecture");
   private readonly messageStepsSelect = required<HTMLSelectElement>("#lab-message-steps");
+  private readonly broadcastGainInput = required<HTMLInputElement>("#lab-broadcast-gain");
   private readonly lifecycleProfileSelect = required<HTMLSelectElement>("#lab-lifecycle-profile");
   private readonly launchButton = required<HTMLButtonElement>("#lab-launch");
   private readonly launchStatus = required<HTMLOutputElement>("#lab-launch-status");
@@ -183,6 +184,7 @@ export class LaboratoryView {
     this.form.addEventListener("submit", (event) => void this.launch(event));
     this.taskSelect.addEventListener("change", () => {
       this.messageStepsSelect.value = this.taskSelect.value === "tiny_stories" ? "12" : "2";
+      this.broadcastGainInput.value = this.taskSelect.value === "tiny_stories" ? "0.35" : "0.3";
     });
     void this.refresh();
     this.timer = window.setInterval(() => void this.refresh(), 3000);
@@ -550,7 +552,7 @@ export class LaboratoryView {
         ? `${diagnostic.livingCells ?? "—"} cells · ${diagnostic.edgeCount ?? "—"} physical · ${diagnostic.conductingEdgeCount ?? "—"} conducting`
         : "—";
       const routing = diagnostic
-        ? `${diagnostic.minimumOutputHops ?? "—"}/${diagnostic.medianOutputHops ?? "—"} hops · ${diagnostic.tokenReachableOutputs ?? 0}/${diagnostic.contextReachableOutputs ?? 0}/${diagnostic.reachableOutputs ?? 0} token/context/graph${(diagnostic.tokenReachableOutputs ?? 0) === 0 && Number(run.configuration.messageSteps ?? 0) < Number(diagnostic.minimumOutputHops ?? 0) ? ` · insufficient ${run.configuration.messageSteps ?? "—"} < ${diagnostic.minimumOutputHops ?? "—"}` : ""}`
+        ? `${diagnostic.minimumOutputHops ?? "—"}/${diagnostic.medianOutputHops ?? "—"} hops · ${diagnostic.tokenReachableOutputs ?? 0}/${diagnostic.contextReachableOutputs ?? 0}/${diagnostic.reachableOutputs ?? 0} token/context/graph · broadcast ${String(run.configuration.broadcastGain ?? "legacy")}${(diagnostic.tokenReachableOutputs ?? 0) === 0 && Number(run.configuration.messageSteps ?? 0) < Number(diagnostic.minimumOutputHops ?? 0) ? ` · insufficient ${run.configuration.messageSteps ?? "—"} < ${diagnostic.minimumOutputHops ?? "—"}` : ""}`
         : "—";
       const lifecycle = diagnostic
         ? `${String(run.configuration.lifecycleProfile ?? (run.configuration.lifecycle ? "baseline" : "off"))} · ${diagnostic.stunnedCells ?? 0} stunned · +${diagnostic.cumulativeBirths ?? 0}/−${diagnostic.cumulativeDeaths ?? 0} cells · ${diagnostic.cumulativeStuns ?? 0}/${diagnostic.cumulativeRecoveries ?? 0} stun/recover`
@@ -654,6 +656,7 @@ export class LaboratoryView {
       fieldSize: 68,
       batchSize: Number(form.get("batchSize")), contextLength: 64,
       messageSteps: Number(form.get("messageSteps")),
+      broadcastGain: Number(form.get("broadcastGain")),
       updates: Number(form.get("updates")), seed: Number(form.get("seed")),
       learningRateScale: Number(form.get("learningRateScale")),
       amp: String(form.get("amp")), lifecycle: lifecycleProfile !== "off",

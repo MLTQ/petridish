@@ -221,9 +221,11 @@ def test_headless_launch_scales_all_optimizer_rates_together() -> None:
     defaults = sequence_config("tiny_stories")
     scaled = _fresh_config(
         "tiny_stories", field_size=68, batch_size=1, message_steps=4,
-        architecture="gru", lifecycle=False, learning_rate_scale=0.25,
+        architecture="gru", lifecycle=False, broadcast_gain=0.0,
+        learning_rate_scale=0.25,
     )
 
+    assert scaled.broadcast_gain == 0.0
     assert scaled.learning_rate == pytest.approx(defaults.learning_rate * 0.25)
     assert scaled.readout_learning_rate == pytest.approx(
         defaults.readout_learning_rate * 0.25

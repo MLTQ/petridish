@@ -239,6 +239,7 @@ def _fresh_config(
     message_steps: int | None,
     architecture: str,
     lifecycle: bool,
+    broadcast_gain: float | None = None,
     learning_rate_scale: float = 1.0,
     lifecycle_profile: str = "off",
     structure: bool = True,
@@ -253,6 +254,9 @@ def _fresh_config(
         height=size,
         batch_size=batch_size or defaults.batch_size,
         message_steps=message_steps or defaults.message_steps,
+        broadcast_gain=(
+            defaults.broadcast_gain if broadcast_gain is None else broadcast_gain
+        ),
         cell_architecture=architecture,
         lifecycle_enabled=int(lifecycle),
         structural_enabled=int(structure),
@@ -283,6 +287,7 @@ def main() -> None:
     parser.add_argument("--batch-size", type=int)
     parser.add_argument("--context-length", type=int, default=64)
     parser.add_argument("--message-steps", type=int)
+    parser.add_argument("--broadcast-gain", type=float)
     parser.add_argument("--architecture", choices=CELL_ARCHITECTURES, default="gru")
     parser.add_argument("--updates", type=int, default=100_000)
     parser.add_argument("--seed", type=int, default=1)
@@ -306,6 +311,8 @@ def main() -> None:
     args = parser.parse_args()
     if not 0.01 <= args.learning_rate_scale <= 1.0:
         parser.error("--learning-rate-scale must be between 0.01 and 1.0")
+    if args.broadcast_gain is not None and not 0 <= args.broadcast_gain <= 2.0:
+        parser.error("--broadcast-gain must be between 0 and 2")
 
     latest = args.checkpoint_dir / "latest.pt"
     payload: dict[str, Any] | None = None
@@ -326,6 +333,7 @@ def main() -> None:
             message_steps=args.message_steps,
             architecture=args.architecture,
             lifecycle=args.lifecycle,
+            broadcast_gain=args.broadcast_gain,
             learning_rate_scale=args.learning_rate_scale,
             lifecycle_profile=args.lifecycle_profile,
             structure=args.structure,

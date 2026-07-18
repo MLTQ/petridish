@@ -19,10 +19,12 @@ synaptic weights and cell rules trainable.
 
 ### `_fresh_config`
 
-Applies field, batch, microtick, architecture, named lifecycle, topology, and a
-bounded common learning-rate scale while preserving all other task-specific defaults,
-including structural timing. The scale changes rule, readout, and synapse optimizer
-rates together so long-run stability controls do not alter their relative schedule.
+Applies field, batch, microtick, broadcast-workspace gain, architecture, named
+lifecycle, topology, and a bounded common learning-rate scale while preserving all
+other task-specific defaults, including structural timing. A zero broadcast gain is
+a hard workspace bypass, allowing corpus runs to isolate dendritic routing. The rate
+scale changes rule, readout, and synapse optimizer rates together so long-run
+stability controls do not alter their relative schedule.
 
 `--architecture` selects a checkpointed homogeneous GRU, LSTM, ESN, or temporal
 transformer population. GRU remains the default and preserves existing checkpoints.
@@ -55,7 +57,7 @@ Example:
 ```bash
 CUDA_VISIBLE_DEVICES=0 uv run python -m petridish.train_shakespeare \
   --device cuda --field-size 68 --batch-size 64 --context-length 64 \
-  --message-steps 2 --amp bfloat16 --compile off --updates 100000 \
+  --message-steps 12 --broadcast-gain 0 --amp bfloat16 --compile off --updates 100000 \
   --checkpoint-dir runs/shakespeare-4090 --checkpoint-interval 100 \
   --eval-interval 500 --eval-batches 4 --progress-interval 10
 ```

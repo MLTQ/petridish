@@ -70,6 +70,8 @@ validated launch or stop requests.
   balanced/replacement ablations remain distinguishable in manifests and diagnostics.
 - **Does**: Launches an explicit microtick budget and flags runs whose budget is
   shorter than the measured minimum sensory-to-output route.
+- **Does**: Launches, persists, and displays exact broadcast-workspace gain so
+  local-only corpus routing is distinguishable from legacy/global runs.
 - **Does**: Launches and displays fixed/adaptive topology independently from the
   selected lifecycle profile, and accepts a measured `failed` run state.
 - **Does**: Launches a bounded common learning-rate scale so stability controls are

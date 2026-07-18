@@ -21,6 +21,8 @@ The headless-launch regression also prevents CLI overrides from silently replaci
 the token task's lifecycle and pruning warm-up schedule with Shakespeare defaults.
 It also requires the stability intervention to scale rule, readout, and synapse
 learning rates together without changing their relative schedule.
+The same launch fixture requires an explicit zero broadcast gain to survive into
+configuration as a hard physical-workspace ablation.
 Named lifecycle-profile tests preserve the original baseline while proving the
 balanced intervention keeps stun, recovery, starvation, and eventual death but
 equalizes maximum births/deaths and lowers the empirically saturated pressures.

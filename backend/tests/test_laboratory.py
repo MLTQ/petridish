@@ -96,6 +96,23 @@ def test_laboratory_preserves_bounded_learning_rate_scale(tmp_path: Path) -> Non
         )
 
 
+def test_laboratory_preserves_bounded_broadcast_gain(tmp_path: Path) -> None:
+    laboratory = Laboratory(tmp_path, run_root=tmp_path / "runs", control_enabled=True)
+    spec = LaunchSpec(
+        "trial", "GPU-example", task="tiny_stories", field_size=68,
+        message_steps=16, broadcast_gain=0.0,
+    )
+
+    laboratory._validate_spec(spec)
+    command = laboratory._trainer_command(spec, tmp_path / "runs" / "trial")
+
+    assert command[command.index("--broadcast-gain") + 1] == "0.0"
+    with pytest.raises(ValueError, match="broadcast gain"):
+        laboratory._validate_spec(
+            LaunchSpec("invalid", "GPU-example", broadcast_gain=2.1)
+        )
+
+
 def test_legacy_lifecycle_flag_resolves_to_recorded_baseline(tmp_path: Path) -> None:
     laboratory = Laboratory(tmp_path, run_root=tmp_path / "runs", control_enabled=True)
     spec = LaunchSpec(

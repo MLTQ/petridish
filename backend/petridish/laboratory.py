@@ -37,6 +37,7 @@ class LaunchSpec:
     batch_size: int = 16
     context_length: int = 64
     message_steps: int = 2
+    broadcast_gain: float = 0.3
     updates: int = 100_000
     seed: int = 1
     learning_rate_scale: float = 1.0
@@ -133,6 +134,7 @@ class Laboratory:
                 "batchSize": spec.batch_size,
                 "contextLength": spec.context_length,
                 "messageSteps": spec.message_steps,
+                "broadcastGain": spec.broadcast_gain,
                 "updates": spec.updates,
                 "seed": spec.seed,
                 "learningRateScale": spec.learning_rate_scale,
@@ -202,6 +204,8 @@ class Laboratory:
             raise ValueError("batch size must be between 1 and 256")
         if spec.message_steps < 1 or spec.message_steps > 16:
             raise ValueError("message steps must be between 1 and 16")
+        if not 0 <= spec.broadcast_gain <= 2.0:
+            raise ValueError("broadcast gain must be between 0 and 2")
         if spec.updates < 1:
             raise ValueError("updates must be positive")
         if not 0.01 <= spec.learning_rate_scale <= 1.0:
@@ -219,6 +223,7 @@ class Laboratory:
             "--batch-size", str(spec.batch_size),
             "--context-length", str(spec.context_length),
             "--message-steps", str(spec.message_steps),
+            "--broadcast-gain", str(spec.broadcast_gain),
             "--architecture", spec.architecture,
             "--amp", spec.amp, "--compile", "off",
             "--updates", str(spec.updates), "--seed", str(spec.seed),

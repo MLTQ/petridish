@@ -26,6 +26,8 @@ experiment laboratory above the live organism.
   hiding their scientific identity behind a boolean checkbox.
 - **Does**: Exposes cellular microticks per token beside corpus launch controls so
   one-token routing budget is an explicit intervention.
+- **Does**: Exposes exact broadcast-workspace gain beside microticks; zero launches
+  a hard local-only corpus run rather than an undocumented global shortcut.
 - **Does**: Selects fixed or adaptive topology independently from lifecycle.
 - **Does**: Exposes a bounded common learning-rate scale for controlled long-run
   stability experiments.
