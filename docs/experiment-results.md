@@ -292,3 +292,29 @@ recovery. It is also independently destructive without a lesion. Lower cadence p
 asymmetric caps reduces both repair and final accuracy. A focused corrected replication
 of the 60-update repair-then-freeze branch is next; its pre-fix first-branch trace is
 only hypothesis-generating even though its prefix matches the corrected matrix exactly.
+
+## Corrected 60-update repair-then-freeze replication — 2026-07-17
+
+The focused branch was rerun from scratch with deterministic kernels and explicit
+CPU/CUDA branch-RNG restoration. Its complete prefix through the freeze boundary
+matches the earlier first-branch trace exactly. Lifecycle and topology mutation were
+disabled after recovery update 60; gradient learning continued to update 240.
+
+| Update | Held out | Loss | Cells | Edges | Births | Deaths | Generation |
+|-------:|---------:|-----:|------:|------:|-------:|-------:|-----------:|
+| 0 | 23.18% | 2.32709 | 144 | 243 | 0 | 0 | 0 |
+| 20 | 60.42% | 1.07865 | 149 | 348 | 24 | 19 | 2 |
+| 40 | 54.17% | 1.36879 | 172 | 478 | 60 | 32 | 5 |
+| 60, freeze | 66.41% | 0.82708 | 195 | 563 | 84 | 33 | 7 |
+| 100 | 88.80% | 0.39848 | 195 | 563 | 84 | 33 | 7 |
+| 140 | 99.74% | 0.09331 | 195 | 563 | 84 | 33 | 7 |
+| 160 | 100.00% | 0.02515 | 195 | 563 | 84 | 33 | 7 |
+| 240 | 100.00% | 0.00197 | 195 | 563 | 84 | 33 | 7 |
+
+This is the first lifecycle policy to outperform both matched alternatives after the
+severe lesion: static recovery ends at 85.94%, continuous default lifecycle at 78.39%,
+and repair-then-freeze at 100%. Physical regrowth is useful, but only as a bounded
+developmental phase; continued birth/death/topology mutation erodes the computation it
+helps reconstruct. The result is one deterministic seed and one task, so future work
+should replicate seeds and replace the fixed 60-update schedule with a training-only
+competence/stability gate rather than held-out feedback.
