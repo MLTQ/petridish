@@ -905,3 +905,67 @@ Existing lanes will retain their exact 2,048-byte domain and cursor interpretati
 newly appended cold lanes alone will receive the 4,096-byte domain. This produces
 interleaved replay and novelty inside one persistent organism rather than a hard
 global remapping.
+
+### Per-lane replay preserved the old organism while new lanes learned breadth
+
+Both replay-preserving descendants began from the exact update-7,750 control
+checkpoint, SHA-256
+`d853dccf9cd81e3827f12fd3bad43fe8f5a8d8e33d0d9db476d7a69d9d902d33`,
+with organism ID `organism-b2505376398a491e8cf4150a5daf3fab`, 2,224 cells, and
+13,737 directed edges. The original sixteen lanes, including their positions,
+2,048-byte domains, and complete electrical/private/workspace state, were retained.
+Both descendants appended sixteen cold lanes without replacing organism state. The
+control assigned the new lanes the same 2,048-byte domain; the treatment alone
+assigned its new lanes the 4,096-byte domain. Topology and lifecycle stayed fixed so
+the intervention isolated experience replay.
+
+After 1,000 additional updates, the all-2K control reached 83.13% / 0.67747 over its
+final 160 updates. The mixed organism reached 66.58% / 1.46337 overall, but that
+aggregate separates cleanly into 84.49% on the sixteen inherited 2K lanes and 48.67%
+on the sixteen appended 4K lanes. Old-domain performance therefore matched and
+slightly exceeded the control while new-domain performance rose from 33.1% over its
+first 100 updates to 48.7%. Unlike the hard global switch, breadth did not destroy
+the replay trajectories.
+
+Explicit lane-selectable read-only audits established what each half learned. The
+old lane zero had accumulated 152,000 electrical-state tokens and reached 90.82% in
+the control versus 87.30% in the mixed organism. Silencing the fixed connectome
+removed 83.30 and 80.66 percentage points; endpoint rotation removed 85.64 and
+80.96 points; within-target source/weight reassignment removed 85.16 and 82.71
+points. Saved electrical state contributed 26.66 and 23.63 points. Replay therefore
+remained both persistent and physically routed.
+
+Lane sixteen is an age-matched comparison between newly appended trajectories: both
+had accumulated 1,984 state tokens, but the control repeated 2K while the treatment
+covered 4K. It reached 75.98% control versus 57.71% treatment. Graph silence removed
+69.14 and 51.66 points; endpoint rotation removed 69.14 and 51.46 points; reassignment
+removed 69.63 and 52.25 points. Saved electrical state contributed 17.19 and 15.63
+points. The broader new lane is weaker, but it is learning through the same emerged
+connectome rather than through a replacement network or global bypass.
+
+Random-offset competence did not follow automatically. The 2K control measured
+81.05% aggregate accuracy on its active shard, while the mixed organism measured
+15.92% on 4K; the mixed graph-reference slice was 28.42%, still below its 31.01%
+bigram baseline. Its graph remained causal on that slice—silencing removed 22.36
+points—but the learned solution was trajectory-specific. The earlier hard-switch
+organism reached 20.41% random-offset accuracy, so replay preservation solved
+catastrophic interference, not phase-general conditional prediction.
+
+Validation remained below trivial corpus statistics. The control measured 9.18% /
+5.19218 and the mixed organism 10.16% / 4.68606, versus 19.09% unigram and roughly
+31% bigram accuracy. Fixed-prompt samples were `llbar  wam  nn  ` and
+`llbbe   am  an o`. Both checkpoints remained byte-identical through all trajectory,
+active-shard, graph/state-counterfactual, validation, and generation audits:
+`39e8d890073a61178a93fd51b3f7877cf4e66f4e8c4636a6a957ef566b4526ce`
+for the 2K control and
+`02adde1864341cbebd2a16a801e3314b797e63548f1b2559e8095d1398048d8a`
+for the mixed organism.
+
+The remaining phase failure is measurable rather than speculative. Both 32-lane
+organisms cover only 26 of 64 possible cursor phases. Because each contiguous window
+advances by exactly 64 tokens, a lane never changes its phase modulo context length.
+The next same-lineage intervention should append cold persistent lanes at uncovered
+phases while leaving all 32 existing lanes, cells, graph, weights, optimizer moments,
+RNG state, and electrical histories untouched. This tests whether phase-complete
+experience converts the new 4K trajectory solution into random-offset competence
+before changing cellular structure again.
