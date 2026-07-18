@@ -525,3 +525,31 @@ Validation stays the complete 2.25-million-byte split, and shard-fitted unigram/
 controls remain visible. This tests whether the organism can first overfit a bounded
 language distribution before scaling experience, without discarding the structure it
 has already grown.
+
+### Persistent 8,192-byte curriculum phases
+
+The 2070 broadcast lineage continued from update 1,000 to 1,500 on an 8,192-byte
+repeated prefix with adaptive topology. Its organism ID remained
+`organism-b2505376398a491e8cf4150a5daf3fab`; both electrical lanes advanced from age
+32,000 to 48,000 tokens and their saved stream cursors ended at 453 and 5,647 within
+the shard. The checkpoint retained all optimizer and graph state.
+
+This adaptive phase did not learn the shard or transfer to full validation. The
+scheduled 256-byte audit measured 19.53% accuracy / 3.12801 loss versus the shard-fitted
+unigram 19.09% / 3.11355 and bigram 31.42% / 2.91118. Generation remained sixteen
+spaces. Meanwhile, cumulative topology turnover reached 7,627 grown and 8,192 pruned
+edges, leaving 16,565 active edges and all 64 outputs reachable. Graph silence,
+source rotation, within-destination weight reassignment, and broadcast silence each
+slightly *improved* loss. The actively churning graph was therefore harmful on this
+slice rather than a useful route to language. The same checkpoint is now continuing
+with that resulting graph fixed, isolating consolidation from further endpoint churn.
+
+The 4090 local lineage reached update 1,000 on the full corpus with the same organism
+ID `organism-3b2405d533c548e0ab2666a8d8ff9987`, electrical age 64,000, and all 17,130
+edges intact. Accuracy remained modal at 19.53% and generation collapsed to spaces.
+However, causal graph organization was reproducible below the argmax boundary:
+silence worsened loss by 0.04332, global source rotation by 1.20878, and weight
+reassignment within fixed incoming source sets by 0.52419. This distinguishes
+meaningful route/weight organization from language competence. The exact organism is
+now continuing on the same 8,192-byte shard with topology fixed; its first continued
+update advanced electrical age from 64,000 to 64,064 instead of reinitializing it.
