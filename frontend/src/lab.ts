@@ -1008,7 +1008,7 @@ export class LaboratoryView {
     )).join(" · ");
     const baselineSummary = record.unigramBaselineAccuracy === undefined
       ? ""
-      : `uni ${this.percent(record.unigramBaselineAccuracy)} / ppl ${this.perplexity(record.unigramBaselineLoss)} · bi ${this.percent(record.bigramBaselineAccuracy)} / ppl ${this.perplexity(record.bigramBaselineLoss)}`;
+      : `uni ${this.percent(record.unigramBaselineAccuracy)} / ppl ${this.perplexity(record.unigramBaselineLoss)} · bi ${this.percent(record.bigramBaselineAccuracy)} / ppl ${this.perplexity(record.bigramBaselineLoss)}${record.accuracy === undefined ? "" : ` · model−uni ${this.signedPercent(record.accuracy - record.unigramBaselineAccuracy)} · model−bi ${this.signedPercent(record.accuracy - (record.bigramBaselineAccuracy ?? 0))}`}`;
     const stateSummary = record.coldStateAccuracy === undefined
       ? ""
       : `saved-state clone ${this.percent(record.accuracy)} · read-only cold clone ${this.percent(record.coldStateAccuracy)} · state value ${this.signedPercent(record.stateCarryAccuracyDelta)} · checkpoint state age ${(record.initialStateTokens ?? 0).toLocaleString()}`;
