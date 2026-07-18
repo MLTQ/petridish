@@ -91,8 +91,9 @@ validated launch or stop requests.
   to be continuous.
 - **Does**: Displays measured electrical-state age in tokens beside routing so a
   nominal continuous run cannot masquerade as one while repeatedly reinitializing.
-- **Does**: Displays carried versus identical-token cold-state accuracy and their
-  signed delta, distinguishing useful memory from merely old state.
+- **Does**: Displays checkpoint-state versus identical-token cold-state accuracy and
+  their signed delta. “Checkpoint” starts from a tensor-cloned copy of the organism's
+  actual saved electricity, and the seed age is shown explicitly.
 - **Does**: Launches and displays the bounded electrical-retention intervention so
   indefinite persistence and homeostatic relaxation remain distinguishable.
 - **Does**: Shows optional h1/h2/h4/h8/h16 held-out accuracy from the identical-token

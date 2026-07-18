@@ -58,14 +58,17 @@ memory, workspace, fast-memory, and binding-memory state when active.
 Training and scientific records expose `electricalStateTokens`, the exact absolute
 token position carried by that runtime state; a continuous run therefore proves its
 electrical age directly instead of inferring it from update count.
-Continuous held-out records also include carried-state accuracy/loss, an identical
-contiguous-token cold-state ablation, and their accuracy delta.
+Continuous held-out records begin from a tensor-cloned copy of the checkpoint's
+actual electrical/private/workspace state and report its seed age. An identical
+contiguous-token cold-state ablation begins without that state; their accuracy delta
+measures the value of the organism's real accumulated electricity.
 They include matched intact, graph-silenced, and source-rotated loss/accuracy deltas;
 positive deltas mean the organism's dendritic computation or endpoint organization
 causally improves prediction on identical tokens.
-`--evaluate-only` loads an existing checkpoint, appends that complete held-out record
-without an optimizer update, and exits. This lets older or interrupted trainers gain
-new diagnostics without altering the organism being measured.
+`--evaluate-only` loads an existing checkpoint, clones its persistent state for each
+counterfactual, appends that complete held-out record without an optimizer update,
+and exits. This lets older or interrupted trainers gain new diagnostics without
+altering the organism being measured.
 `--state-retention 0..1` records the fraction of electrical/private/workspace state
 retained at each context boundary. One reproduces indefinite persistence; the lab
 defaults new controlled launches to 0.9 after the no-relaxation trajectory ablation

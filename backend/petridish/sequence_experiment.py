@@ -726,11 +726,16 @@ class SequenceExperiment:
         progress_callback: Callable[[str, int, int], None] | None = None,
         carry_state: bool | None = None,
         state_horizon_windows: int | None = None,
+        initial_runtime_state: SequenceRuntimeState | None = None,
     ) -> dict[str, Any]:
         """Return held-out loss and accuracy without mutating training state."""
 
         if carry_state is not None and self.stream_mode != "continuous":
             raise ValueError("state-carry evaluation requires a continuous corpus stream")
+        if initial_runtime_state is not None and self.stream_mode != "continuous":
+            raise ValueError("checkpoint-state evaluation requires continuous mode")
+        if initial_runtime_state is not None and carry_state is False:
+            raise ValueError("cold-state evaluation cannot receive checkpoint state")
         if state_horizon_windows is not None:
             if self.stream_mode != "continuous":
                 raise ValueError("state horizon requires a continuous corpus stream")
@@ -757,7 +762,11 @@ class SequenceExperiment:
             )
             if self.stream_mode == "continuous" else None
         )
-        runtime_state: SequenceRuntimeState | None = None
+        runtime_state = (
+            initial_runtime_state.cloned_detached()
+            if initial_runtime_state is not None else None
+        )
+        initial_state_tokens = runtime_state.position if runtime_state is not None else 0
         for index in range(batch_count):
             if stream_positions is None:
                 batch = self._batch(self.config.batch_size, evaluation=True)
@@ -843,6 +852,7 @@ class SequenceExperiment:
             "stateRetention": self.state_retention,
             "stateLanes": self.state_lanes,
             "stateCarry": state_carry,
+            "initialStateTokens": initial_state_tokens,
             "stateHorizonWindows": state_horizon_windows,
             "positionIndices": [
                 position
@@ -869,12 +879,16 @@ class SequenceExperiment:
     def evaluate_state_ablation(
         self, batches: int = 8
     ) -> tuple[dict[str, Any], dict[str, Any]]:
-        """Compare carried and cold state on identical contiguous validation tokens."""
+        """Compare checkpoint and cold state on identical validation tokens."""
 
         if self.stream_mode != "continuous":
             raise ValueError("state ablation requires continuous training mode")
         before = self.eval_generator.get_state().clone()
-        carried = self.evaluate_metrics(batches, carry_state=True)
+        carried = self.evaluate_metrics(
+            batches,
+            carry_state=True,
+            initial_runtime_state=self._training_runtime_state,
+        )
         after = self.eval_generator.get_state().clone()
         try:
             self.eval_generator.set_state(before)
@@ -895,12 +909,17 @@ class SequenceExperiment:
         original_sources = substrate.dendrite_source.clone()
         original_weights = substrate.synapse_weight.detach().clone()
         active = substrate.active_edge_mask.clone()
-        reference = self.evaluate_metrics(batches)
+        checkpoint_state = self._training_runtime_state
+        reference = self.evaluate_metrics(
+            batches, initial_runtime_state=checkpoint_state
+        )
         after_rng = self.eval_generator.get_state().clone()
         try:
             self.eval_generator.set_state(before_rng)
             substrate.synapse_weight[active] = 0
-            silenced = self.evaluate_metrics(batches)
+            silenced = self.evaluate_metrics(
+                batches, initial_runtime_state=checkpoint_state
+            )
 
             substrate.synapse_weight.copy_(original_weights)
             self.eval_generator.set_state(before_rng)
@@ -908,7 +927,9 @@ class SequenceExperiment:
             if active_sources.numel() > 1:
                 substrate.dendrite_source[active] = active_sources.roll(1)
             substrate._diagnostic_cache = None
-            source_rotated = self.evaluate_metrics(batches)
+            source_rotated = self.evaluate_metrics(
+                batches, initial_runtime_state=checkpoint_state
+            )
         finally:
             substrate.dendrite_source.copy_(original_sources)
             substrate.synapse_weight.copy_(original_weights)
@@ -939,6 +960,7 @@ class SequenceExperiment:
                     bounded_batches,
                     carry_state=True,
                     state_horizon_windows=horizon,
+                    initial_runtime_state=self._training_runtime_state,
                 )
                 if after is None:
                     after = self.eval_generator.get_state().clone()

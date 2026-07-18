@@ -32,9 +32,15 @@ the tensor batch. Every lane advances through its own contiguous corpus position
 retains its own complete runtime state; all lanes share one physical substrate,
 parameters, synapses, genotype, optimizer, and lifecycle. This tests trajectory
 diversity on memory-limited GPUs without creating an ensemble or resetting a lane.
-`evaluate_state_horizons` replays one held-out stream while bounding electrical carry
-to 1, 2, 4, 8, or 16 context windows. Every horizon receives identical tokens and
-the sampler advances only once, producing a measured memory-lifetime response curve.
+Held-out checkpoint-state evaluation begins with a tensor-cloned copy of the
+organism's actual saved hidden/private/workspace state and absolute token position.
+The matched cold branch begins without that electricity; both receive identical
+tokens and neither can alter training state. Graph reference, silence, and endpoint
+rotation branches likewise begin from identical checkpoint-state clones.
+`evaluate_state_horizons` replays one held-out stream from that checkpoint state while
+bounding additional electrical carry to 1, 2, 4, 8, or 16 context windows. Every
+horizon receives identical tokens and the sampler advances only once, producing a
+measured memory-lifetime response curve.
 
 Recall begins with one binding and advances to two and three only when the most
 recent 24 training batches exceed 90% accuracy. Tiny-language accuracy is reported

@@ -27,6 +27,9 @@ cutting autograd history at a truncated-backpropagation boundary. If lifecycle
 changes the population, `reconcile_runtime_state` maps every survivor by physical
 site, initializes only newborn state, and retains workspace and address memories;
 cell death therefore never resets the surviving organism.
+`SequenceRuntimeState.cloned_detached` additionally copies every tensor for held-out
+counterfactuals. Evaluation branches can therefore start from identical checkpoint
+electricity without sharing mutable storage with the living training state.
 `relax_runtime_state` optionally mixes electrical state toward each same physical
 neuron's genotype/role/homeostasis-defined resting state and decays private/workspace
 memories by the same coefficient. It preserves sites, structure, learned parameters,

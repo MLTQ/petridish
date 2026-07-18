@@ -75,6 +75,9 @@ sites and absolute age, leave retention-one state bit-identical, change state at
 remain finite, and survive checkpoints. The
 state-horizon curve must report ordered window/token spans from identical validation
 tokens while advancing the sampler exactly once. The
+checkpoint-state ablation must seed every held-out counterfactual from a storage-
+independent clone of the real saved hidden/private/workspace state, report its
+absolute seed age, and leave the live runtime tensors unchanged. The
 state-lane regression must alternate two independent persistent trajectories at
 batch one, retain both states, report their exact age range, and expose authoritative
 structure/lifecycle gate reasons. Pre-update process

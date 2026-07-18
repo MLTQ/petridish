@@ -75,6 +75,7 @@ interface MetricRecord {
   coldStateLoss?: number;
   coldStateAccuracy?: number;
   stateCarryAccuracyDelta?: number;
+  initialStateTokens?: number;
   stateRetention?: number;
   stateHorizon?: Array<{
     windows: number;
@@ -965,7 +966,7 @@ export class LaboratoryView {
       : `uni ${this.percent(record.unigramBaselineAccuracy)} / ppl ${this.perplexity(record.unigramBaselineLoss)} · bi ${this.percent(record.bigramBaselineAccuracy)} / ppl ${this.perplexity(record.bigramBaselineLoss)}`;
     const stateSummary = record.coldStateAccuracy === undefined
       ? ""
-      : `carry ${this.percent(record.accuracy)} · cold ${this.percent(record.coldStateAccuracy)} · Δ ${this.signedPercent(record.stateCarryAccuracyDelta)}`;
+      : `checkpoint ${this.percent(record.accuracy)} · cold ${this.percent(record.coldStateAccuracy)} · Δ ${this.signedPercent(record.stateCarryAccuracyDelta)} · seed age ${(record.initialStateTokens ?? 0).toLocaleString()}`;
     const horizonSummary = (record.stateHorizon ?? []).map(
       (point) => `h${point.windows} ${this.percent(point.accuracy)}`,
     ).join(" · ");

@@ -24,7 +24,7 @@ from petridish.mnist_substrate import SpatialSubstrate
 from petridish.protocol import build_snapshot
 from petridish.sequence_config import sequence_config
 from petridish.sequence_experiment import SequenceExperiment
-from petridish.sequence_model import CellularSequenceModel
+from petridish.sequence_model import CellularSequenceModel, SequenceRuntimeState
 from petridish.sequence_tasks import (
     SequenceBatch,
     SequenceTask,
@@ -783,6 +783,35 @@ def test_electrical_relaxation_preserves_structure_and_age_without_hard_reset() 
         model.relax_runtime_state(state, 1.1)
 
 
+def test_runtime_state_counterfactual_clone_copies_every_electrical_channel() -> None:
+    state = SequenceRuntimeState(
+        sites=torch.tensor([2, 5]),
+        hidden=torch.randn(1, 2, 3),
+        cell_memory=torch.randn(1, 2, 3),
+        workspace=torch.randn(1, 2, 3),
+        fast_memory=torch.randn(1, 3, 3),
+        binding_memory=torch.randn(1, 2, 3),
+        previous_binding_key=torch.randn(1, 3),
+        position=123,
+    )
+
+    cloned = state.cloned_detached()
+
+    assert cloned.position == state.position
+    for original, copied in (
+        (state.sites, cloned.sites),
+        (state.hidden, cloned.hidden),
+        (state.cell_memory, cloned.cell_memory),
+        (state.workspace, cloned.workspace),
+        (state.fast_memory, cloned.fast_memory),
+        (state.binding_memory, cloned.binding_memory),
+        (state.previous_binding_key, cloned.previous_binding_key),
+    ):
+        assert original is not None and copied is not None
+        assert torch.equal(original, copied)
+        assert original.data_ptr() != copied.data_ptr()
+
+
 def test_state_ablation_reuses_identical_validation_stream_and_one_rng_advance() -> None:
     text = "One fox ran. Two birds flew. Three cats slept. " * 30
     task = build_token_task(text, context_length=8, vocabulary_size=32)
@@ -790,15 +819,24 @@ def test_state_ablation_reuses_identical_validation_stream_and_one_rng_advance()
     experiment = SequenceExperiment(
         task, config, seed=47, device="cpu", stream_mode="continuous"
     )
+    experiment.train_updates(1)
+    assert experiment._training_runtime_state is not None
+    checkpoint_state = experiment._training_runtime_state.cloned_detached()
     before = experiment.eval_generator.get_state().clone()
 
     carried, cold = experiment.evaluate_state_ablation(2)
     paired_after = experiment.eval_generator.get_state().clone()
     experiment.eval_generator.set_state(before)
-    single = experiment.evaluate_metrics(2, carry_state=True)
+    single = experiment.evaluate_metrics(
+        2,
+        carry_state=True,
+        initial_runtime_state=experiment._training_runtime_state,
+    )
 
     assert carried["stateCarry"] is True
     assert cold["stateCarry"] is False
+    assert carried["initialStateTokens"] == task.sequence_length
+    assert cold["initialStateTokens"] == 0
     assert carried["positionIndices"] == cold["positionIndices"]
     assert torch.equal(paired_after, experiment.eval_generator.get_state())
     assert carried == single
@@ -814,11 +852,21 @@ def test_state_ablation_reuses_identical_validation_stream_and_one_rng_advance()
     horizon_after = experiment.eval_generator.get_state().clone()
     experiment.eval_generator.set_state(horizon_before)
     experiment.evaluate_metrics(
-        4, carry_state=True, state_horizon_windows=1
+        4,
+        carry_state=True,
+        state_horizon_windows=1,
+        initial_runtime_state=experiment._training_runtime_state,
     )
     assert [point["windows"] for point in curve] == [1, 2, 4]
     assert [point["tokens"] for point in curve] == [8, 16, 32]
     assert torch.equal(horizon_after, experiment.eval_generator.get_state())
+    assert experiment._training_runtime_state.position == checkpoint_state.position
+    assert torch.equal(
+        experiment._training_runtime_state.hidden, checkpoint_state.hidden
+    )
+    assert torch.equal(
+        experiment._training_runtime_state.workspace, checkpoint_state.workspace
+    )
 
 
 def test_graph_ablation_is_causal_matched_and_restores_the_organism() -> None:
@@ -831,11 +879,17 @@ def test_graph_ablation_is_causal_matched_and_restores_the_organism() -> None:
     control = SequenceExperiment(
         task, config, seed=51, device="cpu", stream_mode="continuous"
     )
+    experiment.train_updates(1)
+    control.train_updates(1)
+    assert experiment._training_runtime_state is not None
+    checkpoint_state = experiment._training_runtime_state.cloned_detached()
     sources = experiment.model.substrate.dendrite_source.clone()
     weights = experiment.model.substrate.synapse_weight.detach().clone()
 
     reference, silenced, rotated = experiment.evaluate_graph_ablation(2)
-    control_reference = control.evaluate_metrics(2)
+    control_reference = control.evaluate_metrics(
+        2, initial_runtime_state=control._training_runtime_state
+    )
 
     assert reference == control_reference
     assert torch.equal(
@@ -843,6 +897,10 @@ def test_graph_ablation_is_causal_matched_and_restores_the_organism() -> None:
     )
     assert torch.equal(experiment.model.substrate.dendrite_source, sources)
     assert torch.equal(experiment.model.substrate.synapse_weight, weights)
+    assert experiment._training_runtime_state.position == checkpoint_state.position
+    assert torch.equal(
+        experiment._training_runtime_state.hidden, checkpoint_state.hidden
+    )
     for metrics in (reference, silenced, rotated):
         assert math.isfinite(metrics["loss"])
         assert 0 <= metrics["accuracy"] <= 1

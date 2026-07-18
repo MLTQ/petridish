@@ -81,6 +81,27 @@ class SequenceRuntimeState:
             self.position,
         )
 
+    def cloned_detached(self) -> "SequenceRuntimeState":
+        """Copy every electrical channel for a mutation-isolated evaluation branch."""
+
+        def clone(value: torch.Tensor | None) -> torch.Tensor | None:
+            return None if value is None else value.detach().clone()
+
+        sites = clone(self.sites)
+        hidden = clone(self.hidden)
+        workspace = clone(self.workspace)
+        assert sites is not None and hidden is not None and workspace is not None
+        return SequenceRuntimeState(
+            sites,
+            hidden,
+            clone(self.cell_memory),
+            workspace,
+            clone(self.fast_memory),
+            clone(self.binding_memory),
+            clone(self.previous_binding_key),
+            self.position,
+        )
+
 
 SequenceFrameCallback = Callable[[SequenceFrame, torch.Tensor], None]
 
