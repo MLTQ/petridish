@@ -885,6 +885,39 @@ class SequenceExperiment:
         return carried, cold
 
     @torch.no_grad()
+    def evaluate_graph_ablation(
+        self, batches: int = 8
+    ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+        """Measure causal graph value on identical tokens without altering the organism."""
+
+        substrate = self.model.substrate
+        before_rng = self.eval_generator.get_state().clone()
+        original_sources = substrate.dendrite_source.clone()
+        original_weights = substrate.synapse_weight.detach().clone()
+        active = substrate.active_edge_mask.clone()
+        reference = self.evaluate_metrics(batches)
+        after_rng = self.eval_generator.get_state().clone()
+        try:
+            self.eval_generator.set_state(before_rng)
+            substrate.synapse_weight[active] = 0
+            silenced = self.evaluate_metrics(batches)
+
+            substrate.synapse_weight.copy_(original_weights)
+            self.eval_generator.set_state(before_rng)
+            active_sources = original_sources[active]
+            if active_sources.numel() > 1:
+                substrate.dendrite_source[active] = active_sources.roll(1)
+            substrate._diagnostic_cache = None
+            source_rotated = self.evaluate_metrics(batches)
+        finally:
+            substrate.dendrite_source.copy_(original_sources)
+            substrate.synapse_weight.copy_(original_weights)
+            substrate._diagnostic_cache = None
+            self.eval_generator.set_state(after_rng)
+            self.test_accuracy = float(reference["accuracy"])
+        return reference, silenced, source_rotated
+
+    @torch.no_grad()
     def evaluate_state_horizons(
         self,
         batches: int = 16,

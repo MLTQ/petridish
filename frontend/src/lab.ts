@@ -52,6 +52,16 @@ interface MetricRecord {
   structuralWarmupRemaining?: number;
   structurePlateauRemaining?: number;
   structuralInterval?: number;
+  graphReferenceLoss?: number;
+  graphReferenceAccuracy?: number;
+  graphSilencedLoss?: number;
+  graphSilencedAccuracy?: number;
+  graphSilencedLossDelta?: number;
+  graphSilencedAccuracyDelta?: number;
+  sourceRotatedLoss?: number;
+  sourceRotatedAccuracy?: number;
+  sourceRotatedLossDelta?: number;
+  sourceRotatedAccuracyDelta?: number;
   generationPrompt?: string;
   generationSample?: string;
   generationUniqueTokenRatio?: number;
@@ -649,7 +659,7 @@ export class LaboratoryView {
           ? "state age unreported"
           : `state age ${diagnostic.electricalStateTokens.toLocaleString()} tokens`;
       const routing = diagnostic
-        ? `${String(run.configuration.streamMode ?? "windowed")} · retention ${String(run.configuration.stateRetention ?? "1 legacy")} · ${String(run.configuration.stateLanes ?? 1)} state lane${Number(run.configuration.stateLanes ?? 1) === 1 ? "" : "s"} · ${stateAge} · ${diagnostic.minimumOutputHops ?? "—"}/${diagnostic.medianOutputHops ?? "—"} hops · ${diagnostic.tokenReachableOutputs ?? 0}/${diagnostic.contextReachableOutputs ?? 0}/${diagnostic.reachableOutputs ?? 0} token/context/graph · broadcast ${String(run.configuration.broadcastGain ?? "legacy")}${(diagnostic.tokenReachableOutputs ?? 0) === 0 && Number(run.configuration.messageSteps ?? 0) < Number(diagnostic.minimumOutputHops ?? 0) ? ` · insufficient ${run.configuration.messageSteps ?? "—"} < ${diagnostic.minimumOutputHops ?? "—"}` : ""}`
+        ? `${String(run.configuration.streamMode ?? "windowed")} · retention ${String(run.configuration.stateRetention ?? "1 legacy")} · ${String(run.configuration.stateLanes ?? 1)} state lane${Number(run.configuration.stateLanes ?? 1) === 1 ? "" : "s"} · ${stateAge} · ${diagnostic.minimumOutputHops ?? "—"}/${diagnostic.medianOutputHops ?? "—"} hops · ${diagnostic.tokenReachableOutputs ?? 0}/${diagnostic.contextReachableOutputs ?? 0}/${diagnostic.reachableOutputs ?? 0} token/context/graph · broadcast ${String(run.configuration.broadcastGain ?? "legacy")}${(diagnostic.tokenReachableOutputs ?? 0) === 0 && Number(run.configuration.messageSteps ?? 0) < Number(diagnostic.minimumOutputHops ?? 0) ? ` · insufficient ${run.configuration.messageSteps ?? "—"} < ${diagnostic.minimumOutputHops ?? "—"}` : ""}${heldOut?.graphReferenceAccuracy === undefined ? "" : ` · causal ref ${this.percent(heldOut.graphReferenceAccuracy)} · silence Δacc ${this.signedPercent(heldOut.graphSilencedAccuracyDelta)} / Δloss ${this.signedNumber(heldOut.graphSilencedLossDelta)} · rotate Δacc ${this.signedPercent(heldOut.sourceRotatedAccuracyDelta)} / Δloss ${this.signedNumber(heldOut.sourceRotatedLossDelta)}`}`
         : "—";
       const lifecycle = diagnostic
         ? `${String(run.configuration.lifecycleProfile ?? (run.configuration.lifecycle ? "baseline" : "off"))} · ${diagnostic.lifecycleReason ?? (diagnostic.lifecycleActive ? "active" : "inactive")}${(diagnostic.lifecycleWarmupRemaining ?? 0) > 0 ? ` · ${diagnostic.lifecycleWarmupRemaining} warm-up updates` : ""} · ${diagnostic.stunnedCells ?? 0} stunned · +${diagnostic.cumulativeBirths ?? 0}/−${diagnostic.cumulativeDeaths ?? 0} cells · ${diagnostic.cumulativeStuns ?? 0}/${diagnostic.cumulativeRecoveries ?? 0} stun/recover`
@@ -930,6 +940,11 @@ export class LaboratoryView {
   private signedPercent(value: number | undefined): string {
     if (value === undefined || !Number.isFinite(value)) return "—";
     return `${value >= 0 ? "+" : ""}${(value * 100).toFixed(1)}%`;
+  }
+
+  private signedNumber(value: number | undefined): string {
+    if (value === undefined || !Number.isFinite(value)) return "—";
+    return `${value >= 0 ? "+" : ""}${value.toFixed(3)}`;
   }
 
   private perplexity(loss: number | undefined): string {

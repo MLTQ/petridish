@@ -341,6 +341,31 @@ def _held_out_diagnostics(
         )
     else:
         held_out = experiment.evaluate_metrics(max(1, batches))
+    graph_reference, graph_silenced, source_rotated = (
+        experiment.evaluate_graph_ablation(max(1, batches))
+    )
+    held_out.update(
+        {
+            "graphReferenceLoss": graph_reference["loss"],
+            "graphReferenceAccuracy": graph_reference["accuracy"],
+            "graphSilencedLoss": graph_silenced["loss"],
+            "graphSilencedAccuracy": graph_silenced["accuracy"],
+            "graphSilencedLossDelta": (
+                graph_silenced["loss"] - graph_reference["loss"]
+            ),
+            "graphSilencedAccuracyDelta": (
+                graph_reference["accuracy"] - graph_silenced["accuracy"]
+            ),
+            "sourceRotatedLoss": source_rotated["loss"],
+            "sourceRotatedAccuracy": source_rotated["accuracy"],
+            "sourceRotatedLossDelta": (
+                source_rotated["loss"] - graph_reference["loss"]
+            ),
+            "sourceRotatedAccuracyDelta": (
+                graph_reference["accuracy"] - source_rotated["accuracy"]
+            ),
+        }
+    )
     diagnostics = {
         **held_out,
         **_scientific_metrics(experiment),

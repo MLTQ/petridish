@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import copy
+import math
 from dataclasses import replace
 from pathlib import Path
 
@@ -801,6 +802,33 @@ def test_state_ablation_reuses_identical_validation_stream_and_one_rng_advance()
     assert [point["windows"] for point in curve] == [1, 2, 4]
     assert [point["tokens"] for point in curve] == [8, 16, 32]
     assert torch.equal(horizon_after, experiment.eval_generator.get_state())
+
+
+def test_graph_ablation_is_causal_matched_and_restores_the_organism() -> None:
+    text = "One fox ran. Two birds flew. Three cats slept. " * 30
+    task = build_token_task(text, context_length=8, vocabulary_size=32)
+    config = replace(corpus_config(), batch_size=1)
+    experiment = SequenceExperiment(
+        task, config, seed=51, device="cpu", stream_mode="continuous"
+    )
+    control = SequenceExperiment(
+        task, config, seed=51, device="cpu", stream_mode="continuous"
+    )
+    sources = experiment.model.substrate.dendrite_source.clone()
+    weights = experiment.model.substrate.synapse_weight.detach().clone()
+
+    reference, silenced, rotated = experiment.evaluate_graph_ablation(2)
+    control_reference = control.evaluate_metrics(2)
+
+    assert reference == control_reference
+    assert torch.equal(
+        experiment.eval_generator.get_state(), control.eval_generator.get_state()
+    )
+    assert torch.equal(experiment.model.substrate.dendrite_source, sources)
+    assert torch.equal(experiment.model.substrate.synapse_weight, weights)
+    for metrics in (reference, silenced, rotated):
+        assert math.isfinite(metrics["loss"])
+        assert 0 <= metrics["accuracy"] <= 1
 
 
 def test_process_failure_is_bounded_and_persisted_before_first_update(tmp_path: Path) -> None:

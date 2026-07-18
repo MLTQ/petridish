@@ -30,6 +30,8 @@ validated launch or stop requests.
   for each selected corpus run.
 - **Does**: Shows authoritative topology/lifecycle gate reasons and remaining warm-up
   or plateau budget so zero turnover is not mistaken for a reset or broken mutation.
+- **Does**: Shows matched graph-silencing and source-rotation accuracy/loss deltas so
+  an evolved connectome is credited only when its actual routing improves prediction.
 - **Does**: Aggregates held-out position accuracy into `p0–3`, `p4–15`, and `p16+`
   bands, separating organism startup/settling from steady-state token prediction.
 - **Does**: Places exact corpus unigram and bigram accuracy beside those bands so

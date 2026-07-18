@@ -60,6 +60,9 @@ token position carried by that runtime state; a continuous run therefore proves 
 electrical age directly instead of inferring it from update count.
 Continuous held-out records also include carried-state accuracy/loss, an identical
 contiguous-token cold-state ablation, and their accuracy delta.
+They include matched intact, graph-silenced, and source-rotated loss/accuracy deltas;
+positive deltas mean the organism's dendritic computation or endpoint organization
+causally improves prediction on identical tokens.
 `--evaluate-only` loads an existing checkpoint, appends that complete held-out record
 without an optimizer update, and exits. This lets older or interrupted trainers gain
 new diagnostics without altering the organism being measured.

@@ -18,6 +18,10 @@ held-out windows, and metrics record the selected mode. `evaluate_state_ablation
 replays identical contiguous held-out tokens with state carry disabled, restores the
 evaluation RNG to a single-evaluation advance, and reports the causal accuracy
 difference without changing training state.
+`evaluate_graph_ablation` similarly replays one matched held-out stream with active
+synapses silenced and with conducting source endpoints deterministically rotated.
+It restores every source, weight, diagnostic cache, and RNG state, measuring whether
+the actual learned connectome causally improves prediction rather than merely existing.
 Continuous training may set a bounded `state_retention` at truncation boundaries.
 This models homeostatic electrical relaxation, not organism reset: current state is
 mixed with the same physical cells' resting field while topology, synapses, genotype,
