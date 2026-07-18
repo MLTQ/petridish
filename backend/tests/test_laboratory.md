@@ -82,6 +82,9 @@ control-enable contracts without requiring NVIDIA hardware or launching trainers
   overfit result never overwrites validation accuracy in run discovery.
 - **Does**: Keeps exact-trajectory audits distinct from both validation and
   random-offset shard records.
+- **Does**: Reconstructs a missing current phase for display when authoritative
+  checkpoint training metrics are newer than an older manifest, without mutating
+  either artifact during discovery.
 - **Does**: Requires the server to advertise repeated-shard continuation before the
   frontend enables that phase control.
 - **Does**: Requires the server to advertise state-lane expansion before the frontend

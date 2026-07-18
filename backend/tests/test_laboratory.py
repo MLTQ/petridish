@@ -58,6 +58,60 @@ def test_training_shard_audit_is_not_mislabeled_as_validation(tmp_path: Path) ->
     assert summary["latestTrajectoryAudit"]["evaluationSplit"] == "trajectory"
 
 
+def test_run_discovery_repairs_lagging_phase_metadata_from_training_metrics(
+    tmp_path: Path,
+) -> None:
+    run = tmp_path / "runs" / "control"
+    run.mkdir(parents=True)
+    (run / "manifest.json").write_text(
+        json.dumps(
+            {
+                "configuration": {
+                    "stateLanes": 1, "trainingShardTokens": 2_048,
+                    "topologyProfile": "fixed", "lifecycleProfile": "off",
+                },
+                "phaseHistory": [
+                    {"index": 6, "name": "older phase", "startUpdate": 3_000}
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run / "metrics.jsonl").write_text(
+        "\n".join(
+            json.dumps(
+                {
+                    "type": "train", "update": update, "phaseIndex": 7,
+                    "phaseName": "1024-byte recovery curriculum",
+                    "stateLanes": 2, "trainingShardTokens": 1_024,
+                    "topologyProfile": "fixed", "timestamp": float(update),
+                }
+            )
+            for update in (3_501, 3_502)
+        ) + "\n",
+        encoding="utf-8",
+    )
+    laboratory = Laboratory(tmp_path, run_root=tmp_path / "runs")
+
+    summary = laboratory._discover_runs({})[0]
+
+    assert summary["configuration"]["stateLanes"] == 2
+    assert summary["configuration"]["trainingShardTokens"] == 1_024
+    assert summary["phaseHistory"][-1] == {
+        "index": 7,
+        "name": "1024-byte recovery curriculum",
+        "startUpdate": 3_500,
+        "targetUpdate": 3_502,
+        "structure": False,
+        "topologyProfile": "fixed",
+        "lifecycleProfile": "off",
+        "trainingShardTokens": 1_024,
+        "stateLanes": 2,
+        "startedAt": 3_501.0,
+        "recoveredFromMetrics": True,
+    }
+
+
 def test_run_id_cannot_escape_root(tmp_path: Path) -> None:
     laboratory = Laboratory(tmp_path, run_root=tmp_path / "runs")
 

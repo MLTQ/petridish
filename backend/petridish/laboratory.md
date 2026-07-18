@@ -53,6 +53,9 @@ explicitly enabled trainer processes.
 - **Rationale**: Browser polling cannot force unbounded file reads or payloads.
 - **Does**: Keeps optimizer, held-out/generation, and scientific diagnostic record
   types distinct so the frontend never infers biology from loss records.
+- **Does**: Repairs a lagging manifest's displayed current phase, shard, and lane
+  metadata from authoritative training metrics in memory. Discovery never rewrites
+  the checkpoint or manifest; the next controlled continuation persists the repair.
 
 ### `Laboratory._discover_benchmarks`
 - **Does**: Reads up to 100 recent JSON benchmark artifacts and returns at most

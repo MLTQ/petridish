@@ -697,6 +697,57 @@ class Laboratory:
             latest_train = next(
                 (record for record in reversed(records) if record.get("type") == "train"), None
             )
+            configuration = dict(manifest.get("configuration", {}))
+            phase_history = list(manifest.get("phaseHistory", []))
+            if latest_train is not None:
+                if "stateLanes" in latest_train:
+                    configuration["stateLanes"] = int(
+                        latest_train.get("stateLanes") or 1
+                    )
+                if "trainingShardTokens" in latest_train:
+                    configuration["trainingShardTokens"] = int(
+                        latest_train.get("trainingShardTokens") or 0
+                    )
+                measured_phase_index = int(latest_train.get("phaseIndex", 0) or 0)
+                recorded_phase_index = max(
+                    (int(phase.get("index", 0)) for phase in phase_history),
+                    default=-1,
+                )
+                if measured_phase_index > recorded_phase_index:
+                    measured_phase_records = [
+                        record for record in records
+                        if record.get("type") == "train"
+                        and int(record.get("phaseIndex", 0) or 0)
+                        == measured_phase_index
+                    ]
+                    first_measured = measured_phase_records[0]
+                    topology_profile = str(
+                        latest_train.get(
+                            "topologyProfile",
+                            configuration.get("topologyProfile", "fixed"),
+                        )
+                    )
+                    phase_history.append(
+                        {
+                            "index": measured_phase_index,
+                            "name": latest_train.get("phaseName", "measured phase"),
+                            "startUpdate": max(
+                                0, int(first_measured.get("update", 0)) - 1
+                            ),
+                            "targetUpdate": int(latest_train.get("update", 0)),
+                            "structure": topology_profile != "fixed",
+                            "topologyProfile": topology_profile,
+                            "lifecycleProfile": configuration.get(
+                                "lifecycleProfile", "off"
+                            ),
+                            "trainingShardTokens": configuration.get(
+                                "trainingShardTokens", 0
+                            ),
+                            "stateLanes": configuration.get("stateLanes", 1),
+                            "startedAt": first_measured.get("timestamp"),
+                            "recoveredFromMetrics": True,
+                        }
+                    )
             latest_held_out = next(
                 (record for record in reversed(records) if record.get("type") == "held_out"), None
             )
@@ -744,9 +795,9 @@ class Laboratory:
                         "running" if running else "failed" if latest_failure or not finite
                         else "checkpointed" if has_checkpoint else "stopped"
                     ),
-                    "configuration": manifest.get("configuration", {}),
+                    "configuration": configuration,
                     "organismId": manifest.get("organismId"),
-                    "phaseHistory": manifest.get("phaseHistory", []),
+                    "phaseHistory": phase_history,
                     "commit": manifest.get("commit"),
                     "latestTrain": latest_train,
                     "latestHeldOut": latest_held_out,
