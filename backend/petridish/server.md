@@ -63,6 +63,9 @@ runtime device is configurable independently from trainer workers.
 ### `LabEvaluateRequest`
 - **Does**: Selects a measured GPU and optional state-horizon sweep for read-only
   evaluation of an existing checkpoint.
+- **Does**: Validates an explicit `validation` or `training` split; the training
+  choice audits the active repeated shard without invoking continuation or an
+  optimizer step.
 
 ### `websocket_endpoint`
 - **Does**: Connects observers, receives JSON commands, and returns command errors.

@@ -150,6 +150,9 @@ validated launch or stop requests.
 - **Does**: Offers read-only evaluation on stopped checkpoints so new causal metrics
   can be collected without continuing training or changing plasticity phase; the
   button appears only when the serving backend advertises the matching route.
+- **Does**: Offers a separately labeled active-shard audit only when the current phase
+  has a bounded shard and the backend advertises support; validation stays a separate
+  action.
 - **Does**: Displays fixed audit seed/sample size plus generation special/unknown
   rates and the validation unknown rate, so modal collapse cannot masquerade as
   readable token prediction.

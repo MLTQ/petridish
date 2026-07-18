@@ -164,6 +164,7 @@ interface LaboratorySnapshot {
     topologyProfiles?: string[];
     tokenizerProfiles?: string[];
     checkpointEvaluation?: boolean;
+    trainingShardAudit?: boolean;
     trainingShardCurriculum?: boolean;
   };
   gpus: GpuSnapshot[];
@@ -707,9 +708,24 @@ export class LaboratoryView {
       ) {
         const evaluate = document.createElement("button");
         evaluate.type = "button";
-        evaluate.textContent = "Evaluate";
-        evaluate.addEventListener("click", () => void this.evaluateCheckpoint(run, evaluate));
+        evaluate.textContent = "Evaluate validation";
+        evaluate.addEventListener("click", () => void this.evaluateCheckpoint(
+          run, evaluate, "validation",
+        ));
         state.append(evaluate);
+        const phase = (run.phaseHistory ?? []).at(-1);
+        if (
+          this.snapshot.capabilities.trainingShardAudit
+          && (phase?.trainingShardTokens ?? 0) > 0
+        ) {
+          const shard = document.createElement("button");
+          shard.type = "button";
+          shard.textContent = "Audit active shard";
+          shard.addEventListener("click", () => void this.evaluateCheckpoint(
+            run, shard, "training",
+          ));
+          state.append(shard);
+        }
       }
       row.append(state);
       return row;
@@ -947,7 +963,8 @@ export class LaboratoryView {
   }
 
   private async evaluateCheckpoint(
-    run: RunSnapshot, button: HTMLButtonElement
+    run: RunSnapshot, button: HTMLButtonElement,
+    evaluationSplit: "validation" | "training",
   ): Promise<void> {
     const gpuUuid = run.gpuUuid ?? this.snapshot?.gpus[0]?.uuid;
     if (!gpuUuid) {
@@ -960,12 +977,12 @@ export class LaboratoryView {
       {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ gpuUuid, stateHorizons: false }),
+        body: JSON.stringify({ gpuUuid, stateHorizons: false, evaluationSplit }),
       },
     );
     const payload = await response.json() as { status?: string; detail?: string };
     this.status.value = response.ok
-      ? `${run.id}: ${payload.status ?? "evaluating"}`
+      ? `${run.id}: ${payload.status ?? "evaluating"} ${evaluationSplit}`
       : (payload.detail ?? "evaluation failed");
     await this.refresh();
   }

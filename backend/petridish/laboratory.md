@@ -103,6 +103,8 @@ explicitly enabled trainer processes.
   including the electrical-memory horizon, without appending a phase or optimizer step.
 - **Does**: Uses sixteen fixed-seed batches for a larger checkpoint-comparable causal
   audit than the four-batch scheduled training diagnostic.
+- **Does**: Accepts an explicit validation or active-training-shard split and forwards
+  it to the same read-only checkpoint evaluator.
 - **Does**: Discovers active-shard `training_audit` records separately from
   `held_out` validation records so higher memorization accuracy cannot replace the
   laboratory's generalization result.

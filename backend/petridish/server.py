@@ -77,6 +77,7 @@ class LabEvaluateRequest(BaseModel):
 
     gpuUuid: str
     stateHorizons: bool = False
+    evaluationSplit: str = Field(default="validation", pattern="^(validation|training)$")
 
 
 @asynccontextmanager
@@ -214,6 +215,7 @@ async def evaluate_lab_run(
                 run_id=run_id,
                 gpu_uuid=request.gpuUuid,
                 state_horizons=request.stateHorizons,
+                evaluation_split=request.evaluationSplit,
             ),
         )
     except PermissionError as error:

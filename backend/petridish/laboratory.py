@@ -83,6 +83,7 @@ class EvaluateSpec:
     run_id: str
     gpu_uuid: str
     state_horizons: bool = False
+    evaluation_split: str = "validation"
 
 
 class Laboratory:
@@ -120,6 +121,7 @@ class Laboratory:
                 "topologyProfiles": list(TOPOLOGY_PROFILES),
                 "tokenizerProfiles": list(TOKENIZER_PROFILES),
                 "checkpointEvaluation": True,
+                "trainingShardAudit": True,
                 "trainingShardCurriculum": True,
             },
             "gpus": gpus,
@@ -433,6 +435,7 @@ class Laboratory:
             phase_index=int(phase.get("index", 0)),
             phase_name=str(phase.get("name", "training")),
             state_horizons=spec.state_horizons,
+            evaluation_split=spec.evaluation_split,
         )
         process = self._start_process(
             spec.run_id, spec.gpu_uuid, command, directory
@@ -576,11 +579,15 @@ class Laboratory:
         phase_index: int,
         phase_name: str,
         state_horizons: bool,
+        evaluation_split: str,
     ) -> list[str]:
+        if evaluation_split not in {"validation", "training"}:
+            raise ValueError("evaluation split must be validation or training")
         command = [
             sys.executable, "-m", "petridish.train_shakespeare",
             "--device", "cuda", "--checkpoint-dir", str(directory),
             "--resume", "--evaluate-only", "--eval-batches", "16",
+            "--evaluation-split", evaluation_split,
         ]
         if organism_id:
             command.extend(

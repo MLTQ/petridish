@@ -74,6 +74,7 @@ def test_snapshot_advertises_checkpoint_evaluation_route(
 
     capabilities = laboratory.snapshot()["capabilities"]
     assert capabilities["checkpointEvaluation"] is True
+    assert capabilities["trainingShardAudit"] is True
     assert capabilities["trainingShardCurriculum"] is True
     assert capabilities["tokenizerProfiles"] == ["wordpiece", "byte"]
 
@@ -255,7 +256,10 @@ def test_checkpoint_evaluation_is_read_only_and_keeps_the_phase(
     monkeypatch.setattr(laboratory, "_git_commit", lambda: "eval-commit")
 
     result = laboratory.evaluate_run(
-        EvaluateSpec("trial", "GPU-example", state_horizons=True)
+        EvaluateSpec(
+            "trial", "GPU-example", state_horizons=True,
+            evaluation_split="training",
+        )
     )
 
     manifest = json.loads((run / "manifest.json").read_text(encoding="utf-8"))
@@ -264,6 +268,7 @@ def test_checkpoint_evaluation_is_read_only_and_keeps_the_phase(
     assert result["status"] == "evaluating"
     assert "--evaluate-only" in command
     assert "--state-horizon-eval" in command
+    assert command[command.index("--evaluation-split") + 1] == "training"
     assert command[command.index("--eval-batches") + 1] == "16"
     assert "--resume-plasticity" not in command
     assert command[command.index("--organism-id") + 1] == "organism-test"
