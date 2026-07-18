@@ -70,6 +70,10 @@ measures the value of the organism's real accumulated electricity.
 They include matched intact, graph-silenced, and source-rotated loss/accuracy deltas;
 positive deltas mean the organism's dendritic computation or endpoint organization
 causally improves prediction on identical tokens.
+The same fixed slice also reassigns weights among each destination neuron's existing
+sources, preserving its incoming edge set while testing learned weight/source pairing,
+and silences the broadcast gain when that shortcut is configured. These conditions
+separate useful traffic, topology, synaptic assignment, and global advertisement.
 `--evaluate-only` loads an existing checkpoint, clones its persistent state for each
 counterfactual, appends that complete held-out record without an optimizer update,
 and exits. This lets older or interrupted trainers gain new diagnostics without

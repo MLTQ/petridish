@@ -71,7 +71,9 @@ window. The paired held-out ablation must reuse the same contiguous tokens for c
 and cold state, label both conditions, and advance the evaluation RNG only once. The
 graph-causality regression requires intact, silenced, and source-rotated evaluations
 to use the same tokens, advance the sampler once, and restore all physical edges and
-weights exactly. The
+weights exactly. It also reassigns weights only among each destination's existing
+sources and silences configured broadcast gain; zero-broadcast runs must report an
+identical no-op branch. The
 headless diagnostic helper must publish the signed accuracy difference used by both
 scheduled and evaluate-only records. Electrical relaxation must preserve physical
 sites and absolute age, leave retention-one state bit-identical, change state at 0.9,

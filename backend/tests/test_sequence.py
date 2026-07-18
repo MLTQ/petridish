@@ -937,7 +937,9 @@ def test_graph_ablation_is_causal_matched_and_restores_the_organism() -> None:
     sources = experiment.model.substrate.dendrite_source.clone()
     weights = experiment.model.substrate.synapse_weight.detach().clone()
 
-    reference, silenced, rotated = experiment.evaluate_graph_ablation(2)
+    reference, silenced, rotated, reassigned, broadcast_silenced = (
+        experiment.evaluate_graph_ablation(2)
+    )
     control_reference = control.evaluate_metrics(
         2, initial_runtime_state=control._training_runtime_state
     )
@@ -948,13 +950,39 @@ def test_graph_ablation_is_causal_matched_and_restores_the_organism() -> None:
     )
     assert torch.equal(experiment.model.substrate.dendrite_source, sources)
     assert torch.equal(experiment.model.substrate.synapse_weight, weights)
+    assert experiment.model.broadcast_gain.item() == pytest.approx(
+        control.model.broadcast_gain.item()
+    )
     assert experiment._training_runtime_state.position == checkpoint_state.position
     assert torch.equal(
         experiment._training_runtime_state.hidden, checkpoint_state.hidden
     )
-    for metrics in (reference, silenced, rotated):
+    for metrics in (
+        reference, silenced, rotated, reassigned, broadcast_silenced
+    ):
         assert math.isfinite(metrics["loss"])
         assert 0 <= metrics["accuracy"] <= 1
+
+    assert reassigned["positionIndices"] == reference["positionIndices"]
+    assert broadcast_silenced["positionIndices"] == reference["positionIndices"]
+
+
+def test_zero_broadcast_graph_audit_reports_identical_reference_branch() -> None:
+    text = "One fox ran. Two birds flew. Three cats slept. " * 30
+    task = build_token_task(text, context_length=8, vocabulary_size=32)
+    config = replace(corpus_config(), batch_size=1, broadcast_gain=0.0)
+    experiment = SequenceExperiment(
+        task, config, seed=54, device="cpu", stream_mode="continuous"
+    )
+    experiment.train_updates(1)
+
+    reference, _, _, _, broadcast_silenced = experiment.evaluate_graph_ablation(2)
+    diagnostic = _held_out_diagnostics(experiment, 2, evaluation_seed=123)
+
+    assert broadcast_silenced == reference
+    assert diagnostic["broadcastAblationApplicable"] is False
+    assert diagnostic["broadcastSilencedAccuracyDelta"] == 0.0
+    assert diagnostic["broadcastSilencedLossDelta"] == 0.0
 
 
 def test_process_failure_is_bounded_and_persisted_before_first_update(tmp_path: Path) -> None:

@@ -357,7 +357,10 @@ def _held_out_diagnostics_from_current_sampler(
         )
     else:
         held_out = experiment.evaluate_metrics(max(1, batches))
-    graph_reference, graph_silenced, source_rotated = (
+    (
+        graph_reference, graph_silenced, source_rotated, weight_reassigned,
+        broadcast_silenced,
+    ) = (
         experiment.evaluate_graph_ablation(max(1, batches))
     )
     held_out.update(
@@ -380,6 +383,23 @@ def _held_out_diagnostics_from_current_sampler(
             "sourceRotatedAccuracyDelta": (
                 graph_reference["accuracy"] - source_rotated["accuracy"]
             ),
+            "weightReassignedLoss": weight_reassigned["loss"],
+            "weightReassignedAccuracy": weight_reassigned["accuracy"],
+            "weightReassignedLossDelta": (
+                weight_reassigned["loss"] - graph_reference["loss"]
+            ),
+            "weightReassignedAccuracyDelta": (
+                graph_reference["accuracy"] - weight_reassigned["accuracy"]
+            ),
+            "broadcastSilencedLoss": broadcast_silenced["loss"],
+            "broadcastSilencedAccuracy": broadcast_silenced["accuracy"],
+            "broadcastSilencedLossDelta": (
+                broadcast_silenced["loss"] - graph_reference["loss"]
+            ),
+            "broadcastSilencedAccuracyDelta": (
+                graph_reference["accuracy"] - broadcast_silenced["accuracy"]
+            ),
+            "broadcastAblationApplicable": experiment.config.broadcast_gain > 0,
         }
     )
     diagnostics = {

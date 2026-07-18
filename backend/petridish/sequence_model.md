@@ -47,6 +47,8 @@ It does not pretend to be an axon; persistent weighted dendrites still own the
 structural graph. `broadcast_gain = 0` is the controlled no-workspace ablation.
 That zero configuration hard-bypasses workspace writes, reads, and gradients; the
 trainable gain cannot silently reactivate an experiment labeled broadcast-off.
+Checkpoint audits can temporarily zero the learned gain in a cloned evaluation branch
+to measure this shortcut independently from dendritic graph silence.
 
 In parallel, neuron-advertised keys and values update a persistent fast-weight matrix;
 neuron queries read it as recurrent linear attention. This explicitly tests

@@ -914,13 +914,16 @@ class SequenceExperiment:
     @torch.no_grad()
     def evaluate_graph_ablation(
         self, batches: int = 8
-    ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
-        """Measure causal graph value on identical tokens without altering the organism."""
+    ) -> tuple[
+        dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]
+    ]:
+        """Measure graph, weight pairing, and broadcast value on identical tokens."""
 
         substrate = self.model.substrate
         before_rng = self.eval_generator.get_state().clone()
         original_sources = substrate.dendrite_source.clone()
         original_weights = substrate.synapse_weight.detach().clone()
+        original_broadcast_gain = self.model.broadcast_gain.detach().clone()
         active = substrate.active_edge_mask.clone()
         checkpoint_state = self._training_runtime_state
         reference = self.evaluate_metrics(
@@ -943,13 +946,41 @@ class SequenceExperiment:
             source_rotated = self.evaluate_metrics(
                 batches, initial_runtime_state=checkpoint_state
             )
+
+            substrate.dendrite_source.copy_(original_sources)
+            for target in range(substrate.dendrite_source.shape[0]):
+                slots = active[target].nonzero(as_tuple=False).flatten()
+                if slots.numel() > 1:
+                    substrate.dendrite_source[target, slots] = (
+                        original_sources[target, slots].roll(1)
+                    )
+            substrate._diagnostic_cache = None
+            self.eval_generator.set_state(before_rng)
+            weight_reassigned = self.evaluate_metrics(
+                batches, initial_runtime_state=checkpoint_state
+            )
+
+            substrate.dendrite_source.copy_(original_sources)
+            substrate._diagnostic_cache = None
+            if self.config.broadcast_gain > 0:
+                self.eval_generator.set_state(before_rng)
+                self.model.broadcast_gain.zero_()
+                broadcast_silenced = self.evaluate_metrics(
+                    batches, initial_runtime_state=checkpoint_state
+                )
+            else:
+                broadcast_silenced = dict(reference)
         finally:
             substrate.dendrite_source.copy_(original_sources)
             substrate.synapse_weight.copy_(original_weights)
+            self.model.broadcast_gain.copy_(original_broadcast_gain)
             substrate._diagnostic_cache = None
             self.eval_generator.set_state(after_rng)
             self.test_accuracy = float(reference["accuracy"])
-        return reference, silenced, source_rotated
+        return (
+            reference, silenced, source_rotated, weight_reassigned,
+            broadcast_silenced,
+        )
 
     @torch.no_grad()
     def evaluate_state_horizons(
