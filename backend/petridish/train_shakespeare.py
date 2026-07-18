@@ -845,6 +845,7 @@ def main() -> None:
             "streamMode": experiment.stream_mode,
             "stateRetention": experiment.state_retention,
             "stateLanes": experiment.state_lanes,
+            "stateLane": (experiment.training_step - 1) % experiment.state_lanes,
             "topologyProfile": experiment.topology_profile,
             "trainingStreamTokens": experiment.task.training_stream_tokens,
             "fullTrainingStreamTokens": experiment.task.full_training_stream_tokens,

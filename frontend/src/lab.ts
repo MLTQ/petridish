@@ -100,6 +100,7 @@ interface MetricRecord {
     accuracy: number;
   }>;
   stateLanes?: number;
+  stateLane?: number;
   activeStateLanes?: number;
   coldStateLanes?: number;
   experienceTrajectoryCount?: number;
@@ -782,6 +783,7 @@ export class LaboratoryView {
       const phaseCoverage = diagnostic?.uniqueCursorPhases === undefined
         ? ""
         : ` · ${diagnostic.activeStateLanes ?? 0}/${diagnostic.stateLanes ?? run.configuration.stateLanes ?? 1} active lanes · ${diagnostic.uniqueCursorPhases}/${run.configuration.contextLength ?? 64} cursor phases`;
+      const laneAccuracy = this.laneAccuracySpread(run);
       const gradientSummary = run.latestTrain?.classBiasGradientNorm === undefined
         ? ""
         : ` · grad bias/readout/token/rule/edge ${this.scientific(run.latestTrain.classBiasGradientNorm)}/${this.scientific(run.latestTrain.outputReadoutGradientNorm)}/${this.scientific(run.latestTrain.tokenEncoderGradientNorm)}/${this.scientific(run.latestTrain.cellRuleGradientNorm)}/${this.scientific(run.latestTrain.synapseGradientNorm)} · total ${this.scientific(run.latestTrain.totalGradientNorm)} × clip ${this.number(run.latestTrain.gradientClipScale, 3)}${this.gradientPressure(run)}`;
@@ -792,7 +794,7 @@ export class LaboratoryView {
         ? ""
         : ` · trajectory lane ${trajectoryAudit.trajectoryLane ?? "—"} ref ${this.percent(trajectoryAudit.graphReferenceAccuracy)} · silence Δacc ${this.signedPercent(trajectoryAudit.graphSilencedAccuracyDelta)} / Δloss ${this.signedNumber(trajectoryAudit.graphSilencedLossDelta)} · rotate Δacc ${this.signedPercent(trajectoryAudit.sourceRotatedAccuracyDelta)} / Δloss ${this.signedNumber(trajectoryAudit.sourceRotatedLossDelta)} · reassign Δacc ${this.signedPercent(trajectoryAudit.weightReassignedAccuracyDelta)} / Δloss ${this.signedNumber(trajectoryAudit.weightReassignedLossDelta)}`;
       const routing = diagnostic
-        ? `${String(run.configuration.tokenizerProfile ?? "legacy tokenizer")} · ${String(run.configuration.streamMode ?? "windowed")} · retention ${String(run.configuration.stateRetention ?? "1 legacy")} · ${String(run.configuration.stateLanes ?? 1)} state lane${Number(run.configuration.stateLanes ?? 1) === 1 ? "" : "s"} · ${stateAge}${phaseCoverage} · ${diagnostic.minimumOutputHops ?? "—"}/${diagnostic.medianOutputHops ?? "—"} hops · ${diagnostic.tokenReachableOutputs ?? 0}/${diagnostic.contextReachableOutputs ?? 0}/${diagnostic.reachableOutputs ?? 0} token/context/graph · broadcast ${String(run.configuration.broadcastGain ?? "legacy")}${(diagnostic.tokenReachableOutputs ?? 0) === 0 && Number(run.configuration.messageSteps ?? 0) < Number(diagnostic.minimumOutputHops ?? 0) ? ` · insufficient ${run.configuration.messageSteps ?? "—"} < ${diagnostic.minimumOutputHops ?? "—"}` : ""}${gradientSummary}${heldOut?.graphReferenceAccuracy === undefined ? "" : ` · validation causal ref ${this.percent(heldOut.graphReferenceAccuracy)} · silence Δacc ${this.signedPercent(heldOut.graphSilencedAccuracyDelta)} / Δloss ${this.signedNumber(heldOut.graphSilencedLossDelta)} · rotate topology Δacc ${this.signedPercent(heldOut.sourceRotatedAccuracyDelta)} / Δloss ${this.signedNumber(heldOut.sourceRotatedLossDelta)}${heldOut.weightReassignedLossDelta === undefined ? "" : ` · reassign weights Δacc ${this.signedPercent(heldOut.weightReassignedAccuracyDelta)} / Δloss ${this.signedNumber(heldOut.weightReassignedLossDelta)}`}${heldOut.broadcastAblationApplicable ? ` · silence broadcast Δacc ${this.signedPercent(heldOut.broadcastSilencedAccuracyDelta)} / Δloss ${this.signedNumber(heldOut.broadcastSilencedLossDelta)}` : ""}`}${shardCausality}${trajectoryCausality}`
+        ? `${String(run.configuration.tokenizerProfile ?? "legacy tokenizer")} · ${String(run.configuration.streamMode ?? "windowed")} · retention ${String(run.configuration.stateRetention ?? "1 legacy")} · ${String(run.configuration.stateLanes ?? 1)} state lane${Number(run.configuration.stateLanes ?? 1) === 1 ? "" : "s"} · ${stateAge}${phaseCoverage}${laneAccuracy} · ${diagnostic.minimumOutputHops ?? "—"}/${diagnostic.medianOutputHops ?? "—"} hops · ${diagnostic.tokenReachableOutputs ?? 0}/${diagnostic.contextReachableOutputs ?? 0}/${diagnostic.reachableOutputs ?? 0} token/context/graph · broadcast ${String(run.configuration.broadcastGain ?? "legacy")}${(diagnostic.tokenReachableOutputs ?? 0) === 0 && Number(run.configuration.messageSteps ?? 0) < Number(diagnostic.minimumOutputHops ?? 0) ? ` · insufficient ${run.configuration.messageSteps ?? "—"} < ${diagnostic.minimumOutputHops ?? "—"}` : ""}${gradientSummary}${heldOut?.graphReferenceAccuracy === undefined ? "" : ` · validation causal ref ${this.percent(heldOut.graphReferenceAccuracy)} · silence Δacc ${this.signedPercent(heldOut.graphSilencedAccuracyDelta)} / Δloss ${this.signedNumber(heldOut.graphSilencedLossDelta)} · rotate topology Δacc ${this.signedPercent(heldOut.sourceRotatedAccuracyDelta)} / Δloss ${this.signedNumber(heldOut.sourceRotatedLossDelta)}${heldOut.weightReassignedLossDelta === undefined ? "" : ` · reassign weights Δacc ${this.signedPercent(heldOut.weightReassignedAccuracyDelta)} / Δloss ${this.signedNumber(heldOut.weightReassignedLossDelta)}`}${heldOut.broadcastAblationApplicable ? ` · silence broadcast Δacc ${this.signedPercent(heldOut.broadcastSilencedAccuracyDelta)} / Δloss ${this.signedNumber(heldOut.broadcastSilencedLossDelta)}` : ""}`}${shardCausality}${trajectoryCausality}`
         : "—";
       const lifecycle = diagnostic
         ? `${String(run.configuration.lifecycleProfile ?? (run.configuration.lifecycle ? "baseline" : "off"))} · ${diagnostic.lifecycleReason ?? (diagnostic.lifecycleActive ? "active" : "inactive")}${(diagnostic.lifecycleWarmupRemaining ?? 0) > 0 ? ` · ${diagnostic.lifecycleWarmupRemaining} warm-up updates` : ""} · ${diagnostic.stunnedCells ?? 0} stunned · +${diagnostic.cumulativeBirths ?? 0}/−${diagnostic.cumulativeDeaths ?? 0} cells · ${diagnostic.cumulativeStuns ?? 0}/${diagnostic.cumulativeRecoveries ?? 0} stun/recover`
@@ -865,6 +867,30 @@ export class LaboratoryView {
     );
     const severe = scales.filter((scale) => scale <= 0.1).length / scales.length;
     return ` · clip pressure n${scales.length} median ×${this.number(percentile(0.5), 3)} / p10 ×${this.number(percentile(0.1), 3)} / severe ${this.percent(severe)}`;
+  }
+
+  private laneAccuracySpread(run: RunSnapshot): string {
+    const laneCount = Number(run.configuration.stateLanes ?? 1);
+    if (laneCount <= 1) return "";
+    const phaseIndex = run.latestTrain?.phaseIndex;
+    const records = (this.histories.get(run.id) ?? [])
+      .filter((record) => (
+        record.type === "train"
+        && record.accuracy !== undefined
+        && (phaseIndex === undefined || record.phaseIndex === phaseIndex)
+      ))
+      .slice(-(laneCount * 4));
+    const lanes = Array.from({ length: laneCount }, () => [] as number[]);
+    for (const record of records) {
+      const lane = record.stateLane ?? ((record.update - 1) % laneCount);
+      if (lane >= 0 && lane < laneCount) lanes[lane]?.push(record.accuracy as number);
+    }
+    if (lanes.some((values) => values.length === 0)) return "";
+    const accuracies = lanes.map((values) => (
+      values.reduce((sum, value) => sum + value, 0) / values.length
+    ));
+    const mean = accuracies.reduce((sum, value) => sum + value, 0) / accuracies.length;
+    return ` · lane acc ${this.percent(mean)} mean / ${this.percent(Math.min(...accuracies))}–${this.percent(Math.max(...accuracies))}`;
   }
 
   private drawChart(): void {

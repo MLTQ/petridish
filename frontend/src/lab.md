@@ -115,6 +115,8 @@ validated launch or stop requests.
   range independently from tensor batch size.
 - **Does**: Displays measured active/cold lane count and unique corpus-cursor phases,
   so allocating sixteen lanes cannot masquerade as sixteen distinct experiences.
+- **Does**: Summarizes the newest four visits to every lane as mean and min–max
+  accuracy, distinguishing broad consolidation from one inherited trajectory.
 - **Does**: Shows bounded explicit trainer failures in the authoritative run-status
   cell instead of labeling pre-checkpoint OOM as an ordinary stop.
 - **Does**: Launches and displays fixed/adaptive topology independently from the

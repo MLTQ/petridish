@@ -124,6 +124,8 @@ normally; the generator is never reseeded.
 Scientific diagnostics report active versus still-cold lanes, the total number of
 tensor trajectories, and unique corpus-cursor phases modulo context length. This
 distinguishes nominal lane allocation from measured phase diversity.
+Every optimizer record also names the round-robin lane that produced it so per-lane
+competence and interference can be measured without reconstructing hidden state.
 `--topology-profile fixed|adaptive|prune_only` names the phase policy independently
 from lifecycle. Fixed continues to route through the saved graph without endpoint
 mutation; adaptive prunes and grows; prune-only removes signed-low-utility dendrites
