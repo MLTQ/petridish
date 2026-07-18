@@ -14,7 +14,10 @@ activation, private cell memory, workspace, or fast/binding state. `windowed` sa
 unrelated contexts and reinitializes only fast electrical state as a cold-start
 control. Learned rules, genotypes, synapses, topology, and lifecycle state persist in
 both modes. Continuous validation similarly carries a fresh organism state across
-held-out windows, and metrics record the selected mode.
+held-out windows, and metrics record the selected mode. `evaluate_state_ablation`
+replays identical contiguous held-out tokens with state carry disabled, restores the
+evaluation RNG to a single-evaluation advance, and reports the causal accuracy
+difference without changing training state.
 
 Recall begins with one binding and advances to two and three only when the most
 recent 24 training batches exceed 90% accuracy. Tiny-language accuracy is reported

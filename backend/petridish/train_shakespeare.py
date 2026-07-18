@@ -254,6 +254,33 @@ def _baseline_diagnostics(experiment: SequenceExperiment) -> dict[str, float]:
     }
 
 
+@torch.no_grad()
+def _held_out_diagnostics(
+    experiment: SequenceExperiment, batches: int
+) -> dict[str, Any]:
+    """Evaluate one checkpoint, including the matched electrical-state ablation."""
+
+    if experiment.stream_mode == "continuous":
+        held_out, cold_state = experiment.evaluate_state_ablation(max(1, batches))
+        held_out.update(
+            {
+                "coldStateLoss": cold_state["loss"],
+                "coldStateAccuracy": cold_state["accuracy"],
+                "stateCarryAccuracyDelta": (
+                    held_out["accuracy"] - cold_state["accuracy"]
+                ),
+            }
+        )
+    else:
+        held_out = experiment.evaluate_metrics(max(1, batches))
+    return {
+        **held_out,
+        **_scientific_metrics(experiment),
+        **_baseline_diagnostics(experiment),
+        **_generation_diagnostics(experiment),
+    }
+
+
 def _fresh_config(
     task: str,
     *,
@@ -330,6 +357,7 @@ def main() -> None:
     parser.add_argument("--eval-interval", type=int, default=500)
     parser.add_argument("--eval-batches", type=int, default=4)
     parser.add_argument("--progress-interval", type=int, default=10)
+    parser.add_argument("--evaluate-only", action="store_true")
     parser.add_argument("--resume", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--lifecycle", action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument("--structure", action=argparse.BooleanOptionalAction, default=True)
@@ -406,6 +434,16 @@ def main() -> None:
         f"stream={args.stream_mode} amp={args.amp} compile={args.compile_mode}",
         flush=True,
     )
+    if args.evaluate_only:
+        if payload is None:
+            parser.error("--evaluate-only requires a resumable checkpoint")
+        record = {
+            "type": "held_out", "update": experiment.training_step,
+            **_held_out_diagnostics(experiment, args.eval_batches),
+        }
+        _append_metric(metrics_path, record)
+        print(json.dumps(record, separators=(",", ":")), flush=True)
+        return
 
     while experiment.training_step < max(0, args.updates) and not stop_requested:
         if experiment.device.type == "cuda":
@@ -436,14 +474,11 @@ def main() -> None:
         _append_metric(metrics_path, record)
 
         if experiment.training_step % max(1, args.eval_interval) == 0:
-            held_out = experiment.evaluate_metrics(max(1, args.eval_batches))
             _append_metric(
                 metrics_path,
                 {
                     "type": "held_out", "update": experiment.training_step,
-                    **held_out, **_scientific_metrics(experiment),
-                    **_baseline_diagnostics(experiment),
-                    **_generation_diagnostics(experiment),
+                    **_held_out_diagnostics(experiment, args.eval_batches),
                 },
             )
         if experiment.training_step % max(1, args.progress_interval) == 0:

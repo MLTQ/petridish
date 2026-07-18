@@ -52,6 +52,9 @@ interface MetricRecord {
   unigramBaselineAccuracy?: number;
   bigramBaselineAccuracy?: number;
   electricalStateTokens?: number;
+  coldStateLoss?: number;
+  coldStateAccuracy?: number;
+  stateCarryAccuracyDelta?: number;
 }
 
 interface RunSnapshot {
@@ -762,7 +765,15 @@ export class LaboratoryView {
     const baselineSummary = record.unigramBaselineAccuracy === undefined
       ? ""
       : `uni ${this.percent(record.unigramBaselineAccuracy)} · bi ${this.percent(record.bigramBaselineAccuracy)}`;
-    if (!positionSummary && !baselineSummary) return "—";
-    return [baselineSummary, positionSummary].filter(Boolean).join(" | ");
+    const stateSummary = record.coldStateAccuracy === undefined
+      ? ""
+      : `carry ${this.percent(record.accuracy)} · cold ${this.percent(record.coldStateAccuracy)} · Δ ${this.signedPercent(record.stateCarryAccuracyDelta)}`;
+    if (!positionSummary && !baselineSummary && !stateSummary) return "—";
+    return [baselineSummary, stateSummary, positionSummary].filter(Boolean).join(" | ");
+  }
+
+  private signedPercent(value: number | undefined): string {
+    if (value === undefined || !Number.isFinite(value)) return "—";
+    return `${value >= 0 ? "+" : ""}${(value * 100).toFixed(1)}%`;
   }
 }

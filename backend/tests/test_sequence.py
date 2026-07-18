@@ -41,6 +41,7 @@ from petridish.token_settled_pipeline_task import token_settled_pipeline_task
 from petridish.token_stream_task import token_stream_task
 from petridish.train_shakespeare import (
     _fresh_config,
+    _held_out_diagnostics,
     _migrate_model_state,
     _scientific_metrics,
     load_checkpoint,
@@ -682,6 +683,33 @@ def test_cell_death_preserves_surviving_continuous_state() -> None:
 
     assert victim not in reconciled.sites.tolist()
     assert torch.equal(reconciled.hidden[:, new_index], state.hidden[:, old_index])
+
+
+def test_state_ablation_reuses_identical_validation_stream_and_one_rng_advance() -> None:
+    text = "One fox ran. Two birds flew. Three cats slept. " * 30
+    task = build_token_task(text, context_length=8, vocabulary_size=32)
+    config = replace(corpus_config(), batch_size=1)
+    experiment = SequenceExperiment(
+        task, config, seed=47, device="cpu", stream_mode="continuous"
+    )
+    before = experiment.eval_generator.get_state().clone()
+
+    carried, cold = experiment.evaluate_state_ablation(2)
+    paired_after = experiment.eval_generator.get_state().clone()
+    experiment.eval_generator.set_state(before)
+    single = experiment.evaluate_metrics(2, carry_state=True)
+
+    assert carried["stateCarry"] is True
+    assert cold["stateCarry"] is False
+    assert carried["positionIndices"] == cold["positionIndices"]
+    assert torch.equal(paired_after, experiment.eval_generator.get_state())
+    assert carried == single
+
+    diagnostic = _held_out_diagnostics(experiment, 2)
+    assert diagnostic["coldStateAccuracy"] >= 0
+    assert diagnostic["stateCarryAccuracyDelta"] == pytest.approx(
+        diagnostic["accuracy"] - diagnostic["coldStateAccuracy"]
+    )
 
 
 def test_token_corpus_uses_one_64_port_column_per_boundary() -> None:

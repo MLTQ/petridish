@@ -691,8 +691,13 @@ class SequenceExperiment:
         batches: int = 8,
         *,
         progress_callback: Callable[[str, int, int], None] | None = None,
+        carry_state: bool | None = None,
     ) -> dict[str, Any]:
         """Return held-out loss and accuracy without mutating training state."""
+
+        if carry_state is not None and self.stream_mode != "continuous":
+            raise ValueError("state-carry evaluation requires a continuous corpus stream")
+        state_carry = self.stream_mode == "continuous" and carry_state is not False
 
         self.model.eval()
         correct = 0
@@ -737,7 +742,7 @@ class SequenceExperiment:
                 logits = evaluation_result.logits
                 runtime_state = (
                     evaluation_result.runtime_state.detached()
-                    if stream_positions is not None else None
+                    if stream_positions is not None and state_carry else None
                 )
             selected_logits = logits[batch.loss_mask].float()
             selected_targets = batch.targets[batch.loss_mask]
@@ -786,6 +791,7 @@ class SequenceExperiment:
             "loss": loss_sum / max(1, loss_items),
             "accuracy": self.test_accuracy,
             "streamMode": self.stream_mode,
+            "stateCarry": state_carry,
             "positionIndices": [
                 position
                 for position, count in enumerate(position_total)
@@ -806,6 +812,25 @@ class SequenceExperiment:
             metrics["distractorRate"] = distractor_predictions / max(1, total)
             metrics["absentValueRate"] = absent_value_predictions / max(1, total)
         return metrics
+
+    @torch.no_grad()
+    def evaluate_state_ablation(
+        self, batches: int = 8
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        """Compare carried and cold state on identical contiguous validation tokens."""
+
+        if self.stream_mode != "continuous":
+            raise ValueError("state ablation requires continuous training mode")
+        before = self.eval_generator.get_state().clone()
+        carried = self.evaluate_metrics(batches, carry_state=True)
+        after = self.eval_generator.get_state().clone()
+        try:
+            self.eval_generator.set_state(before)
+            cold = self.evaluate_metrics(batches, carry_state=False)
+        finally:
+            self.eval_generator.set_state(after)
+            self.test_accuracy = float(carried["accuracy"])
+        return carried, cold
 
     @torch.no_grad()
     def _replay_current(self, *, events: list[dict[str, Any]] | None = None) -> None:

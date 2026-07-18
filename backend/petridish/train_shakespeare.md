@@ -55,6 +55,11 @@ memory, workspace, fast-memory, and binding-memory state when active.
 Training and scientific records expose `electricalStateTokens`, the exact absolute
 token position carried by that runtime state; a continuous run therefore proves its
 electrical age directly instead of inferring it from update count.
+Continuous held-out records also include carried-state accuracy/loss, an identical
+contiguous-token cold-state ablation, and their accuracy delta.
+`--evaluate-only` loads an existing checkpoint, appends that complete held-out record
+without an optimizer update, and exits. This lets older or interrupted trainers gain
+new diagnostics without altering the organism being measured.
 
 By default a fresh invocation resumes `latest.pt` when present. Resume restores the
 saved configuration, context, seed, vocabulary contract, AMP mode, organism, and
