@@ -26,6 +26,9 @@ chart encoding.
   bounded table wrapper rather than expanding the laboratory or dish geometry.
 - **Interacts with**: `.benchmark-grid`, `#benchmark-chart`, and persisted artifacts.
 - **Does**: Reflows the launch form and GPU lanes at existing responsive breakpoints.
+- **Does**: Applies the same responsive control geometry to fresh-launch and
+  same-lineage continuation forms, and marks real phase boundaries with restrained
+  series-colored lines on the loss chart.
 
 ### Dish layout
 - **Does**: Gives the visualization dominant space and keeps controls/legend

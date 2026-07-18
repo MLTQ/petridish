@@ -82,6 +82,18 @@ stop flag; the current indivisible update finishes, then a final atomic checkpoi
 written. Progress reports loss, accuracy, update and target-token throughput, GPU
 memory, and a finite-loss/gradient check.
 
+`--resume-plasticity` is the explicit same-lineage phase transition. It loads the
+complete checkpoint first, then applies only the requested topology enable and named
+lifecycle policy; population, positions, dendrites, weights, genotypes, electrical
+state, optimizer moments, sampler positions, and RNG streams remain checkpoint-owned.
+Every checkpoint and metric carries an immutable organism ID plus phase index/name.
+An organism-ID mismatch is rejected instead of silently combining two lineages.
+
+### `plasticity_phase_config` / `reset_plasticity_phase_gates`
+
+Change only structural/lifecycle policy in a restored configuration and force those
+policy gates to be re-evaluated. Neither helper mutates substrate or runtime tensors.
+
 Compilation remains opt-in because the measured stable-forward attempt currently has
 dynamic topology graph breaks; production runs should use `--compile off`.
 

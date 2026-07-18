@@ -22,7 +22,8 @@ runtime device is configurable independently from trainer workers.
 
 ### Laboratory routes
 - **Does**: Report measured GPUs/runs, return bounded metric histories, and expose
-  explicitly enabled launch and checkpoint-safe stop actions.
+  explicitly enabled launch, same-lineage plasticity continuation, and checkpoint-safe
+  stop actions.
 - **Interacts with**: `Laboratory` in `laboratory.py` and `lab.ts`.
 - **Rationale**: Trainer processes remain independent from the interactive organism
   so opening the viewer cannot stall or acquire their GPU state.
@@ -45,6 +46,12 @@ runtime device is configurable independently from trainer workers.
 - **Does**: Bounds persistent trajectory lanes from one through sixteen separately
   from CUDA tensor batch size.
 - **Rationale**: The API never accepts a shell command or arbitrary path.
+
+### `LabContinueRequest`
+- **Does**: Bounds additional updates and selects only the next topology/lifecycle
+  policy for an existing checkpointed organism.
+- **Rationale**: Architecture, geometry, weights, state, and corpus position come from
+  the checkpoint and are not accepted as continuation overrides.
 
 ### `websocket_endpoint`
 - **Does**: Connects observers, receives JSON commands, and returns command errors.

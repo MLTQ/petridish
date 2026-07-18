@@ -39,6 +39,10 @@ experiment laboratory above the live organism.
 - **Does**: Exposes persistent state lanes separately from tensor batch size so
   trajectory diversity does not imply multiple organisms or larger CUDA batches.
 - **Does**: Selects fixed or adaptive topology independently from lifecycle.
+- **Does**: Provides a separate continuation form for moving a stopped checkpoint
+  into adaptive topology or lifecycle while explicitly retaining the same organism.
+- **Does**: Shows lineage and phase beside run status so a continuation cannot be
+  mistaken for a newly initialized comparison organism.
 - **Does**: Exposes a bounded common learning-rate scale for controlled long-run
   stability experiments.
 - **Does**: Uses a task-neutral stepping-stone table and chart for recall and direct

@@ -14,7 +14,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from .laboratory import Laboratory, LaunchSpec
+from .laboratory import ContinueSpec, Laboratory, LaunchSpec
 from .runtime import ExperimentRuntime
 
 
@@ -55,6 +55,17 @@ class LabLaunchRequest(BaseModel):
     lifecycle: bool = False
     lifecycleProfile: str = "off"
     structure: bool = True
+
+
+class LabContinueRequest(BaseModel):
+    """Browser-safe plasticity transition for one checkpointed organism."""
+
+    gpuUuid: str
+    additionalUpdates: int = Field(default=1_000, ge=1)
+    lifecycle: bool = False
+    lifecycleProfile: str = "off"
+    structure: bool = True
+    phaseName: str | None = Field(default=None, max_length=120)
 
 
 @asynccontextmanager
@@ -146,6 +157,29 @@ async def stop_lab_run(run_id: str) -> dict[str, object]:
 
     try:
         return await asyncio.to_thread(laboratory.stop_run, run_id)
+    except PermissionError as error:
+        raise HTTPException(status_code=403, detail=str(error)) from error
+    except (OSError, ValueError) as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+
+@app.post("/api/lab/runs/{run_id}/continue")
+async def continue_lab_run(
+    run_id: str, request: LabContinueRequest
+) -> dict[str, object]:
+    """Advance one checkpoint lineage into a new plasticity phase."""
+
+    spec = ContinueSpec(
+        run_id=run_id,
+        gpu_uuid=request.gpuUuid,
+        additional_updates=request.additionalUpdates,
+        lifecycle=request.lifecycle,
+        lifecycle_profile=request.lifecycleProfile,
+        structure=request.structure,
+        phase_name=request.phaseName,
+    )
+    try:
+        return await asyncio.to_thread(laboratory.continue_run, spec)
     except PermissionError as error:
         raise HTTPException(status_code=403, detail=str(error)) from error
     except (OSError, ValueError) as error:

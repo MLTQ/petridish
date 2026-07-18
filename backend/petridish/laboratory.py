@@ -13,6 +13,7 @@ import subprocess
 import sys
 import time
 from typing import Any
+import uuid
 
 from .sequence_cells import CELL_ARCHITECTURES
 from .sequence_tasks import STREAM_MODES
@@ -50,6 +51,19 @@ class LaunchSpec:
     lifecycle: bool = False
     lifecycle_profile: str = "off"
     structure: bool = True
+
+
+@dataclass(frozen=True, slots=True)
+class ContinueSpec:
+    """Validated plasticity phase for one existing organism lineage."""
+
+    run_id: str
+    gpu_uuid: str
+    additional_updates: int = 1_000
+    lifecycle: bool = False
+    lifecycle_profile: str = "off"
+    structure: bool = True
+    phase_name: str | None = None
 
 
 class Laboratory:
@@ -123,14 +137,19 @@ class Laboratory:
         if directory.exists():
             raise ValueError(f"run already exists: {spec.run_id}")
         directory.mkdir(parents=True)
-        command = self._trainer_command(spec, directory)
+        organism_id = f"organism-{uuid.uuid4().hex}"
         lifecycle_profile = resolve_lifecycle_profile(
             spec.lifecycle_profile, enabled=spec.lifecycle
         )
+        phase_name = self._phase_name(spec.structure, lifecycle_profile)
+        command = self._trainer_command(
+            spec, directory, organism_id=organism_id, phase_name=phase_name
+        )
         lifecycle_enabled = lifecycle_profile != "off"
         manifest = {
-            "version": 1,
+            "version": 2,
             "runId": spec.run_id,
+            "organismId": organism_id,
             "task": spec.task,
             "architecture": spec.architecture,
             "gpuUuid": spec.gpu_uuid,
@@ -153,30 +172,135 @@ class Laboratory:
                 "structure": spec.structure,
             },
             "createdAt": time.time(),
+            "phaseHistory": [
+                {
+                    "index": 0,
+                    "name": phase_name,
+                    "startUpdate": 0,
+                    "targetUpdate": spec.updates,
+                    "structure": spec.structure,
+                    "lifecycleProfile": lifecycle_profile,
+                    "startedAt": time.time(),
+                }
+            ],
             "commit": self._git_commit(),
             "command": command,
         }
         self._write_json(directory / "manifest.json", manifest)
-        log = (directory / "trainer.log").open("ab", buffering=0)
-        environment = os.environ.copy()
-        environment["CUDA_VISIBLE_DEVICES"] = spec.gpu_uuid
-        try:
-            process = subprocess.Popen(
-                command,
-                cwd=self.repository_root,
-                env=environment,
-                stdout=log,
-                stderr=subprocess.STDOUT,
-                start_new_session=True,
-            )
-        except Exception:
-            log.close()
-            raise
-        self._processes[spec.run_id] = process
-        self._logs[spec.run_id] = log
+        process = self._start_process(spec.run_id, spec.gpu_uuid, command, directory)
         manifest["pid"] = process.pid
         self._write_json(directory / "manifest.json", manifest)
         return {"runId": spec.run_id, "pid": process.pid, "status": "running"}
+
+    def continue_run(self, spec: ContinueSpec) -> dict[str, Any]:
+        """Continue one checkpoint lineage under a new plasticity policy."""
+
+        if not self.control_enabled:
+            raise PermissionError("laboratory process control is disabled")
+        if spec.additional_updates < 1:
+            raise ValueError("additional updates must be positive")
+        if spec.lifecycle_profile not in LIFECYCLE_PROFILES:
+            raise ValueError("unknown lifecycle profile")
+        available = {gpu["uuid"] for gpu in self._gpu_snapshot()[0]}
+        if spec.gpu_uuid not in available:
+            raise ValueError("unknown GPU UUID")
+        directory = self._run_directory(spec.run_id)
+        manifest = self._read_json(directory / "manifest.json")
+        if not (directory / "latest.pt").is_file():
+            raise ValueError("run has no checkpoint to continue")
+        pid = int(manifest.get("pid", 0) or 0)
+        if pid > 0 and self._pid_alive(pid):
+            raise ValueError("organism is already running")
+        records = self.metrics(spec.run_id, limit=2_000)
+        latest_train = next(
+            (record for record in reversed(records) if record.get("type") == "train"),
+            None,
+        )
+        start_update = int((latest_train or {}).get("update", 0))
+        target_update = start_update + spec.additional_updates
+        organism_id = str(manifest.get("organismId") or f"organism-{uuid.uuid4().hex}")
+        history = list(manifest.get("phaseHistory") or [])
+        if not history:
+            configuration = dict(manifest.get("configuration", {}))
+            history.append(
+                {
+                    "index": 0,
+                    "name": "legacy training",
+                    "startUpdate": 0,
+                    "targetUpdate": start_update,
+                    "structure": bool(configuration.get("structure", False)),
+                    "lifecycleProfile": str(configuration.get("lifecycleProfile", "off")),
+                    "startedAt": manifest.get("createdAt"),
+                }
+            )
+        phase_index = max(int(phase.get("index", 0)) for phase in history) + 1
+        profile = resolve_lifecycle_profile(
+            spec.lifecycle_profile, enabled=spec.lifecycle
+        )
+        phase_name = spec.phase_name or self._phase_name(spec.structure, profile)
+        command = self._continuation_command(
+            directory,
+            target_update=target_update,
+            organism_id=organism_id,
+            phase_index=phase_index,
+            phase_name=phase_name,
+            structure=spec.structure,
+            lifecycle_profile=profile,
+        )
+        phase = {
+            "index": phase_index,
+            "name": phase_name,
+            "startUpdate": start_update,
+            "targetUpdate": target_update,
+            "structure": spec.structure,
+            "lifecycleProfile": profile,
+            "startedAt": time.time(),
+        }
+        history.append(phase)
+        configuration = dict(manifest.get("configuration", {}))
+        configuration.update(
+            {
+                "updates": target_update,
+                "lifecycle": profile != "off",
+                "lifecycleProfile": profile,
+                "structure": spec.structure,
+            }
+        )
+        manifest.update(
+            {
+                "version": 2,
+                "organismId": organism_id,
+                "gpuUuid": spec.gpu_uuid,
+                "configuration": configuration,
+                "phaseHistory": history,
+                "commit": self._git_commit(),
+                "command": command,
+            }
+        )
+        self._write_json(directory / "manifest.json", manifest)
+        self._append_jsonl(
+            directory / "metrics.jsonl",
+            {
+                "type": "phase",
+                "update": start_update,
+                "organismId": organism_id,
+                "phaseIndex": phase_index,
+                "phaseName": phase_name,
+                "structure": spec.structure,
+                "lifecycleProfile": profile,
+                "timestamp": time.time(),
+            },
+        )
+        process = self._start_process(spec.run_id, spec.gpu_uuid, command, directory)
+        manifest["pid"] = process.pid
+        self._write_json(directory / "manifest.json", manifest)
+        return {
+            "runId": spec.run_id,
+            "organismId": organism_id,
+            "phaseIndex": phase_index,
+            "pid": process.pid,
+            "status": "running",
+        }
 
     def stop_run(self, run_id: str) -> dict[str, Any]:
         """Request the trainer's signal-safe checkpoint-and-stop path."""
@@ -232,7 +356,14 @@ class Laboratory:
         if spec.lifecycle_profile not in LIFECYCLE_PROFILES:
             raise ValueError("unknown lifecycle profile")
 
-    def _trainer_command(self, spec: LaunchSpec, directory: Path) -> list[str]:
+    def _trainer_command(
+        self,
+        spec: LaunchSpec,
+        directory: Path,
+        *,
+        organism_id: str | None = None,
+        phase_name: str | None = None,
+    ) -> list[str]:
         command = [
             sys.executable, "-m", "petridish.train_shakespeare",
             "--task", spec.task,
@@ -253,11 +384,75 @@ class Laboratory:
             "--eval-interval", "500", "--eval-batches", "4",
             "--progress-interval", "10", "--no-resume",
         ]
+        if organism_id is not None:
+            command.extend(("--organism-id", organism_id, "--phase-index", "0"))
+        if phase_name is not None:
+            command.extend(("--phase-name", phase_name))
         profile = resolve_lifecycle_profile(spec.lifecycle_profile, enabled=spec.lifecycle)
         command.extend(("--lifecycle-profile", profile))
         command.append("--lifecycle" if profile != "off" else "--no-lifecycle")
         command.append("--structure" if spec.structure else "--no-structure")
         return command
+
+    def _continuation_command(
+        self,
+        directory: Path,
+        *,
+        target_update: int,
+        organism_id: str,
+        phase_index: int,
+        phase_name: str,
+        structure: bool,
+        lifecycle_profile: str,
+    ) -> list[str]:
+        command = [
+            sys.executable, "-m", "petridish.train_shakespeare",
+            "--device", "cuda", "--updates", str(target_update),
+            "--checkpoint-dir", str(directory), "--checkpoint-interval", "100",
+            "--eval-interval", "500", "--eval-batches", "4",
+            "--progress-interval", "10", "--resume", "--resume-plasticity",
+            "--organism-id", organism_id, "--phase-index", str(phase_index),
+            "--phase-name", phase_name,
+            "--lifecycle-profile", lifecycle_profile,
+        ]
+        command.append("--lifecycle" if lifecycle_profile != "off" else "--no-lifecycle")
+        command.append("--structure" if structure else "--no-structure")
+        return command
+
+    def _start_process(
+        self, run_id: str, gpu_uuid: str, command: list[str], directory: Path
+    ) -> subprocess.Popen[bytes]:
+        previous_log = self._logs.pop(run_id, None)
+        if previous_log is not None:
+            previous_log.close()
+        log = (directory / "trainer.log").open("ab", buffering=0)
+        environment = os.environ.copy()
+        environment["CUDA_VISIBLE_DEVICES"] = gpu_uuid
+        try:
+            process = subprocess.Popen(
+                command,
+                cwd=self.repository_root,
+                env=environment,
+                stdout=log,
+                stderr=subprocess.STDOUT,
+                start_new_session=True,
+            )
+        except Exception:
+            log.close()
+            raise
+        self._processes[run_id] = process
+        self._logs[run_id] = log
+        return process
+
+    @staticmethod
+    def _phase_name(structure: bool, lifecycle_profile: str) -> str:
+        if structure and lifecycle_profile != "off":
+            return f"adaptive topology + {lifecycle_profile} lifecycle"
+        if structure:
+            return "adaptive topology"
+        if lifecycle_profile != "off":
+            return f"fixed topology + {lifecycle_profile} lifecycle"
+        return "fixed-topology warm-up"
 
     def _discover_runs(self, active: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
         if not self.run_root.is_dir():
@@ -273,6 +468,14 @@ class Laboratory:
                 continue
             manifest = self._read_json(directory / "manifest.json")
             records = self.metrics(directory.name, limit=2_000) if has_metrics else []
+            latest_phase_offset = max(
+                (
+                    index for index, record in enumerate(records)
+                    if record.get("type") == "phase"
+                ),
+                default=-1,
+            )
+            current_phase_records = records[latest_phase_offset + 1 :]
             latest_train = next(
                 (record for record in reversed(records) if record.get("type") == "train"), None
             )
@@ -283,7 +486,11 @@ class Laboratory:
                 (record for record in reversed(records) if record.get("type") == "diagnostic"), None
             )
             latest_failure = next(
-                (record for record in reversed(records) if record.get("type") == "failure"), None
+                (
+                    record for record in reversed(current_phase_records)
+                    if record.get("type") == "failure"
+                ),
+                None,
             )
             running = active.get(directory.name)
             manifest_pid = int(manifest.get("pid", 0) or 0)
@@ -306,6 +513,8 @@ class Laboratory:
                         else "checkpointed" if has_checkpoint else "stopped"
                     ),
                     "configuration": manifest.get("configuration", {}),
+                    "organismId": manifest.get("organismId"),
+                    "phaseHistory": manifest.get("phaseHistory", []),
                     "commit": manifest.get("commit"),
                     "latestTrain": latest_train,
                     "latestHeldOut": latest_held_out,
@@ -498,5 +707,12 @@ class Laboratory:
         temporary.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
         os.replace(temporary, path)
 
+    @staticmethod
+    def _append_jsonl(path: Path, payload: dict[str, Any]) -> None:
+        with path.open("a", encoding="utf-8") as stream:
+            stream.write(json.dumps(payload, separators=(",", ":")) + "\n")
+            stream.flush()
+            os.fsync(stream.fileno())
 
-__all__ = ["Laboratory", "LaunchSpec"]
+
+__all__ = ["ContinueSpec", "Laboratory", "LaunchSpec"]

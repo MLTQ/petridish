@@ -71,8 +71,17 @@ explicitly enabled trainer processes.
   based on persisted measurements while keeping the polling payload bounded.
 
 ### `Laboratory.launch`
-- **Does**: Creates an immutable task-aware manifest and starts the corpus trainer with a GPU UUID.
+- **Does**: Creates an immutable task-aware manifest, organism lineage ID, and phase-zero
+  record, then starts the corpus trainer with a GPU UUID.
 - **Rationale**: UUID pinning avoids the host's conflicting CUDA and `nvidia-smi` indices.
+
+### `ContinueSpec` / `Laboratory.continue_run`
+- **Does**: Advances a stopped checkpoint into a new topology/lifecycle phase in the
+  same run directory and on the same organism lineage.
+- **Does**: Converts additional updates to an absolute target, appends a phase-boundary
+  metric, and rejects continuation while the organism is already running.
+- **Rationale**: Structural warm-up, adaptive pruning, and lifecycle pressure must be
+  phases of one organism rather than separately initialized comparison runs.
 
 ### `Laboratory.stop_run`
 - **Does**: Sends SIGTERM so the trainer completes its current update and checkpoints.
@@ -82,6 +91,8 @@ explicitly enabled trainer processes.
   non-finite instead of presenting the last checkpoint as ordinary completion.
 - **Does**: Marks a run failed when the trainer persisted an explicit failure record,
   including failures before update one, and returns that bounded diagnostic.
+- **Does**: Scopes terminal failure status to the current phase so an explicitly
+  continued checkpoint is not permanently labeled by an earlier failed phase.
 
 ### `Laboratory._pid_alive`
 - **Does**: Treats Linux zombie processes as stopped before falling back to a
@@ -93,7 +104,7 @@ explicitly enabled trainer processes.
 
 | Dependent | Expects | Breaking changes |
 |-----------|---------|------------------|
-| `server.py` | Snapshot, metrics, launch, and stop methods are synchronous | Method signatures |
+| `server.py` | Snapshot, metrics, launch, continuation, and stop methods are synchronous | Method signatures |
 | `lab.ts` | camelCase GPU/run/benchmark fields and bounded histories | Payload field changes |
 | Trainer | SIGTERM is checkpoint-safe; CLI arguments remain supported | Trainer CLI changes |
 | Security | Run IDs cannot escape `runs/`; launch uses no shell | Path or subprocess handling |

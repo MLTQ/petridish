@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
-from petridish.laboratory import Laboratory, LaunchSpec
+from petridish.laboratory import ContinueSpec, Laboratory, LaunchSpec
 
 
 def test_metrics_are_bounded_and_ignore_partial_json(tmp_path: Path) -> None:
@@ -77,6 +78,76 @@ def test_laboratory_can_launch_a_true_fixed_connectome(tmp_path: Path) -> None:
 
     assert "--no-lifecycle" in command
     assert "--no-structure" in command
+
+
+def test_checkpoint_continuation_preserves_run_lineage_and_changes_only_phase(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    run = tmp_path / "runs" / "trial"
+    run.mkdir(parents=True)
+    (run / "latest.pt").touch()
+    (run / "manifest.json").write_text(
+        json.dumps(
+            {
+                "runId": "trial",
+                "task": "tiny_stories",
+                "architecture": "esn",
+                "configuration": {
+                    "structure": False, "lifecycleProfile": "off", "updates": 500,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run / "metrics.jsonl").write_text(
+        json.dumps({"type": "train", "update": 500, "loss": 3.5}) + "\n",
+        encoding="utf-8",
+    )
+    laboratory = Laboratory(
+        tmp_path, run_root=tmp_path / "runs", control_enabled=True
+    )
+    monkeypatch.setattr(
+        laboratory, "_gpu_snapshot",
+        lambda: ([{"uuid": "GPU-example"}], []),
+    )
+    launched: dict[str, object] = {}
+
+    def fake_start(
+        run_id: str, gpu_uuid: str, command: list[str], directory: Path
+    ) -> SimpleNamespace:
+        launched.update(
+            run_id=run_id, gpu_uuid=gpu_uuid, command=command, directory=directory
+        )
+        return SimpleNamespace(pid=1234)
+
+    monkeypatch.setattr(laboratory, "_start_process", fake_start)
+    monkeypatch.setattr(laboratory, "_git_commit", lambda: "phase-commit")
+
+    result = laboratory.continue_run(
+        ContinueSpec(
+            "trial", "GPU-example", additional_updates=1_000,
+            structure=True, lifecycle_profile="off",
+        )
+    )
+
+    manifest = json.loads((run / "manifest.json").read_text(encoding="utf-8"))
+    records = [
+        json.loads(line)
+        for line in (run / "metrics.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    command = launched["command"]
+    assert isinstance(command, list)
+    assert result["runId"] == "trial"
+    assert result["organismId"] == manifest["organismId"]
+    assert manifest["configuration"]["updates"] == 1_500
+    assert manifest["configuration"]["structure"] is True
+    assert [phase["startUpdate"] for phase in manifest["phaseHistory"]] == [0, 500]
+    assert command[command.index("--updates") + 1] == "1500"
+    assert "--resume-plasticity" in command
+    assert "--structure" in command
+    assert "--no-resume" not in command
+    assert records[-1]["type"] == "phase"
+    assert records[-1]["organismId"] == manifest["organismId"]
 
 
 def test_laboratory_preserves_bounded_learning_rate_scale(tmp_path: Path) -> None:

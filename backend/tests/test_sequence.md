@@ -60,7 +60,9 @@ same fixture requires smoothed bigram loss to beat smoothed unigram loss. The
 continuous-experience regressions prove adjacent windows share the boundary token,
 optimizer updates carry detached neuron state, checkpoints resume the exact lane and
 runtime state, and cell death preserves each surviving neuron's state by physical
-site. Scientific diagnostics report zero electrical age before the first carried
+site. The same checkpoint regression enables structural plasticity as a new phase
+without losing the population mask, dendrite sources, synaptic weights, lineage
+metadata, or continuous runtime state. Scientific diagnostics report zero electrical age before the first carried
 window. The paired held-out ablation must reuse the same contiguous tokens for carried
 and cold state, label both conditions, and advance the evaluation RNG only once. The
 headless diagnostic helper must publish the signed accuracy difference used by both

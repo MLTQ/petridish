@@ -57,7 +57,7 @@ select { min-height: 34px; padding: 0 30px 0 9px; }
 .laboratory-heading { justify-content: space-between; gap: 16px; margin-bottom: 12px; }
 .laboratory-heading h2 { margin: 4px 0 0; font-size: 16px; font-weight: 560; }
 .laboratory-actions { gap: 10px; }
-.laboratory-actions output, #lab-launch-status { color: #738b88; font: 500 10px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.laboratory-actions output, #lab-launch-status, #lab-continue-status { color: #738b88; font: 500 10px ui-monospace, SFMono-Regular, Menlo, monospace; }
 .gpu-lanes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .gpu-lane { padding: 10px 12px; border-top: 1px solid #294044; border-bottom: 1px solid #17282b; }
 .gpu-lane > div { justify-content: space-between; gap: 12px; }
@@ -88,6 +88,12 @@ select { min-height: 34px; padding: 0 30px 0 9px; }
 .lab-axis-label, .chart-empty { fill: #738b88; font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; }
 .chart-empty { text-anchor: middle; }
 .lab-series { fill: none; stroke-width: 1.8; vector-effect: non-scaling-stroke; }
+.phase-boundary { stroke-width: 1; stroke-dasharray: 3 3; opacity: .7; }
+.phase-boundary.series-a { stroke: #65d5bc; }
+.phase-boundary.series-b { stroke: #f0c765; }
+.phase-boundary.series-c { stroke: #8daee8; }
+.phase-boundary.series-d { stroke: #d38bd1; }
+.phase-boundary.series-e { stroke: #e58e77; }
 .lab-series.topology-edges { stroke-dasharray: 5 4; }
 .lab-series.series-a, .laboratory-chart-legend .series-a::before { stroke: #65d5bc; background: #65d5bc; }
 .lab-series.series-b, .laboratory-chart-legend .series-b::before { stroke: #f0c765; background: #f0c765; }
@@ -104,12 +110,12 @@ select { min-height: 34px; padding: 0 30px 0 9px; }
 .laboratory-chart-legend span::before { content: ""; display: inline-block; width: 12px; height: 2px; margin: 0 5px 2px 0; }
 .launch-panel { margin-top: 12px; border-top: 1px solid #17282b; }
 .launch-panel summary { padding: 10px 0 4px; color: #91a8a4; font-size: 11px; cursor: pointer; }
-#laboratory-launch-form { display: grid; grid-template-columns: repeat(4, minmax(120px, 1fr)); gap: 9px; align-items: end; padding-top: 9px; }
-#laboratory-launch-form label { display: grid; gap: 4px; color: #738b88; font-size: 10px; }
-#laboratory-launch-form input, #laboratory-launch-form select { width: 100%; min-height: 34px; padding: 0 8px; border: 1px solid #294044; border-radius: 7px; background: #0d181b; color: #cfe0dc; }
-#laboratory-launch-form .launch-check { display: flex; align-items: center; min-height: 34px; }
-#laboratory-launch-form .launch-check input { width: auto; min-height: 0; }
-#lab-launch-status { align-self: center; }
+.laboratory-control-form { display: grid; grid-template-columns: repeat(4, minmax(120px, 1fr)); gap: 9px; align-items: end; padding-top: 9px; }
+.laboratory-control-form label { display: grid; gap: 4px; color: #738b88; font-size: 10px; }
+.laboratory-control-form input, .laboratory-control-form select { width: 100%; min-height: 34px; padding: 0 8px; border: 1px solid #294044; border-radius: 7px; background: #0d181b; color: #cfe0dc; }
+.laboratory-control-form .launch-check { display: flex; align-items: center; min-height: 34px; }
+.laboratory-control-form .launch-check input { width: auto; min-height: 0; }
+#lab-launch-status, #lab-continue-status { align-self: center; }
 
 .topbar {
   min-height: 72px;
@@ -274,7 +280,7 @@ aside { display: grid; align-content: start; gap: 10px; }
   .laboratory { margin: 8px; }
   .laboratory-grid { grid-template-columns: 1fr; }
   .benchmark-grid { grid-template-columns: 1fr; }
-  #laboratory-launch-form { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
+  .laboratory-control-form { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
 }
 
 @media (max-width: 620px) {
@@ -303,5 +309,5 @@ aside { display: grid; align-content: start; gap: 10px; }
   .task-panel > #mnist-controls { grid-column: 1; grid-row: auto; }
   aside { grid-template-columns: 1fr; }
   .laboratory { margin: 7px; padding: 10px; }
-  .gpu-lanes, #laboratory-launch-form { grid-template-columns: 1fr; }
+  .gpu-lanes, .laboratory-control-form { grid-template-columns: 1fr; }
 }

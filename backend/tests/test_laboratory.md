@@ -54,6 +54,9 @@ control-enable contracts without requiring NVIDIA hardware or launching trainers
   from tensor batch and rejects larger banks.
 - **Does**: Reports a persisted pre-checkpoint trainer failure and its bounded detail
   as failed rather than stopped.
+- **Does**: Proves continuation reuses one run/organism ID, advances from the measured
+  checkpoint update, records a phase boundary, and invokes resume-plasticity without
+  the fresh-run flag.
 
 ## Contracts
 

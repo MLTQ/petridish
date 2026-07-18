@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import argparse
 from collections import deque
-from dataclasses import asdict
+from dataclasses import asdict, replace
 import json
 import math
 import os
@@ -14,6 +14,7 @@ import signal
 import sys
 import time
 from typing import Any
+import uuid
 
 import numpy as np
 import torch
@@ -92,12 +93,20 @@ def save_checkpoint(
     *,
     context_length: int,
     amp_mode: str,
+    organism_id: str = "untracked",
+    phase_index: int = 0,
+    phase_name: str = "training",
 ) -> None:
     """Atomically save every state needed to continue the same organism."""
 
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "version": CHECKPOINT_VERSION,
+        "lineage": {
+            "organism_id": organism_id,
+            "phase_index": phase_index,
+            "phase_name": phase_name,
+        },
         "configuration": asdict(experiment.config),
         "task": {
             "key": experiment.task.key,
@@ -154,6 +163,36 @@ def restore_checkpoint(
         torch.cuda.set_rng_state_all([state.cpu() for state in rng["torch_cuda"]])
     random.setstate(rng["python"])
     np.random.set_state(rng["numpy"])
+
+
+def plasticity_phase_config(
+    config: MnistModelConfig,
+    *,
+    structure: bool,
+    lifecycle: bool,
+    lifecycle_profile: str,
+) -> MnistModelConfig:
+    """Change only plasticity policy while preserving organism dimensions and rules."""
+
+    profile = resolve_lifecycle_profile(lifecycle_profile, enabled=lifecycle)
+    return apply_lifecycle_profile(
+        replace(config, structural_enabled=int(structure)), profile
+    )
+
+
+def reset_plasticity_phase_gates(experiment: SequenceExperiment) -> None:
+    """Re-evaluate policy gates after resume without touching physical organism state."""
+
+    experiment.lifecycle_active = False
+    experiment.lifecycle_reason = (
+        "waiting for lifecycle warm-up"
+        if experiment.config.lifecycle_enabled else "disabled by configuration"
+    )
+    experiment.structure_unlocked = False
+    experiment.structure_unlock_reason = (
+        "disabled by configuration"
+        if not experiment.config.structural_enabled else "minimum learning warm-up"
+    )
 
 
 def _migrate_model_state(state: dict[str, Any]) -> dict[str, Any]:
@@ -407,6 +446,10 @@ def main() -> None:
     parser.add_argument("--evaluate-only", action="store_true")
     parser.add_argument("--state-horizon-eval", action="store_true")
     parser.add_argument("--resume", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--resume-plasticity", action="store_true")
+    parser.add_argument("--organism-id")
+    parser.add_argument("--phase-index", type=int)
+    parser.add_argument("--phase-name")
     parser.add_argument("--lifecycle", action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument("--structure", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument(
@@ -421,12 +464,24 @@ def main() -> None:
         parser.error("--state-retention must be between 0 and 1")
     if not 1 <= args.state_lanes <= 16:
         parser.error("--state-lanes must be between 1 and 16")
+    if args.phase_index is not None and args.phase_index < 0:
+        parser.error("--phase-index must be non-negative")
 
     latest = args.checkpoint_dir / "latest.pt"
     payload: dict[str, Any] | None = None
     requested_device = torch.device(args.device)
     if args.resume and latest.exists():
         payload = load_checkpoint(latest, requested_device)
+        saved_lineage = dict(payload.get("lineage", {}))
+        saved_organism_id = str(saved_lineage.get("organism_id", ""))
+        if args.organism_id and saved_organism_id and args.organism_id != saved_organism_id:
+            raise ValueError("requested organism ID does not match checkpoint lineage")
+        organism_id = args.organism_id or saved_organism_id or f"organism-{uuid.uuid4().hex}"
+        phase_index = (
+            args.phase_index
+            if args.phase_index is not None else int(saved_lineage.get("phase_index", 0))
+        )
+        phase_name = args.phase_name or str(saved_lineage.get("phase_name", "training"))
         saved_task = payload["task"]
         args.context_length = int(saved_task["context_length"])
         args.seed = int(saved_task["seed"])
@@ -437,7 +492,17 @@ def main() -> None:
         args.state_lanes = int(saved_task.get("state_lanes", 1))
         args.vocabulary_size = len(tuple(saved_task.get("vocabulary", ())))
         config = MnistModelConfig(**payload["configuration"])
+        if args.resume_plasticity:
+            config = plasticity_phase_config(
+                config,
+                structure=args.structure,
+                lifecycle=args.lifecycle,
+                lifecycle_profile=args.lifecycle_profile,
+            )
     else:
+        organism_id = args.organism_id or f"organism-{uuid.uuid4().hex}"
+        phase_index = args.phase_index or 0
+        phase_name = args.phase_name or "initial training"
         config = _fresh_config(
             args.task,
             field_size=args.field_size,
@@ -467,6 +532,8 @@ def main() -> None:
     )
     if payload is not None:
         restore_checkpoint(experiment, payload)
+        if args.resume_plasticity:
+            reset_plasticity_phase_gates(experiment)
     if args.compile_mode != "off":
         experiment.enable_compile(args.compile_mode)
 
@@ -488,6 +555,7 @@ def main() -> None:
         f"architecture={config.cell_architecture} batch={config.batch_size} "
         f"stream={args.stream_mode} retention={args.state_retention:.3f} "
         f"lanes={args.state_lanes} "
+        f"organism={organism_id} phase={phase_index}:{phase_name} "
         f"amp={args.amp} compile={args.compile_mode}",
         flush=True,
     )
@@ -496,6 +564,8 @@ def main() -> None:
             parser.error("--evaluate-only requires a resumable checkpoint")
         record = {
             "type": "held_out", "update": experiment.training_step,
+            "organismId": organism_id, "phaseIndex": phase_index,
+            "phaseName": phase_name,
             **_held_out_diagnostics(
                 experiment, args.eval_batches,
                 include_state_horizons=args.state_horizon_eval,
@@ -517,6 +587,9 @@ def main() -> None:
         record: dict[str, Any] = {
             "type": "train",
             "update": experiment.training_step,
+            "organismId": organism_id,
+            "phaseIndex": phase_index,
+            "phaseName": phase_name,
             "loss": experiment.last_loss,
             "accuracy": experiment.last_batch_accuracy,
             "rollingLoss": experiment.rolling_loss,
@@ -540,6 +613,8 @@ def main() -> None:
                 metrics_path,
                 {
                     "type": "held_out", "update": experiment.training_step,
+                    "organismId": organism_id, "phaseIndex": phase_index,
+                    "phaseName": phase_name,
                     **_held_out_diagnostics(experiment, args.eval_batches),
                 },
             )
@@ -548,6 +623,8 @@ def main() -> None:
                 metrics_path,
                 {
                     "type": "diagnostic", "update": experiment.training_step,
+                    "organismId": organism_id, "phaseIndex": phase_index,
+                    "phaseName": phase_name,
                     **_scientific_metrics(experiment),
                 },
             )
@@ -575,11 +652,13 @@ def main() -> None:
             interval_updates = 0
         if experiment.training_step % max(1, args.checkpoint_interval) == 0:
             save_checkpoint(
-                latest, experiment, context_length=args.context_length, amp_mode=args.amp
+                latest, experiment, context_length=args.context_length, amp_mode=args.amp,
+                organism_id=organism_id, phase_index=phase_index, phase_name=phase_name,
             )
 
     save_checkpoint(
-        latest, experiment, context_length=args.context_length, amp_mode=args.amp
+        latest, experiment, context_length=args.context_length, amp_mode=args.amp,
+        organism_id=organism_id, phase_index=phase_index, phase_name=phase_name,
     )
     print(
         f"stopped at update {experiment.training_step} after "

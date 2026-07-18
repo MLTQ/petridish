@@ -17,7 +17,7 @@ interface GpuSnapshot {
 }
 
 interface MetricRecord {
-  type: "train" | "held_out" | "diagnostic" | "failure";
+  type: "train" | "held_out" | "diagnostic" | "failure" | "phase";
   update: number;
   loss?: number;
   rollingLoss?: number;
@@ -69,6 +69,18 @@ interface MetricRecord {
   maximumElectricalStateTokens?: number;
   failureType?: string;
   failureMessage?: string;
+  organismId?: string;
+  phaseIndex?: number;
+  phaseName?: string;
+}
+
+interface OrganismPhase {
+  index: number;
+  name: string;
+  startUpdate: number;
+  targetUpdate: number;
+  structure: boolean;
+  lifecycleProfile: string;
 }
 
 interface RunSnapshot {
@@ -79,6 +91,8 @@ interface RunSnapshot {
   pid: number | null;
   status: "running" | "checkpointed" | "stopped" | "failed";
   configuration: Record<string, unknown>;
+  organismId: string | null;
+  phaseHistory: OrganismPhase[];
   commit: string | null;
   latestTrain: MetricRecord | null;
   latestHeldOut: MetricRecord | null;
@@ -192,6 +206,13 @@ export class LaboratoryView {
   private readonly lifecycleProfileSelect = required<HTMLSelectElement>("#lab-lifecycle-profile");
   private readonly launchButton = required<HTMLButtonElement>("#lab-launch");
   private readonly launchStatus = required<HTMLOutputElement>("#lab-launch-status");
+  private readonly continueForm = required<HTMLFormElement>("#laboratory-continue-form");
+  private readonly continueRunSelect = required<HTMLSelectElement>("#lab-continue-run");
+  private readonly continueGpuSelect = required<HTMLSelectElement>("#lab-continue-gpu");
+  private readonly continueLifecycleSelect = required<HTMLSelectElement>("#lab-continue-lifecycle-profile");
+  private readonly continueStructureSelect = required<HTMLSelectElement>("#lab-continue-structure");
+  private readonly continueButton = required<HTMLButtonElement>("#lab-continue");
+  private readonly continueStatus = required<HTMLOutputElement>("#lab-continue-status");
   private readonly benchmarksHost = required<HTMLTableSectionElement>("#laboratory-benchmarks");
   private readonly benchmarkChart = required<SVGSVGElement>("#benchmark-chart");
   private readonly benchmarkTopologyChart = required<SVGSVGElement>("#benchmark-topology-chart");
@@ -206,6 +227,8 @@ export class LaboratoryView {
   public start(): void {
     this.refreshButton.addEventListener("click", () => void this.refresh());
     this.form.addEventListener("submit", (event) => void this.launch(event));
+    this.continueForm.addEventListener("submit", (event) => void this.continueOrganism(event));
+    this.continueRunSelect.addEventListener("change", () => this.syncContinuationPhase(true));
     this.taskSelect.addEventListener("change", () => {
       this.messageStepsSelect.value = this.taskSelect.value === "tiny_stories" ? "12" : "2";
       this.broadcastGainInput.value = this.taskSelect.value === "tiny_stories" ? "0.35" : "0.3";
@@ -266,14 +289,44 @@ export class LaboratoryView {
       this.lifecycleProfileSelect,
       snapshot.capabilities.lifecycleProfiles.map((name) => ({ value: name, label: name })),
     );
+    this.populateSelect(
+      this.continueGpuSelect,
+      snapshot.gpus.map((gpu) => ({ value: gpu.uuid, label: gpu.name })),
+    );
+    this.populateSelect(
+      this.continueRunSelect,
+      snapshot.runs.filter((run) => run.hasCheckpoint && run.status !== "running").map((run) => {
+        const phase = (run.phaseHistory ?? []).at(-1);
+        return {
+          value: run.id,
+          label: `${run.id} · p${phase?.index ?? 0} ${phase?.name ?? "legacy"}`,
+        };
+      }),
+    );
+    this.populateSelect(
+      this.continueLifecycleSelect,
+      snapshot.capabilities.lifecycleProfiles.map((name) => ({ value: name, label: name })),
+    );
+    this.syncContinuationPhase();
     for (const control of this.form.elements) {
       if (control instanceof HTMLInputElement || control instanceof HTMLSelectElement || control instanceof HTMLButtonElement) {
         control.disabled = !snapshot.controlEnabled;
       }
     }
+    const canContinue = snapshot.controlEnabled && this.continueRunSelect.options.length > 0;
+    for (const control of this.continueForm.elements) {
+      if (control instanceof HTMLInputElement || control instanceof HTMLSelectElement || control instanceof HTMLButtonElement) {
+        control.disabled = !canContinue;
+      }
+    }
     this.launchStatus.value = snapshot.controlEnabled
       ? "new runs receive immutable manifests"
       : "launch control disabled on server";
+    this.continueStatus.value = canContinue
+      ? "continuation retains the checkpointed organism and changes only plasticity policy"
+      : snapshot.controlEnabled
+        ? "no stopped checkpoint is available"
+        : "continuation control disabled on server";
   }
 
   private renderBenchmarks(benchmarks: BenchmarkSnapshot[]): void {
@@ -539,6 +592,7 @@ export class LaboratoryView {
             ?? run.latestTrain?.targetCharactersPerSecond,
           0,
         ),
+        this.lineagePhase(run),
       ];
       for (const value of values) {
         const cell = document.createElement("td");
@@ -564,7 +618,7 @@ export class LaboratoryView {
     });
     if (rows.length === 0) {
       const row = document.createElement("tr");
-      row.innerHTML = '<td colspan="10">No persisted runs found.</td>';
+      row.innerHTML = '<td colspan="11">No persisted runs found.</td>';
       rows.push(row);
     }
     this.runsHost.replaceChildren(...rows);
@@ -600,7 +654,7 @@ export class LaboratoryView {
         : `${heldOut.generationPrompt ?? ""} → ${this.compactSample(heldOut.generationSample)} · ${this.percent(heldOut.generationUniqueTokenRatio)} unique`;
       const positionAccuracy = heldOut ? this.positionBands(heldOut) : "—";
       for (const value of [
-        run.id, graph, routing, lifecycle, structure, positionAccuracy, sample,
+        `${run.id} · ${this.lineagePhase(run)}`, graph, routing, lifecycle, structure, positionAccuracy, sample,
       ]) {
         const cell = document.createElement("td");
         cell.textContent = value;
@@ -610,7 +664,7 @@ export class LaboratoryView {
     });
     if (rows.length === 0) {
       const row = document.createElement("tr");
-      row.innerHTML = '<td colspan="6">Select a run to inspect measured organism diagnostics.</td>';
+      row.innerHTML = '<td colspan="7">Select a run to inspect measured organism diagnostics.</td>';
       rows.push(row);
     }
     this.diagnosticsHost.replaceChildren(...rows);
@@ -622,7 +676,7 @@ export class LaboratoryView {
       const response = await fetch(`/api/lab/runs/${encodeURIComponent(runId)}/metrics?limit=600`, { cache: "no-store" });
       if (!response.ok) return [runId, [] as MetricRecord[]];
       const payload = await response.json() as { records: MetricRecord[] };
-      return [runId, payload.records.filter((record) => record.type === "train")];
+      return [runId, payload.records.filter((record) => record.type === "train" || record.type === "phase")];
     }));
     this.histories = new Map(responses);
     this.drawChart();
@@ -633,14 +687,16 @@ export class LaboratoryView {
     this.legend.replaceChildren();
     const selected = [...this.selectedRuns]
       .map((id) => ({ id, records: this.histories.get(id) ?? [] }))
-      .filter((series) => series.records.length > 0);
+      .filter((series) => series.records.some((record) => record.type === "train"));
     if (selected.length === 0) {
       const label = this.svg("text", { x: "360", y: "98", class: "chart-empty" });
       label.textContent = "Select a run with metrics";
       this.chart.append(label);
       return;
     }
-    const points = selected.flatMap((series) => series.records.map((record) => ({
+    const points = selected.flatMap((series) => series.records.filter(
+      (record) => record.type === "train",
+    ).map((record) => ({
       update: record.update,
       loss: record.rollingLoss ?? record.loss ?? Number.NaN,
     }))).filter((point) => Number.isFinite(point.loss));
@@ -666,7 +722,7 @@ export class LaboratoryView {
     }
     selected.forEach((series, index) => {
       const seriesClass: string = SERIES_CLASSES[index] ?? "series-a";
-      const values = series.records.map((record) => ({
+      const values = series.records.filter((record) => record.type === "train").map((record) => ({
         update: record.update, loss: record.rollingLoss ?? record.loss ?? Number.NaN,
       })).filter((point) => Number.isFinite(point.loss));
       const path = this.svg("polyline", {
@@ -674,6 +730,18 @@ export class LaboratoryView {
         class: `lab-series ${seriesClass}`,
       });
       this.chart.append(path);
+      for (const phase of series.records.filter((record) => record.type === "phase")) {
+        const phaseX = x(phase.update);
+        this.chart.append(this.svg("line", {
+          x1: phaseX.toFixed(2), y1: String(top), x2: phaseX.toFixed(2), y2: String(bottom),
+          class: `phase-boundary ${seriesClass}`,
+        }));
+        const phaseLabel = this.svg("text", {
+          x: (phaseX + 3).toFixed(2), y: String(top + 10), class: "lab-axis-label",
+        });
+        phaseLabel.textContent = `p${phase.phaseIndex ?? "?"}`;
+        this.chart.append(phaseLabel);
+      }
       const legend = document.createElement("span");
       legend.className = seriesClass;
       legend.textContent = series.id;
@@ -726,6 +794,57 @@ export class LaboratoryView {
     const payload = await response.json() as { status?: string; detail?: string };
     this.status.value = response.ok ? `${runId}: ${payload.status}` : (payload.detail ?? "stop failed");
     await this.refresh();
+  }
+
+  private async continueOrganism(event: SubmitEvent): Promise<void> {
+    event.preventDefault();
+    this.continueButton.disabled = true;
+    this.continueStatus.value = "continuing checkpoint lineage";
+    const form = new FormData(this.continueForm);
+    const runId = String(form.get("runId"));
+    const lifecycleProfile = String(form.get("lifecycleProfile"));
+    const phaseName = String(form.get("phaseName") ?? "").trim();
+    const body = {
+      gpuUuid: String(form.get("gpuUuid")),
+      additionalUpdates: Number(form.get("additionalUpdates")),
+      lifecycle: lifecycleProfile !== "off",
+      lifecycleProfile,
+      structure: String(form.get("structure")) === "adaptive",
+      phaseName: phaseName || null,
+    };
+    try {
+      const response = await fetch(`/api/lab/runs/${encodeURIComponent(runId)}/continue`, {
+        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
+      });
+      const payload = await response.json() as {
+        runId?: string; organismId?: string; phaseIndex?: number; detail?: string;
+      };
+      if (!response.ok) throw new Error(payload.detail ?? `continuation failed (${response.status})`);
+      this.continueStatus.value = `${payload.runId} · same organism · phase ${payload.phaseIndex}`;
+      if (payload.runId) this.selectedRuns.add(payload.runId);
+      await this.refresh();
+    } catch (error) {
+      this.continueStatus.value = error instanceof Error ? error.message : "continuation failed";
+    } finally {
+      this.continueButton.disabled = !(this.snapshot?.controlEnabled ?? false);
+    }
+  }
+
+  private syncContinuationPhase(force = false): void {
+    const run = this.snapshot?.runs.find((candidate) => candidate.id === this.continueRunSelect.value);
+    if (!run) return;
+    if (!force && this.continueForm.dataset.runId === run.id) return;
+    this.continueForm.dataset.runId = run.id;
+    this.continueStructureSelect.value = "adaptive";
+    this.continueLifecycleSelect.value = String(
+      run.configuration.lifecycleProfile ?? (run.configuration.lifecycle ? "baseline" : "off"),
+    );
+  }
+
+  private lineagePhase(run: RunSnapshot): string {
+    const phase = (run.phaseHistory ?? []).at(-1);
+    const lineage = run.organismId ? run.organismId.replace(/^organism-/, "").slice(0, 8) : "legacy";
+    return `${lineage} · p${phase?.index ?? 0} ${phase?.name ?? "training"}`;
   }
 
   private populateSelect(select: HTMLSelectElement, choices: { value: string; label: string }[]): void {

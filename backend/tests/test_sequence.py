@@ -46,6 +46,8 @@ from petridish.train_shakespeare import (
     _scientific_metrics,
     _record_process_failure,
     load_checkpoint,
+    plasticity_phase_config,
+    reset_plasticity_phase_gates,
     restore_checkpoint,
     save_checkpoint,
 )
@@ -673,14 +675,26 @@ def test_continuous_training_state_survives_checkpoint_resume(tmp_path: Path) ->
     )
     original.train_updates(1)
     checkpoint = tmp_path / "latest.pt"
-    save_checkpoint(checkpoint, original, context_length=8, amp_mode="off")
+    save_checkpoint(
+        checkpoint, original, context_length=8, amp_mode="off",
+        organism_id="organism-test", phase_index=0, phase_name="warm-up",
+    )
 
+    phase_config = plasticity_phase_config(
+        config, structure=True, lifecycle=False, lifecycle_profile="off"
+    )
     restored = SequenceExperiment(
-        task, config, seed=45, device="cpu", stream_mode="continuous",
+        task, phase_config, seed=45, device="cpu", stream_mode="continuous",
         state_retention=0.9,
     )
-    restore_checkpoint(restored, load_checkpoint(checkpoint, torch.device("cpu")))
+    payload = load_checkpoint(checkpoint, torch.device("cpu"))
+    restore_checkpoint(restored, payload)
+    reset_plasticity_phase_gates(restored)
 
+    assert payload["lineage"] == {
+        "organism_id": "organism-test", "phase_index": 0, "phase_name": "warm-up",
+    }
+    assert restored.config.structural_enabled == 1
     assert restored.stream_mode == "continuous"
     assert restored.state_retention == pytest.approx(0.9)
     assert torch.equal(
@@ -689,6 +703,17 @@ def test_continuous_training_state_survives_checkpoint_resume(tmp_path: Path) ->
     assert torch.equal(
         restored._training_runtime_state.hidden,
         original._training_runtime_state.hidden,
+    )
+    assert torch.equal(
+        restored.model.substrate.occupied, original.model.substrate.occupied
+    )
+    assert torch.equal(
+        restored.model.substrate.dendrite_source,
+        original.model.substrate.dendrite_source,
+    )
+    assert torch.equal(
+        restored.model.substrate.synapse_weight,
+        original.model.substrate.synapse_weight,
     )
 
 

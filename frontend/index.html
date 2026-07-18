@@ -41,7 +41,7 @@
         </div>
         <div class="run-table-wrap">
           <table class="run-table">
-            <thead><tr><th>Compare</th><th>Run</th><th>Task</th><th>Cell</th><th>GPU</th><th>Update</th><th>Loss</th><th>Held out</th><th>tokens/s</th><th>State</th></tr></thead>
+            <thead><tr><th>Compare</th><th>Run</th><th>Task</th><th>Cell</th><th>GPU</th><th>Update</th><th>Loss</th><th>Held out</th><th>tokens/s</th><th>Lineage / phase</th><th>State</th></tr></thead>
             <tbody id="laboratory-runs"></tbody>
           </table>
         </div>
@@ -91,7 +91,7 @@
     </section>
     <details class="launch-panel">
       <summary>Launch controlled experiment</summary>
-      <form id="laboratory-launch-form">
+      <form id="laboratory-launch-form" class="laboratory-control-form">
         <label>Run ID <input id="lab-run-id" name="runId" pattern="[a-z0-9][a-z0-9-]{0,62}" value="attention-pilot" required></label>
         <label>GPU <select id="lab-gpu" name="gpuUuid" required></select></label>
         <label>Task <select id="lab-task" name="task" required></select></label>
@@ -111,6 +111,19 @@
         <label>Topology <select id="lab-structure" name="structure"><option value="adaptive">adaptive</option><option value="fixed">fixed</option></select></label>
         <button id="lab-launch" class="primary" type="submit">Launch</button>
         <output id="lab-launch-status" role="status"></output>
+      </form>
+    </details>
+    <details class="launch-panel">
+      <summary>Continue persistent organism</summary>
+      <form id="laboratory-continue-form" class="laboratory-control-form">
+        <label>Organism run <select id="lab-continue-run" name="runId" required></select></label>
+        <label>GPU <select id="lab-continue-gpu" name="gpuUuid" required></select></label>
+        <label>Additional updates <input name="additionalUpdates" type="number" min="1" value="1000" required></label>
+        <label>Next topology phase <select id="lab-continue-structure" name="structure"><option value="adaptive" selected>adaptive</option><option value="fixed">fixed control</option></select></label>
+        <label>Next lifecycle phase <select id="lab-continue-lifecycle-profile" name="lifecycleProfile"><option value="off" selected>off</option><option value="baseline">baseline</option><option value="balanced">balanced</option><option value="replacement">replacement</option></select></label>
+        <label>Phase label <input name="phaseName" maxlength="120" placeholder="adaptive topology"></label>
+        <button id="lab-continue" class="primary" type="submit">Continue same organism</button>
+        <output id="lab-continue-status" role="status">Checkpoint state, connectome, weights, cells, and electrical memory are retained.</output>
       </form>
     </details>
   </section>
