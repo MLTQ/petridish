@@ -581,8 +581,10 @@ class Laboratory:
         state_horizons: bool,
         evaluation_split: str,
     ) -> list[str]:
-        if evaluation_split not in {"validation", "training"}:
-            raise ValueError("evaluation split must be validation or training")
+        if evaluation_split not in {"validation", "training", "trajectory"}:
+            raise ValueError(
+                "evaluation split must be validation, training, or trajectory"
+            )
         command = [
             sys.executable, "-m", "petridish.train_shakespeare",
             "--device", "cuda", "--checkpoint-dir", str(directory),
@@ -671,6 +673,13 @@ class Laboratory:
                 ),
                 None,
             )
+            latest_trajectory_audit = next(
+                (
+                    record for record in reversed(records)
+                    if record.get("type") == "trajectory_audit"
+                ),
+                None,
+            )
             latest_diagnostics = next(
                 (record for record in reversed(records) if record.get("type") == "diagnostic"), None
             )
@@ -708,6 +717,7 @@ class Laboratory:
                     "latestTrain": latest_train,
                     "latestHeldOut": latest_held_out,
                     "latestTrainingAudit": latest_training_audit,
+                    "latestTrajectoryAudit": latest_trajectory_audit,
                     "latestDiagnostics": latest_diagnostics,
                     "latestFailure": latest_failure,
                     "hasCheckpoint": has_checkpoint,

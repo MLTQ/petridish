@@ -965,6 +965,14 @@ def test_fixed_seed_checkpoint_audit_is_repeatable_and_sampler_read_only() -> No
     assert shard.get("trainingShardTokens") is None
     assert torch.equal(before, experiment.eval_generator.get_state())
 
+    trajectory = _held_out_diagnostics(
+        experiment, 3, evaluation_seed=12345, evaluation_split="trajectory"
+    )
+    assert trajectory["evaluationSplit"] == "trajectory"
+    assert trajectory["trajectoryLane"] == 0
+    assert trajectory["initialStateTokens"] == experiment._training_runtime_state.position
+    assert torch.equal(before, experiment.eval_generator.get_state())
+
 
 def test_graph_ablation_is_causal_matched_and_restores_the_organism() -> None:
     text = "One fox ran. Two birds flew. Three cats slept. " * 30
@@ -994,6 +1002,14 @@ def test_graph_ablation_is_causal_matched_and_restores_the_organism() -> None:
     assert torch.equal(
         experiment.eval_generator.get_state(), control.eval_generator.get_state()
     )
+    assert torch.equal(experiment.model.substrate.dendrite_source, sources)
+    assert torch.equal(experiment.model.substrate.synapse_weight, weights)
+
+    trajectory_reference, trajectory_silenced, *_ = (
+        experiment.evaluate_graph_ablation(2, evaluation_split="trajectory")
+    )
+    assert trajectory_reference["evaluationSplit"] == "trajectory"
+    assert trajectory_silenced["trajectoryLane"] == 0
     assert torch.equal(experiment.model.substrate.dendrite_source, sources)
     assert torch.equal(experiment.model.substrate.synapse_weight, weights)
     assert experiment.model.broadcast_gain.item() == pytest.approx(

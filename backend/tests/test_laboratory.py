@@ -37,6 +37,12 @@ def test_training_shard_audit_is_not_mislabeled_as_validation(tmp_path: Path) ->
                         "accuracy": 0.8, "evaluationSplit": "training",
                     }
                 ),
+                json.dumps(
+                    {
+                        "type": "trajectory_audit", "update": 10,
+                        "accuracy": 1.0, "evaluationSplit": "trajectory",
+                    }
+                ),
             )
         ),
         encoding="utf-8",
@@ -48,6 +54,8 @@ def test_training_shard_audit_is_not_mislabeled_as_validation(tmp_path: Path) ->
     assert summary["latestHeldOut"]["accuracy"] == 0.2
     assert summary["latestTrainingAudit"]["accuracy"] == 0.8
     assert summary["latestTrainingAudit"]["evaluationSplit"] == "training"
+    assert summary["latestTrajectoryAudit"]["accuracy"] == 1.0
+    assert summary["latestTrajectoryAudit"]["evaluationSplit"] == "trajectory"
 
 
 def test_run_id_cannot_escape_root(tmp_path: Path) -> None:

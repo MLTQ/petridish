@@ -77,7 +77,9 @@ class LabEvaluateRequest(BaseModel):
 
     gpuUuid: str
     stateHorizons: bool = False
-    evaluationSplit: str = Field(default="validation", pattern="^(validation|training)$")
+    evaluationSplit: str = Field(
+        default="validation", pattern="^(validation|training|trajectory)$"
+    )
 
 
 @asynccontextmanager

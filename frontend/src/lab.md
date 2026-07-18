@@ -153,6 +153,9 @@ validated launch or stop requests.
 - **Does**: Offers a separately labeled active-shard audit only when the current phase
   has a bounded shard and the backend advertises support; validation stays a separate
   action.
+- **Does**: Offers and displays an exact next-trajectory audit separately from the
+  random-offset shard audit, including the matched recurrent lane and graph
+  counterfactuals.
 - **Does**: Displays fixed audit seed/sample size plus generation special/unknown
   rates and the validation unknown rate, so modal collapse cannot masquerade as
   readable token prediction.

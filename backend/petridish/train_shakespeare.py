@@ -563,7 +563,7 @@ def main() -> None:
     parser.add_argument("--eval-interval", type=int, default=500)
     parser.add_argument("--eval-batches", type=int, default=4)
     parser.add_argument(
-        "--evaluation-split", choices=("validation", "training"),
+        "--evaluation-split", choices=("validation", "training", "trajectory"),
         default="validation",
         help="read-only audit split; scheduled training evaluation stays validation",
     )
@@ -736,8 +736,9 @@ def main() -> None:
             parser.error("--evaluate-only requires a resumable checkpoint")
         record = {
             "type": (
-                "training_audit"
-                if args.evaluation_split == "training" else "held_out"
+                "held_out" if args.evaluation_split == "validation"
+                else "training_audit" if args.evaluation_split == "training"
+                else "trajectory_audit"
             ),
             "update": experiment.training_step,
             "organismId": organism_id, "phaseIndex": phase_index,

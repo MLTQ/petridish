@@ -66,6 +66,8 @@ runtime device is configurable independently from trainer workers.
 - **Does**: Validates an explicit `validation` or `training` split; the training
   choice audits the active repeated shard without invoking continuation or an
   optimizer step.
+- **Does**: Accepts `trajectory` as the third explicit audit condition for the exact
+  next checkpointed cursor/state lane.
 
 ### `websocket_endpoint`
 - **Does**: Connects observers, receives JSON commands, and returns command errors.

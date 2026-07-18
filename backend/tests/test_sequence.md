@@ -96,6 +96,8 @@ validation slice, publish seed/batch/token counts, and restore the checkpoint sa
 bit-for-bit. The
 active-training-shard audit must use the independent evaluation RNG, report its split
 explicitly, and restore graph sources and weights after every counterfactual. The
+trajectory audit must clone the exact next stream position and matching state lane,
+report that lane, preserve the cursor, and restore every graph counterfactual. The
 phase-continuation regression must allow prune-only topology without altering any
 checkpoint-owned electrical, graph, optimizer, or RNG state. The
 state-lane regression must alternate two independent persistent trajectories at

@@ -75,6 +75,8 @@ control-enable contracts without requiring NVIDIA hardware or launching trainers
   trainer command and is advertised as a separate capability.
 - **Does**: Keeps active-shard causal audits distinct from held-out records so a high
   overfit result never overwrites validation accuracy in run discovery.
+- **Does**: Keeps exact-trajectory audits distinct from both validation and
+  random-offset shard records.
 - **Does**: Requires the server to advertise repeated-shard continuation before the
   frontend enables that phase control.
 

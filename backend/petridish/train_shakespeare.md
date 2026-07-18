@@ -98,6 +98,10 @@ altering the organism being measured.
 writes a distinct `training_audit` record. Validation remains the default and the
 only split used by scheduled trainer evaluations, so memorization cannot replace or
 masquerade as held-out performance.
+`--evaluation-split trajectory` writes `trajectory_audit` and begins from a clone of
+the exact next saved stream position plus its matching recurrent state lane. It is
+the causal counterpart to rolling training accuracy, not a claim of random-offset or
+held-out generalization.
 Every trainer evaluation starts from the recorded `--evaluation-seed` and restores
 the checkpoint sampler afterward, making validation slices comparable across phases.
 Read-only laboratory audits use sixteen batches; scheduled training diagnostics stay

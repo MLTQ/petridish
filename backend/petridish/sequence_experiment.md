@@ -26,6 +26,10 @@ Both ablations accept an explicit `validation` or `training` split. The training
 split samples the active repeated shard with the independent evaluation RNG; it never
 advances the corpus cursor or overwrites checkpoint electrical state. This attributes
 bounded overfit to the graph without reporting it as held-out generalization.
+The distinct `trajectory` split clones the exact next saved corpus position and its
+matching state lane. It measures the aligned recurrent behavior seen by the trainer
+without advancing that cursor, while the random-offset training split separately
+tests phase-shift generalization within the same shard.
 Continuous training may set a bounded `state_retention` at truncation boundaries.
 This models homeostatic electrical relaxation, not organism reset: current state is
 mixed with the same physical cells' resting field while topology, synapses, genotype,

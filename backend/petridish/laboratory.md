@@ -105,6 +105,9 @@ explicitly enabled trainer processes.
   audit than the four-batch scheduled training diagnostic.
 - **Does**: Accepts an explicit validation or active-training-shard split and forwards
   it to the same read-only checkpoint evaluator.
+- **Does**: Also exposes the exact next saved trajectory as a separately recorded
+  audit, preserving the distinction between aligned competence and random-offset
+  shard competence.
 - **Does**: Discovers active-shard `training_audit` records separately from
   `held_out` validation records so higher memorization accuracy cannot replace the
   laboratory's generalization result.

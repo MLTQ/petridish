@@ -788,8 +788,10 @@ class SequenceExperiment:
     ) -> dict[str, Any]:
         """Return validation or active-shard metrics without mutating training state."""
 
-        if evaluation_split not in {"validation", "training"}:
-            raise ValueError("evaluation split must be 'validation' or 'training'")
+        if evaluation_split not in {"validation", "training", "trajectory"}:
+            raise ValueError(
+                "evaluation split must be 'validation', 'training', or 'trajectory'"
+            )
         use_validation_stream = evaluation_split == "validation"
         if carry_state is not None and self.stream_mode != "continuous":
             raise ValueError("state-carry evaluation requires a continuous corpus stream")
@@ -817,13 +819,24 @@ class SequenceExperiment:
         distractor_predictions = 0
         absent_value_predictions = 0
         batch_count = max(1, min(50, batches))
-        stream_positions = (
-            self.task.initial_stream_positions(
-                self.config.batch_size, self.eval_generator,
-                evaluation=use_validation_stream,
+        trajectory_lane: int | None = None
+        if self.stream_mode == "continuous" and evaluation_split == "trajectory":
+            if self._training_stream_positions is None:
+                raise RuntimeError("continuous stream positions were not initialized")
+            trajectory_lane = self.training_step % self.state_lanes
+            stream_positions = (
+                self._training_stream_positions
+                if self.state_lanes == 1
+                else self._training_stream_positions[trajectory_lane]
+            ).detach().clone()
+        else:
+            stream_positions = (
+                self.task.initial_stream_positions(
+                    self.config.batch_size, self.eval_generator,
+                    evaluation=use_validation_stream,
+                )
+                if self.stream_mode == "continuous" else None
             )
-            if self.stream_mode == "continuous" else None
-        )
         runtime_state = (
             initial_runtime_state.cloned_detached()
             if initial_runtime_state is not None else None
@@ -919,6 +932,7 @@ class SequenceExperiment:
             "initialStateTokens": initial_state_tokens,
             "stateHorizonWindows": state_horizon_windows,
             "evaluationSplit": evaluation_split,
+            "trajectoryLane": trajectory_lane,
             "positionIndices": [
                 position
                 for position, count in enumerate(position_total)
@@ -949,10 +963,11 @@ class SequenceExperiment:
         if self.stream_mode != "continuous":
             raise ValueError("state ablation requires continuous training mode")
         before = self.eval_generator.get_state().clone()
+        checkpoint_state = self._runtime_state_for_evaluation_split(evaluation_split)
         carried = self.evaluate_metrics(
             batches,
             carry_state=True,
-            initial_runtime_state=self._training_runtime_state,
+            initial_runtime_state=checkpoint_state,
             evaluation_split=evaluation_split,
         )
         after = self.eval_generator.get_state().clone()
@@ -980,7 +995,7 @@ class SequenceExperiment:
         original_weights = substrate.synapse_weight.detach().clone()
         original_broadcast_gain = self.model.broadcast_gain.detach().clone()
         active = substrate.active_edge_mask.clone()
-        checkpoint_state = self._training_runtime_state
+        checkpoint_state = self._runtime_state_for_evaluation_split(evaluation_split)
         reference = self.evaluate_metrics(
             batches, initial_runtime_state=checkpoint_state,
             evaluation_split=evaluation_split,
@@ -1041,6 +1056,16 @@ class SequenceExperiment:
             reference, silenced, source_rotated, weight_reassigned,
             broadcast_silenced,
         )
+
+    def _runtime_state_for_evaluation_split(
+        self, evaluation_split: str
+    ) -> SequenceRuntimeState | None:
+        """Return the checkpoint state aligned with a named read-only split."""
+
+        if evaluation_split != "trajectory" or self.state_lanes == 1:
+            return self._training_runtime_state
+        lane = self.training_step % self.state_lanes
+        return self._training_runtime_bank[lane]
 
     @torch.no_grad()
     def evaluate_state_horizons(
