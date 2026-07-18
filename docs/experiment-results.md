@@ -752,3 +752,50 @@ Their first updates matched in loss, accuracy, gradients, population, graph, cur
 and lane age. Pruning remains governed by the checkpointed competence/plateau gate,
 so the two descendants stay matched until the organism's own structural policy
 activates.
+
+### Paired pruning removed graph redundancy without improving language
+
+The exact update-5,250 organism checkpoint was copied into distinct inodes for the
+fixed and prune-only descendants. Both copies matched the parent SHA-256
+`a2d4552c35b145362a8d08b82e847e741216b079d09c24d23c31bd8222c01991`,
+retained organism ID `organism-b2505376398a491e8cf4150a5daf3fab`, and produced
+numerically matching losses, accuracies, gradient norms, state ages, cells, and edges
+before structural activation. Both expanded to the same 2,048-byte shard for 1,000
+updates; lifecycle stayed off.
+
+The expansion initially transferred strongly, then exposed interference as new shard
+positions arrived. Both descendants averaged 62.28%, 40.56%, and about 29.7% across
+their first three 100-update bins, recovered through about 37%, 59%, and 67%, dipped
+again with lane/shard phase, and finished at 63.81% fixed versus 63.96% prune-only over
+the final 160 updates. The fitted 2,048-byte bigram baseline is 30.68%, so both still
+learned longer conditional structure.
+
+Pruning obeyed the checkpointed 82% competence / 500-update plateau policy rather
+than beginning out of band. The plateau gate opened around update 5,750, after which
+the branch removed up to 256 eligible dendrites every sixteen updates. It stabilized
+at 13,737 edges from the parent's 16,565: 2,828 edges or 17.07% removed, three still
+eligible, no replacement growth, no cell turnover, and all 64 outputs plus complete
+context reach preserved.
+
+The final causal audits show a small capacity cost rather than a benefit. Exact-next
+trajectory accuracy was 75.39% fixed and 74.41% pruned; random-offset active-shard
+accuracy was 62.30% and 61.43%. Cold-state trajectory accuracy was 59.77% and 59.86%.
+Both remained strongly physical: trajectory graph silence reduced them to 3.22% and
+6.25%, endpoint rotation to 6.54% and 7.13%, source/weight reassignment to 7.52% and
+6.54%, and broadcast silence to 15.33% and 15.23%.
+
+Validation remained unsolved and essentially tied. Fixed measured 9.18% / 4.22841;
+pruned measured 9.67% / 4.17402. Their matched graph-reference branches were 11.33%
+and 11.52%. The half-point aggregate accuracy and 0.054 loss differences are too
+small for a generalization claim, but removing one sixth of the evolved connectome
+without meaningful performance loss demonstrates substantial route redundancy.
+Checkpoint audits were again non-mutating: the terminal fixed hash stayed
+`55e39a49ce0751902af669097811b37594083b6bbd28e30d2349062a8683049e`,
+and pruned stayed
+`d615377f6c5ba0c548d07074048342365d0fc3f7b5e397dd966301028c6601dd`.
+
+The next matched branch isolates lifecycle on the smaller pruned descendant. Both
+copies freeze topology and retain the 2,048-byte curriculum and all sixteen lanes.
+One keeps lifecycle off; the other uses replacement-balanced homeostasis, which
+retains stun, probabilistic recovery, starvation/maintenance/excitotoxic death, and
+birth but caps births to measured deaths so population cannot grow unconditionally.
