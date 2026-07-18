@@ -71,6 +71,8 @@ control-enable contracts without requiring NVIDIA hardware or launching trainers
   lineage/phase metadata, and can request state horizons without a plasticity override.
 - **Does**: Requires read-only audits to use sixteen fixed-seed batches rather than
   the smaller scheduled-training sample.
+- **Does**: Keeps active-shard causal audits distinct from held-out records so a high
+  overfit result never overwrites validation accuracy in run discovery.
 - **Does**: Requires the server to advertise repeated-shard continuation before the
   frontend enables that phase control.
 

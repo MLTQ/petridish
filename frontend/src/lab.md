@@ -35,6 +35,9 @@ validated launch or stop requests.
 - **Does**: Separates global topology rotation from within-neuron weight/source
   reassignment and broadcast-workspace silence, distinguishing edge existence,
   synaptic assignment, and advertisement shortcuts on identical validation bytes.
+- **Does**: Labels validation and active-shard causal audits separately. A shard
+  silence/rotation/reassignment result can prove where memorized computation lives
+  without being presented as held-out language generalization.
 - **Does**: Aggregates held-out position accuracy into `p0–3`, `p4–15`, and `p16+`
   bands, separating organism startup/settling from steady-state token prediction.
 - **Does**: Places exact corpus unigram and bigram accuracy beside those bands so

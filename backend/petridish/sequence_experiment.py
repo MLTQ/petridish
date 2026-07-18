@@ -784,9 +784,13 @@ class SequenceExperiment:
         carry_state: bool | None = None,
         state_horizon_windows: int | None = None,
         initial_runtime_state: SequenceRuntimeState | None = None,
+        evaluation_split: str = "validation",
     ) -> dict[str, Any]:
-        """Return held-out loss and accuracy without mutating training state."""
+        """Return validation or active-shard metrics without mutating training state."""
 
+        if evaluation_split not in {"validation", "training"}:
+            raise ValueError("evaluation split must be 'validation' or 'training'")
+        use_validation_stream = evaluation_split == "validation"
         if carry_state is not None and self.stream_mode != "continuous":
             raise ValueError("state-carry evaluation requires a continuous corpus stream")
         if initial_runtime_state is not None and self.stream_mode != "continuous":
@@ -815,7 +819,8 @@ class SequenceExperiment:
         batch_count = max(1, min(50, batches))
         stream_positions = (
             self.task.initial_stream_positions(
-                self.config.batch_size, self.eval_generator, evaluation=True
+                self.config.batch_size, self.eval_generator,
+                evaluation=use_validation_stream,
             )
             if self.stream_mode == "continuous" else None
         )
@@ -826,10 +831,12 @@ class SequenceExperiment:
         initial_state_tokens = runtime_state.position if runtime_state is not None else 0
         for index in range(batch_count):
             if stream_positions is None:
-                batch = self._batch(self.config.batch_size, evaluation=True)
+                batch = self._batch(
+                    self.config.batch_size, evaluation=use_validation_stream
+                )
             else:
                 cpu_batch, stream_positions = self.task.stream_batch(
-                    stream_positions, evaluation=True
+                    stream_positions, evaluation=use_validation_stream
                 )
                 batch = SequenceBatch(
                     cpu_batch.tokens.to(self.device),
@@ -911,6 +918,7 @@ class SequenceExperiment:
             "stateCarry": state_carry,
             "initialStateTokens": initial_state_tokens,
             "stateHorizonWindows": state_horizon_windows,
+            "evaluationSplit": evaluation_split,
             "positionIndices": [
                 position
                 for position, count in enumerate(position_total)
@@ -934,7 +942,7 @@ class SequenceExperiment:
 
     @torch.no_grad()
     def evaluate_state_ablation(
-        self, batches: int = 8
+        self, batches: int = 8, *, evaluation_split: str = "validation"
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         """Compare checkpoint and cold state on identical validation tokens."""
 
@@ -945,11 +953,14 @@ class SequenceExperiment:
             batches,
             carry_state=True,
             initial_runtime_state=self._training_runtime_state,
+            evaluation_split=evaluation_split,
         )
         after = self.eval_generator.get_state().clone()
         try:
             self.eval_generator.set_state(before)
-            cold = self.evaluate_metrics(batches, carry_state=False)
+            cold = self.evaluate_metrics(
+                batches, carry_state=False, evaluation_split=evaluation_split
+            )
         finally:
             self.eval_generator.set_state(after)
             self.test_accuracy = float(carried["accuracy"])
@@ -957,7 +968,7 @@ class SequenceExperiment:
 
     @torch.no_grad()
     def evaluate_graph_ablation(
-        self, batches: int = 8
+        self, batches: int = 8, *, evaluation_split: str = "validation"
     ) -> tuple[
         dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]
     ]:
@@ -971,14 +982,16 @@ class SequenceExperiment:
         active = substrate.active_edge_mask.clone()
         checkpoint_state = self._training_runtime_state
         reference = self.evaluate_metrics(
-            batches, initial_runtime_state=checkpoint_state
+            batches, initial_runtime_state=checkpoint_state,
+            evaluation_split=evaluation_split,
         )
         after_rng = self.eval_generator.get_state().clone()
         try:
             self.eval_generator.set_state(before_rng)
             substrate.synapse_weight[active] = 0
             silenced = self.evaluate_metrics(
-                batches, initial_runtime_state=checkpoint_state
+                batches, initial_runtime_state=checkpoint_state,
+                evaluation_split=evaluation_split,
             )
 
             substrate.synapse_weight.copy_(original_weights)
@@ -988,7 +1001,8 @@ class SequenceExperiment:
                 substrate.dendrite_source[active] = active_sources.roll(1)
             substrate._diagnostic_cache = None
             source_rotated = self.evaluate_metrics(
-                batches, initial_runtime_state=checkpoint_state
+                batches, initial_runtime_state=checkpoint_state,
+                evaluation_split=evaluation_split,
             )
 
             substrate.dendrite_source.copy_(original_sources)
@@ -1001,7 +1015,8 @@ class SequenceExperiment:
             substrate._diagnostic_cache = None
             self.eval_generator.set_state(before_rng)
             weight_reassigned = self.evaluate_metrics(
-                batches, initial_runtime_state=checkpoint_state
+                batches, initial_runtime_state=checkpoint_state,
+                evaluation_split=evaluation_split,
             )
 
             substrate.dendrite_source.copy_(original_sources)
@@ -1010,7 +1025,8 @@ class SequenceExperiment:
                 self.eval_generator.set_state(before_rng)
                 self.model.broadcast_gain.zero_()
                 broadcast_silenced = self.evaluate_metrics(
-                    batches, initial_runtime_state=checkpoint_state
+                    batches, initial_runtime_state=checkpoint_state,
+                    evaluation_split=evaluation_split,
                 )
             else:
                 broadcast_silenced = dict(reference)
@@ -1031,6 +1047,8 @@ class SequenceExperiment:
         self,
         batches: int = 16,
         horizons: tuple[int, ...] = (1, 2, 4, 8, 16),
+        *,
+        evaluation_split: str = "validation",
     ) -> list[dict[str, float | int]]:
         """Measure useful electrical-memory lifetime on one identical token stream."""
 
@@ -1049,6 +1067,7 @@ class SequenceExperiment:
                     carry_state=True,
                     state_horizon_windows=horizon,
                     initial_runtime_state=self._training_runtime_state,
+                    evaluation_split=evaluation_split,
                 )
                 if after is None:
                     after = self.eval_generator.get_state().clone()

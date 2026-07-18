@@ -657,6 +657,13 @@ class Laboratory:
             latest_held_out = next(
                 (record for record in reversed(records) if record.get("type") == "held_out"), None
             )
+            latest_training_audit = next(
+                (
+                    record for record in reversed(records)
+                    if record.get("type") == "training_audit"
+                ),
+                None,
+            )
             latest_diagnostics = next(
                 (record for record in reversed(records) if record.get("type") == "diagnostic"), None
             )
@@ -693,6 +700,7 @@ class Laboratory:
                     "commit": manifest.get("commit"),
                     "latestTrain": latest_train,
                     "latestHeldOut": latest_held_out,
+                    "latestTrainingAudit": latest_training_audit,
                     "latestDiagnostics": latest_diagnostics,
                     "latestFailure": latest_failure,
                     "hasCheckpoint": has_checkpoint,

@@ -24,6 +24,32 @@ def test_metrics_are_bounded_and_ignore_partial_json(tmp_path: Path) -> None:
     assert [record["update"] for record in laboratory.metrics("control", limit=3)] == [4, 5]
 
 
+def test_training_shard_audit_is_not_mislabeled_as_validation(tmp_path: Path) -> None:
+    run = tmp_path / "runs" / "control"
+    run.mkdir(parents=True)
+    (run / "metrics.jsonl").write_text(
+        "\n".join(
+            (
+                json.dumps({"type": "held_out", "update": 10, "accuracy": 0.2}),
+                json.dumps(
+                    {
+                        "type": "training_audit", "update": 10,
+                        "accuracy": 0.8, "evaluationSplit": "training",
+                    }
+                ),
+            )
+        ),
+        encoding="utf-8",
+    )
+    laboratory = Laboratory(tmp_path, run_root=tmp_path / "runs")
+
+    summary = laboratory._discover_runs({})[0]
+
+    assert summary["latestHeldOut"]["accuracy"] == 0.2
+    assert summary["latestTrainingAudit"]["accuracy"] == 0.8
+    assert summary["latestTrainingAudit"]["evaluationSplit"] == "training"
+
+
 def test_run_id_cannot_escape_root(tmp_path: Path) -> None:
     laboratory = Laboratory(tmp_path, run_root=tmp_path / "runs")
 

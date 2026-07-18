@@ -957,6 +957,14 @@ def test_fixed_seed_checkpoint_audit_is_repeatable_and_sampler_read_only() -> No
     assert torch.equal(before, middle)
     assert torch.equal(before, experiment.eval_generator.get_state())
 
+    shard = _held_out_diagnostics(
+        experiment, 3, evaluation_seed=12345, evaluation_split="training"
+    )
+    assert shard["evaluationSplit"] == "training"
+    assert shard["evaluationSeed"] == 12345
+    assert shard.get("trainingShardTokens") is None
+    assert torch.equal(before, experiment.eval_generator.get_state())
+
 
 def test_graph_ablation_is_causal_matched_and_restores_the_organism() -> None:
     text = "One fox ran. Two birds flew. Three cats slept. " * 30
@@ -1003,6 +1011,14 @@ def test_graph_ablation_is_causal_matched_and_restores_the_organism() -> None:
 
     assert reassigned["positionIndices"] == reference["positionIndices"]
     assert broadcast_silenced["positionIndices"] == reference["positionIndices"]
+
+    training_reference, training_silenced, *_ = experiment.evaluate_graph_ablation(
+        2, evaluation_split="training"
+    )
+    assert training_reference["evaluationSplit"] == "training"
+    assert training_silenced["evaluationSplit"] == "training"
+    assert torch.equal(experiment.model.substrate.dendrite_source, sources)
+    assert torch.equal(experiment.model.substrate.synapse_weight, weights)
 
 
 def test_zero_broadcast_graph_audit_reports_identical_reference_branch() -> None:

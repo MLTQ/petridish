@@ -94,6 +94,10 @@ separate useful traffic, topology, synaptic assignment, and global advertisement
 counterfactual, appends that complete held-out record without an optimizer update,
 and exits. This lets older or interrupted trainers gain new diagnostics without
 altering the organism being measured.
+`--evaluation-split training` instead samples the active repeated training shard and
+writes a distinct `training_audit` record. Validation remains the default and the
+only split used by scheduled trainer evaluations, so memorization cannot replace or
+masquerade as held-out performance.
 Every trainer evaluation starts from the recorded `--evaluation-seed` and restores
 the checkpoint sampler afterward, making validation slices comparable across phases.
 Read-only laboratory audits use sixteen batches; scheduled training diagnostics stay

@@ -94,6 +94,8 @@ absolute seed age, and leave the live runtime tensors unchanged. The
 fixed-audit regression requires repeated checkpoint evaluations to use the same
 validation slice, publish seed/batch/token counts, and restore the checkpoint sampler
 bit-for-bit. The
+active-training-shard audit must use the independent evaluation RNG, report its split
+explicitly, and restore graph sources and weights after every counterfactual. The
 phase-continuation regression must allow prune-only topology without altering any
 checkpoint-owned electrical, graph, optimizer, or RNG state. The
 state-lane regression must alternate two independent persistent trajectories at

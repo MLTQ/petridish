@@ -346,11 +346,14 @@ def _held_out_diagnostics_from_current_sampler(
     batches: int,
     *,
     include_state_horizons: bool = False,
+    evaluation_split: str = "validation",
 ) -> dict[str, Any]:
-    """Evaluate one checkpoint, including the matched electrical-state ablation."""
+    """Evaluate one checkpoint on a named split with matched counterfactuals."""
 
     if experiment.stream_mode == "continuous":
-        held_out, cold_state = experiment.evaluate_state_ablation(max(1, batches))
+        held_out, cold_state = experiment.evaluate_state_ablation(
+            max(1, batches), evaluation_split=evaluation_split
+        )
         held_out.update(
             {
                 "coldStateLoss": cold_state["loss"],
@@ -364,12 +367,16 @@ def _held_out_diagnostics_from_current_sampler(
             }
         )
     else:
-        held_out = experiment.evaluate_metrics(max(1, batches))
+        held_out = experiment.evaluate_metrics(
+            max(1, batches), evaluation_split=evaluation_split
+        )
     (
         graph_reference, graph_silenced, source_rotated, weight_reassigned,
         broadcast_silenced,
     ) = (
-        experiment.evaluate_graph_ablation(max(1, batches))
+        experiment.evaluate_graph_ablation(
+            max(1, batches), evaluation_split=evaluation_split
+        )
     )
     held_out.update(
         {
@@ -412,13 +419,14 @@ def _held_out_diagnostics_from_current_sampler(
     )
     diagnostics = {
         **held_out,
+        "evaluationSplit": evaluation_split,
         **_scientific_metrics(experiment),
         **_baseline_diagnostics(experiment),
         **_generation_diagnostics(experiment),
     }
     if include_state_horizons and experiment.stream_mode == "continuous":
         diagnostics["stateHorizon"] = experiment.evaluate_state_horizons(
-            max(16, batches)
+            max(16, batches), evaluation_split=evaluation_split
         )
     return diagnostics
 
@@ -430,6 +438,7 @@ def _held_out_diagnostics(
     *,
     include_state_horizons: bool = False,
     evaluation_seed: int | None = None,
+    evaluation_split: str = "validation",
 ) -> dict[str, Any]:
     """Evaluate a checkpoint on an optional fixed slice and restore sampler state."""
 
@@ -438,7 +447,8 @@ def _held_out_diagnostics(
         if evaluation_seed is not None:
             experiment.eval_generator.manual_seed(evaluation_seed)
         diagnostics = _held_out_diagnostics_from_current_sampler(
-            experiment, batches, include_state_horizons=include_state_horizons
+            experiment, batches, include_state_horizons=include_state_horizons,
+            evaluation_split=evaluation_split,
         )
     finally:
         if evaluation_seed is not None:
@@ -552,6 +562,11 @@ def main() -> None:
     parser.add_argument("--checkpoint-interval", type=int, default=100)
     parser.add_argument("--eval-interval", type=int, default=500)
     parser.add_argument("--eval-batches", type=int, default=4)
+    parser.add_argument(
+        "--evaluation-split", choices=("validation", "training"),
+        default="validation",
+        help="read-only audit split; scheduled training evaluation stays validation",
+    )
     parser.add_argument("--evaluation-seed", type=int, default=10_001)
     parser.add_argument("--progress-interval", type=int, default=10)
     parser.add_argument("--evaluate-only", action="store_true")
@@ -720,13 +735,18 @@ def main() -> None:
         if payload is None:
             parser.error("--evaluate-only requires a resumable checkpoint")
         record = {
-            "type": "held_out", "update": experiment.training_step,
+            "type": (
+                "training_audit"
+                if args.evaluation_split == "training" else "held_out"
+            ),
+            "update": experiment.training_step,
             "organismId": organism_id, "phaseIndex": phase_index,
             "phaseName": phase_name,
             **_held_out_diagnostics(
                 experiment, args.eval_batches,
                 include_state_horizons=args.state_horizon_eval,
                 evaluation_seed=args.evaluation_seed,
+                evaluation_split=args.evaluation_split,
             ),
         }
         _append_metric(metrics_path, record)

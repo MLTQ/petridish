@@ -22,6 +22,10 @@ difference without changing training state.
 synapses silenced and with conducting source endpoints deterministically rotated.
 It restores every source, weight, diagnostic cache, and RNG state, measuring whether
 the actual learned connectome causally improves prediction rather than merely existing.
+Both ablations accept an explicit `validation` or `training` split. The training
+split samples the active repeated shard with the independent evaluation RNG; it never
+advances the corpus cursor or overwrites checkpoint electrical state. This attributes
+bounded overfit to the graph without reporting it as held-out generalization.
 Continuous training may set a bounded `state_retention` at truncation boundaries.
 This models homeostatic electrical relaxation, not organism reset: current state is
 mixed with the same physical cells' resting field while topology, synapses, genotype,
