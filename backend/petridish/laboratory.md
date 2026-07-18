@@ -20,6 +20,8 @@ explicitly enabled trainer processes.
 - **Does**: Records adaptive versus fixed topology independently from lifecycle.
 - **Does**: Records and bounds one common learning-rate scale for rule, readout,
   and synapse optimizer groups.
+- **Does**: Records the default global gradient ceiling so later phase-local
+  interventions have an explicit manifest baseline.
 - **Does**: Records a bounded broadcast-workspace gain independently from the
   microtick budget; zero is the hard physical-routing ablation.
 - **Does**: Records a 64–2,048 power-of-two token-vocabulary curriculum while
@@ -56,6 +58,8 @@ explicitly enabled trainer processes.
   present paired counterfactual controls against an older copy-only backend.
 - **Does**: Advertises same-phase resume separately from failed-phase retry so a
   deliberate audit stop can restart without inventing a curriculum boundary.
+- **Does**: Advertises phase-local gradient-clip control so a newer frontend never
+  submits an optimizer intervention to a server that would ignore it.
 - **Interacts with**: `/api/lab` in `server.py` and `lab.ts`.
 
 ### `Laboratory.metrics`
@@ -118,11 +122,15 @@ explicitly enabled trainer processes.
 - **Does**: Rejects a broader shard unless the same continuation appends lanes; a
   global shard change without new lanes would silently remap or fail to expose every
   saved trajectory. Full-stream domains likewise cannot contract to a prefix.
-- **Does**: Recovers the authoritative phase index, repeated-shard size, and current
-  lane count from the latest training metric when an older manifest lags a valid
-  checkpoint, preventing stale orchestration metadata from relabeling continuation.
+- **Does**: Recovers the authoritative phase index, repeated-shard size, current
+  lane count, and gradient ceiling from the latest training metric when an older
+  manifest lags a valid checkpoint, preventing stale orchestration metadata from
+  relabeling continuation.
 - **Does**: Captures cumulative cell and edge turnover at each phase boundary so
   later diagnostics can report phase-local change separately from lifetime totals.
+- **Does**: Optionally changes only the restored configuration's global gradient
+  norm ceiling, records the resolved value in manifest/phase/metrics, and omits the
+  trainer flag when continuation must preserve the checkpoint-owned value.
 - **Rationale**: Structural warm-up, adaptive pruning, and lifecycle pressure must be
   phases of one organism rather than separately initialized comparison runs.
 

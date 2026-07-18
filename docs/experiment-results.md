@@ -1049,3 +1049,69 @@ the same lane count and update budget on 2K. This completes the domain-specific 
 test before appending a full 64-phase 8K bank or altering gradient clipping. Topology
 and lifecycle remain fixed because the present bottleneck is experience breadth, not
 excess capacity.
+
+### Completing 4K cursor phases transferred immediately but did not improve random offsets
+
+Phase 15 continued the exact update-11,750 checkpoints above. It did not initialize,
+replace, or reconstruct either organism. Each descendant retained organism ID
+`organism-b2505376398a491e8cf4150a5daf3fab`, all 2,224 cells, all 13,737 learned
+directed edges, learned parameters, optimizer moments, random streams, and the full
+electrical/private/workspace state of its existing 96 lanes. Exactly nine cold lanes
+were appended. The control assigned them to its 2K domain; the treatment assigned
+them to the nine missing 4K phases, `[9, 7, 1, 16, 8, 15, 5, 0, 6]`. This produced
+105 2K lanes covering 64/64 phases in control, and sixteen retained 2K lanes covering
+14/64 plus 89 4K lanes covering 64/64 in treatment. Topology and lifecycle remained
+fixed, with no phase-local birth, death, growth, or pruning.
+
+The new treatment lanes did not have to relearn the task independently. On their
+first 64-token visit they averaged 50.87% accuracy; on their second visit they
+averaged about 67.9%. Individual first-to-second visits were 43.8→51.6, 46.9→56.2,
+57.8→87.5, 51.6→57.8, 59.4→89.1, 45.3→48.4, 54.7→67.2, 51.6→75.0,
+and 46.9→78.1%. This is direct transfer into newly allocated electrical histories
+through the already-emerged organism rather than evidence of a reset network.
+
+After 1,000 additional updates, the 2K control's final 160 updates reached 91.94%
+accuracy / 0.30508 loss. Treatment reached 77.11% / 0.84625 overall, separating into
+87.60% / 0.50790 on retained 2K replay and 74.49% / 0.93084 on 4K experience. The
+new lane-96 trajectory reached 89.84% control and 85.45% treatment. Silencing its
+graph removed 82.23 and 82.32 percentage points; rotating edge sources removed 85.35
+and 78.13; within-target source/weight reassignment removed 81.15 and 80.47. Saved
+electrical state contributed 25.78 points in both descendants. Phase completion
+therefore produced rapid, stateful, connectome-routed transfer.
+
+It did not improve aggregate random-offset competence. The treatment's fixed 4K
+audit declined from 61.13% at update 11,750 to 58.50% at update 12,750 even though
+its rolling 4K training accuracy rose from 67.48% to 74.49%. Its matched intact-graph
+slice measured 56.35%; graph silence removed 53.03 points, endpoint rotation 50.29,
+and weight reassignment 51.66, while state carry added 16.02. Control measured 88.77%
+aggregate and 90.72% intact-graph accuracy, losing 83.20/84.28/82.81 points under
+the same interventions while state added 25.49. The new phases were useful, but the
+remaining limitation is consolidation/interference rather than missing cursor-phase
+exposure.
+
+Held-out language remained below trivial statistics. The terminal 16-batch validation
+audits measured 9.38% / 6.28098 for control and 11.13% / 5.26256 for treatment,
+versus the 19.09% unigram and roughly 31% bigram accuracy baselines. Fixed-prompt
+samples were ` nd ba nam  nndd` and `buchey pad  end `. The learned connectome is
+causal on trained trajectories but has not yet become a general language model.
+
+One worker handoff preserved the same treatment organism while the unrelated 4090
+workload was saturated. Its signal handler atomically stopped at update 12,278 with
+checkpoint SHA-256
+`175c8196bea9c90708c72e2aecb47a6578ce2e55f8a3a17789ad697f903ba941`;
+the fail-closed same-phase route resumed that exact checkpoint on the 2070. It did not
+create a phase, cold-start a lane, or alter topology. Terminal checkpoints remained
+byte-identical through every read-only trajectory, random-offset, graph/state,
+validation, generation, and laboratory-deployment audit:
+`f39e7b14dd7f3e916db2c341c159af7c39301eafbf476e2005b1b38987d77382`
+for control and
+`fd96e449c936ca6b590833404e334c183c19e4119a4916f1798611d8a2d58a1d`
+for treatment.
+
+Optimization pressure is now the cleaner next variable. Every phase-15 update was
+gradient-clipped. Median clip scale was 0.0894 for control and 0.0606 for treatment,
+corresponding to median pre-clip norms of 11.19 and 16.50 against the fixed norm-one
+ceiling. A matched same-lineage continuation should vary only the clipping ceiling,
+without appending lanes or changing topology, lifecycle, corpus domains, or any
+organism state. This tests whether breadth gradients are being compressed enough to
+cause the observed consolidation tradeoff before exposing the organism to 8K text.

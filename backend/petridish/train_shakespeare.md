@@ -80,6 +80,11 @@ modifying any organism, optimizer, graph, sampler, or electrical state.
 They also publish pre-clipping gradient norms for bias, readout, token encoder, cell
 rule, and synapses, plus total norm and clip scale, so the laboratory can localize
 conditional-credit failures and clipping pressure.
+Every optimizer record also publishes the configured global norm ceiling. During an
+explicit `--resume-plasticity` phase, `--gradient-clip 0.01..100` can change that
+single restored configuration value without replacing model, graph, optimizer,
+sampler, RNG, or electrical state. Supplying it to an ordinary checkpoint resume is
+rejected; omission preserves the saved ceiling exactly.
 Continuous held-out records begin from a tensor-cloned copy of the checkpoint's
 actual electrical/private/workspace state and report its seed age. An identical
 contiguous-token cold-state ablation begins without that state; their accuracy delta
@@ -185,9 +190,10 @@ plasticity phase.
 
 ### `plasticity_phase_config` / `reconcile_plasticity_phase_status`
 
-Change only structural/lifecycle policy in a restored configuration and derive its
-status from the organism's preserved training history. Neither helper resets or mutates
-substrate, developmental history, optimizer, sampler, or runtime tensors.
+Change only structural/lifecycle policy and an optional gradient ceiling in a restored
+configuration, then derive its status from the organism's preserved training history.
+Neither helper resets or mutates substrate, developmental history, optimizer, sampler,
+or runtime tensors.
 
 Compilation remains opt-in because the measured stable-forward attempt currently has
 dynamic topology graph breaks; production runs should use `--compile off`.

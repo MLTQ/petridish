@@ -177,12 +177,15 @@ validated launch or stop requests.
 - **Does**: Prefers phase-local rolling loss/accuracy when the trainer publishes it;
   this segments curriculum statistics without resetting organism-owned history.
 - **Does**: Shows pre-clipping bias/readout/token/rule/synapse gradient norms beside
-  routing diagnostics, together with total norm and clip scale, to localize
-  frequency-only learning failures and clipped instability.
+  routing diagnostics, together with total norm, configured ceiling, and clip scale,
+  to localize frequency-only learning failures and clipped instability.
 - **Does**: Summarizes up to 160 current-phase clip scales as the median, tenth
   percentile, and fraction at or below 0.1. This distinguishes sustained optimizer
   starvation from an isolated recurrent-gradient spike without mixing curriculum
   phases or implying that the organism itself restarted.
+- **Does**: Offers a capability-gated optional continuation ceiling from 0.01 through
+  100. Blank preserves the checkpoint value; a supplied value is recorded as a
+  same-organism optimizer intervention rather than a reconstructed run default.
 - **Does**: Separates phase-local grown/pruned edge counts from lifetime totals when
   the matching phase boundary recorded its starting counters.
 - **Does**: Offers read-only evaluation on stopped checkpoints so new causal metrics

@@ -138,6 +138,7 @@ interface MetricRecord {
   synapseGradientNorm?: number;
   totalGradientNorm?: number;
   gradientClipScale?: number;
+  gradientClip?: number;
   evaluationSplit?: "validation" | "training" | "trajectory";
   trajectoryLane?: number | null;
   trajectoryStreamTokens?: number | null;
@@ -152,6 +153,7 @@ interface OrganismPhase {
   lifecycleProfile: string;
   trainingShardTokens?: number;
   stateLanes?: number;
+  gradientClip?: number;
   startGrownEdges?: number;
   startPrunedEdges?: number;
   startBirths?: number;
@@ -202,6 +204,7 @@ interface LaboratorySnapshot {
     checkpointFork?: boolean;
     sameLineageRetry?: boolean;
     samePhaseResume?: boolean;
+    phaseGradientClip?: boolean;
   };
   gpus: GpuSnapshot[];
   runs: RunSnapshot[];
@@ -311,6 +314,7 @@ export class LaboratoryView {
   private readonly continueStructureSelect = required<HTMLSelectElement>("#lab-continue-structure");
   private readonly continueTrainingShardSelect = required<HTMLSelectElement>("#lab-continue-training-shard");
   private readonly continueStateLanesInput = required<HTMLInputElement>("#lab-continue-state-lanes");
+  private readonly continueGradientClipInput = required<HTMLInputElement>("#lab-continue-gradient-clip");
   private readonly continueButton = required<HTMLButtonElement>("#lab-continue");
   private readonly continueStatus = required<HTMLOutputElement>("#lab-continue-status");
   private readonly benchmarksHost = required<HTMLTableSectionElement>("#laboratory-benchmarks");
@@ -445,6 +449,12 @@ export class LaboratoryView {
     );
     if (!snapshot.capabilities.stateLaneExpansion) {
       this.continueStateLanesInput.value = "";
+    }
+    this.continueGradientClipInput.disabled = !(
+      canContinue && snapshot.capabilities.phaseGradientClip
+    );
+    if (!snapshot.capabilities.phaseGradientClip) {
+      this.continueGradientClipInput.value = "";
     }
     this.continueForkRunInput.disabled = !(
       canContinue && snapshot.capabilities.checkpointFork
@@ -876,7 +886,7 @@ export class LaboratoryView {
       const laneAccuracy = this.laneAccuracySpread(run);
       const gradientSummary = run.latestTrain?.classBiasGradientNorm === undefined
         ? ""
-        : ` · grad bias/readout/token/rule/edge ${this.scientific(run.latestTrain.classBiasGradientNorm)}/${this.scientific(run.latestTrain.outputReadoutGradientNorm)}/${this.scientific(run.latestTrain.tokenEncoderGradientNorm)}/${this.scientific(run.latestTrain.cellRuleGradientNorm)}/${this.scientific(run.latestTrain.synapseGradientNorm)} · total ${this.scientific(run.latestTrain.totalGradientNorm)} × clip ${this.number(run.latestTrain.gradientClipScale, 3)}${this.gradientPressure(run)}`;
+        : ` · grad bias/readout/token/rule/edge ${this.scientific(run.latestTrain.classBiasGradientNorm)}/${this.scientific(run.latestTrain.outputReadoutGradientNorm)}/${this.scientific(run.latestTrain.tokenEncoderGradientNorm)}/${this.scientific(run.latestTrain.cellRuleGradientNorm)}/${this.scientific(run.latestTrain.synapseGradientNorm)} · total ${this.scientific(run.latestTrain.totalGradientNorm)} → ceiling ${this.number(run.latestTrain.gradientClip ?? Number(run.configuration.gradientClip ?? 1), 3)} × clip ${this.number(run.latestTrain.gradientClipScale, 3)}${this.gradientPressure(run)}`;
       const shardCausality = shardAudit?.graphReferenceAccuracy === undefined
         ? ""
         : ` · shard causal ref ${this.percent(shardAudit.graphReferenceAccuracy)} · silence Δacc ${this.signedPercent(shardAudit.graphSilencedAccuracyDelta)} / Δloss ${this.signedNumber(shardAudit.graphSilencedLossDelta)} · rotate Δacc ${this.signedPercent(shardAudit.sourceRotatedAccuracyDelta)} / Δloss ${this.signedNumber(shardAudit.sourceRotatedLossDelta)} · reassign Δacc ${this.signedPercent(shardAudit.weightReassignedAccuracyDelta)} / Δloss ${this.signedNumber(shardAudit.weightReassignedLossDelta)}`;
@@ -1233,6 +1243,7 @@ export class LaboratoryView {
     const phaseName = String(form.get("phaseName") ?? "").trim();
     const shardSelection = String(form.get("trainingShardTokens") ?? "preserve");
     const laneSelection = String(form.get("stateLanes") ?? "").trim();
+    const gradientClipSelection = String(form.get("gradientClip") ?? "").trim();
     const body = {
       gpuUuid: String(form.get("gpuUuid")),
       additionalUpdates: Number(form.get("additionalUpdates")),
@@ -1243,6 +1254,7 @@ export class LaboratoryView {
       phaseName: phaseName || null,
       trainingShardTokens: shardSelection === "preserve" ? null : Number(shardSelection),
       stateLanes: laneSelection === "" ? null : Number(laneSelection),
+      gradientClip: gradientClipSelection === "" ? null : Number(gradientClipSelection),
     };
     try {
       if (forkRunId) {
@@ -1295,6 +1307,7 @@ export class LaboratoryView {
       );
       this.continueTrainingShardSelect.value = "preserve";
       this.continueStateLanesInput.value = "";
+      this.continueGradientClipInput.value = "";
     }
     const currentLanes = Number(run.configuration.stateLanes ?? 1);
     const maximumStateLanes = this.snapshot?.capabilities.maximumStateLanes ?? 32;
@@ -1306,6 +1319,7 @@ export class LaboratoryView {
     ) {
       this.continueStateLanesInput.value = "";
     }
+    this.continueGradientClipInput.placeholder = `blank preserves ${Number(run.configuration.gradientClip ?? 1)}`;
   }
 
   private lineagePhase(run: RunSnapshot): string {

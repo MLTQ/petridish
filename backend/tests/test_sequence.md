@@ -107,7 +107,8 @@ report that lane, preserve the cursor, and restore every graph counterfactual. A
 explicit lane audit must select its matching recurrent state and checkpointed stream
 domain, remain sampler-read-only, and reject an out-of-range or non-trajectory lane. The
 phase-continuation regression must allow prune-only topology without altering any
-checkpoint-owned electrical, graph, optimizer, or RNG state. The
+checkpoint-owned electrical, graph, optimizer, or RNG state, while allowing the
+restored configuration's global gradient ceiling to change independently. The
 state-lane regression must alternate two independent persistent trajectories at
 batch one, retain both states, report their exact age range, and expose authoritative
 structure/lifecycle gate reasons. Append-only expansion from both one and two lanes

@@ -65,6 +65,8 @@ experiment laboratory above the live organism.
   mistaken for a newly initialized comparison organism.
 - **Does**: Exposes a bounded common learning-rate scale for controlled long-run
   stability experiments.
+- **Does**: Exposes an optional bounded gradient-clip ceiling only on persistent
+  continuation; blank explicitly preserves the checkpoint's current ceiling.
 - **Does**: Uses a task-neutral stepping-stone table and chart for recall and direct
   physical-routing, memory, composition, and persistent-stream overfit controls.
 - **Does**: Labels detailed held-out accuracy as binding slot or supervised stream

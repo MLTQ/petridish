@@ -59,6 +59,8 @@ and exact-phase resume after a deliberate stop.
   persistent experience expansion; the laboratory rejects any requested shrink.
 - **Does**: Accepts fixed, adaptive, or prune-only topology; the laboratory performs
   categorical validation and records the resolved phase policy.
+- **Does**: Accepts an optional 0.01–100 gradient-norm ceiling; omission preserves
+  the restored checkpoint's current ceiling rather than substituting a default.
 - **Rationale**: Architecture, geometry, weights, state, and existing corpus cursors
   come from the checkpoint. A shard changes which experiences repeat and a lane
   expansion adds cold trajectories; neither replaces organism-owned state.

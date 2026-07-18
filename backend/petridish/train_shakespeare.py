@@ -327,14 +327,18 @@ def plasticity_phase_config(
     lifecycle: bool,
     lifecycle_profile: str,
     topology_profile: str | None = None,
+    gradient_clip: float | None = None,
 ) -> MnistModelConfig:
-    """Change only plasticity policy while preserving organism dimensions and rules."""
+    """Change phase policy without replacing any organism-owned state."""
 
     profile = resolve_lifecycle_profile(lifecycle_profile, enabled=lifecycle)
     topology = resolve_topology_profile(topology_profile, structure=structure)
-    return apply_lifecycle_profile(
-        replace(config, structural_enabled=int(topology_mutates(topology))), profile
+    phase_config = replace(
+        config, structural_enabled=int(topology_mutates(topology))
     )
+    if gradient_clip is not None:
+        phase_config = replace(phase_config, gradient_clip=gradient_clip)
+    return apply_lifecycle_profile(phase_config, profile)
 
 
 def reconcile_plasticity_phase_status(experiment: SequenceExperiment) -> None:
@@ -727,6 +731,7 @@ def _fresh_config(
     lifecycle: bool,
     broadcast_gain: float | None = None,
     learning_rate_scale: float = 1.0,
+    gradient_clip: float | None = None,
     lifecycle_profile: str = "off",
     structure: bool = True,
     topology_profile: str | None = None,
@@ -751,6 +756,9 @@ def _fresh_config(
         learning_rate=defaults.learning_rate * learning_rate_scale,
         readout_learning_rate=defaults.readout_learning_rate * learning_rate_scale,
         synapse_learning_rate=defaults.synapse_learning_rate * learning_rate_scale,
+        gradient_clip=(
+            defaults.gradient_clip if gradient_clip is None else gradient_clip
+        ),
     )
     profile = resolve_lifecycle_profile(lifecycle_profile, enabled=lifecycle)
     return apply_lifecycle_profile(config, profile)
@@ -807,6 +815,7 @@ def main() -> None:
     parser.add_argument("--updates", type=int, default=100_000)
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--learning-rate-scale", type=float, default=1.0)
+    parser.add_argument("--gradient-clip", type=float)
     parser.add_argument("--amp", choices=("off", "bfloat16"), default="off")
     parser.add_argument(
         "--compile", dest="compile_mode",
@@ -853,6 +862,8 @@ def main() -> None:
     args = parser.parse_args()
     if not 0.01 <= args.learning_rate_scale <= 1.0:
         parser.error("--learning-rate-scale must be between 0.01 and 1.0")
+    if args.gradient_clip is not None and not 0.01 <= args.gradient_clip <= 100:
+        parser.error("--gradient-clip must be between 0.01 and 100")
     if args.broadcast_gain is not None and not 0 <= args.broadcast_gain <= 2.0:
         parser.error("--broadcast-gain must be between 0 and 2")
     if not 0 <= args.state_retention <= 1:
@@ -882,6 +893,17 @@ def main() -> None:
     requested_device = torch.device(args.device)
     requested_training_shard_tokens = args.training_shard_tokens
     requested_state_lanes = args.state_lanes
+    requested_gradient_clip = args.gradient_clip
+    if (
+        requested_gradient_clip is not None
+        and args.resume
+        and latest.exists()
+        and not args.resume_plasticity
+    ):
+        parser.error(
+            "--gradient-clip changes a restored organism only with "
+            "--resume-plasticity"
+        )
     if args.resume and latest.exists():
         payload = load_checkpoint(latest, requested_device)
         saved_lineage = dict(payload.get("lineage", {}))
@@ -938,6 +960,7 @@ def main() -> None:
                 lifecycle=args.lifecycle,
                 lifecycle_profile=args.lifecycle_profile,
                 topology_profile=topology_profile,
+                gradient_clip=requested_gradient_clip,
             )
     else:
         args.state_lanes = requested_state_lanes or 1
@@ -956,6 +979,7 @@ def main() -> None:
             lifecycle=args.lifecycle,
             broadcast_gain=args.broadcast_gain,
             learning_rate_scale=args.learning_rate_scale,
+            gradient_clip=args.gradient_clip,
             lifecycle_profile=args.lifecycle_profile,
             structure=args.structure,
             topology_profile=topology_profile,
@@ -1013,7 +1037,8 @@ def main() -> None:
         f"tokenizer={experiment.task.tokenizer_profile or 'character'} "
         f"training_tokens={experiment.task.training_stream_tokens or 'full'} "
         f"organism={organism_id} phase={phase_index}:{phase_name} "
-        f"amp={args.amp} compile={args.compile_mode}",
+        f"gradient_clip={config.gradient_clip:g} amp={args.amp} "
+        f"compile={args.compile_mode}",
         flush=True,
     )
     if args.evaluate_only:
@@ -1087,6 +1112,7 @@ def main() -> None:
             "trainingStreamTokens": experiment.task.training_stream_tokens,
             "fullTrainingStreamTokens": experiment.task.full_training_stream_tokens,
             "trainingShardTokens": experiment.task.training_shard_tokens,
+            "gradientClip": config.gradient_clip,
             **experiment.last_gradient_norms,
             "electricalStateTokens": (
                 experiment._training_runtime_state.position

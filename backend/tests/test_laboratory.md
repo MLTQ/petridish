@@ -85,6 +85,9 @@ control-enable contracts without requiring NVIDIA hardware or launching trainers
   preserved organism with stale orchestration metadata.
 - **Does**: Proves continuation snapshots edge and cell turnover counters for
   phase-local consolidation diagnostics.
+- **Does**: Proves a bounded phase-local gradient ceiling reaches the trainer,
+  manifest, phase history, and append-only metric while out-of-range values fail
+  before any process launch.
 - **Does**: Proves checkpoint evaluation invokes the read-only trainer path, retains
   lineage/phase metadata, and can request state horizons without a plasticity override.
 - **Does**: Requires read-only audits to use sixteen fixed-seed batches rather than

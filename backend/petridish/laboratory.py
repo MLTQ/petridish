@@ -78,6 +78,7 @@ class ContinueSpec:
     phase_name: str | None = None
     training_shard_tokens: int | None = None
     state_lanes: int | None = None
+    gradient_clip: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -160,6 +161,7 @@ class Laboratory:
                 "checkpointFork": True,
                 "sameLineageRetry": True,
                 "samePhaseResume": True,
+                "phaseGradientClip": True,
             },
             "gpus": gpus,
             "runs": self._discover_runs(active_runs),
@@ -235,6 +237,7 @@ class Laboratory:
                 "updates": spec.updates,
                 "seed": spec.seed,
                 "learningRateScale": spec.learning_rate_scale,
+                "gradientClip": 1.0,
                 "amp": spec.amp,
                 "lifecycle": lifecycle_enabled,
                 "lifecycleProfile": lifecycle_profile,
@@ -251,6 +254,7 @@ class Laboratory:
                     "structure": structure_enabled,
                     "topologyProfile": topology_profile,
                     "lifecycleProfile": lifecycle_profile,
+                    "gradientClip": 1.0,
                     "startedAt": time.time(),
                 }
             ],
@@ -270,6 +274,8 @@ class Laboratory:
             raise PermissionError("laboratory process control is disabled")
         if spec.additional_updates < 1:
             raise ValueError("additional updates must be positive")
+        if spec.gradient_clip is not None and not 0.01 <= spec.gradient_clip <= 100:
+            raise ValueError("gradient clip must be between 0.01 and 100")
         if (
             spec.state_lanes is not None
             and not 1 <= spec.state_lanes <= MAX_STATE_LANES
@@ -353,6 +359,16 @@ class Laboratory:
             spec.lifecycle_profile, enabled=spec.lifecycle
         )
         configuration = dict(manifest.get("configuration", {}))
+        previous_gradient_clip = float(
+            (latest_train or {}).get(
+                "gradientClip", configuration.get("gradientClip", 1.0)
+            )
+        )
+        gradient_clip = (
+            previous_gradient_clip
+            if spec.gradient_clip is None
+            else spec.gradient_clip
+        )
         previous_state_lanes = int(
             (latest_train or {}).get(
                 "stateLanes", configuration.get("stateLanes", 1)
@@ -417,6 +433,7 @@ class Laboratory:
             lifecycle_profile=profile,
             training_shard_tokens=spec.training_shard_tokens,
             state_lanes=spec.state_lanes,
+            gradient_clip=spec.gradient_clip,
         )
         phase = {
             "index": phase_index,
@@ -428,6 +445,7 @@ class Laboratory:
             "lifecycleProfile": profile,
             "trainingShardTokens": training_shard_tokens,
             "stateLanes": state_lanes,
+            "gradientClip": gradient_clip,
             "startGrownEdges": int(
                 (latest_diagnostic or {}).get("cumulativeGrownEdges", 0)
             ),
@@ -448,6 +466,7 @@ class Laboratory:
                 "topologyProfile": topology_profile,
                 "trainingShardTokens": training_shard_tokens,
                 "stateLanes": state_lanes,
+                "gradientClip": gradient_clip,
             }
         )
         manifest.update(
@@ -475,6 +494,7 @@ class Laboratory:
                 "lifecycleProfile": profile,
                 "trainingShardTokens": training_shard_tokens,
                 "stateLanes": state_lanes,
+                "gradientClip": gradient_clip,
                 "startGrownEdges": phase["startGrownEdges"],
                 "startPrunedEdges": phase["startPrunedEdges"],
                 "startBirths": phase["startBirths"],
@@ -746,6 +766,7 @@ class Laboratory:
             lifecycle_profile=lifecycle_profile,
             training_shard_tokens=None,
             state_lanes=None,
+            gradient_clip=None,
         )
         checkpoint_sha256 = self._file_sha256(checkpoint)
         process = self._start_process(spec.run_id, spec.gpu_uuid, command, directory)
@@ -947,6 +968,7 @@ class Laboratory:
         lifecycle_profile: str,
         training_shard_tokens: int | None,
         state_lanes: int | None,
+        gradient_clip: float | None,
     ) -> list[str]:
         command = [
             sys.executable, "-m", "petridish.train_shakespeare",
@@ -965,6 +987,8 @@ class Laboratory:
             command.extend(("--training-shard-tokens", str(training_shard_tokens)))
         if state_lanes is not None:
             command.extend(("--state-lanes", str(state_lanes)))
+        if gradient_clip is not None:
+            command.extend(("--gradient-clip", str(gradient_clip)))
         return command
 
     def _evaluation_command(
@@ -1082,6 +1106,10 @@ class Laboratory:
                     configuration["trainingShardTokens"] = int(
                         latest_train.get("trainingShardTokens") or 0
                     )
+                if "gradientClip" in latest_train:
+                    configuration["gradientClip"] = float(
+                        latest_train.get("gradientClip") or 1.0
+                    )
                 measured_phase_index = int(latest_train.get("phaseIndex", 0) or 0)
                 recorded_phase_index = max(
                     (int(phase.get("index", 0)) for phase in phase_history),
@@ -1118,6 +1146,7 @@ class Laboratory:
                                 "trainingShardTokens", 0
                             ),
                             "stateLanes": configuration.get("stateLanes", 1),
+                            "gradientClip": configuration.get("gradientClip", 1.0),
                             "startedAt": first_measured.get("timestamp"),
                             "recoveredFromMetrics": True,
                         }
