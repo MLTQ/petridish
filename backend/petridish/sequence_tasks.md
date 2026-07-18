@@ -22,6 +22,8 @@ path from spatial classification to language modeling.
   hidden by text decoding.
 - **Does**: Optionally exposes raw training/validation token streams and slices
   contiguous, wrapping windows from explicit per-lane positions.
+- **Does**: Records active and full training-stream sizes plus the optional repeated
+  shard size so a curriculum phase is measurable rather than inferred.
 - **Rationale**: Persistent organisms must receive adjacent experience without
   hiding mutable cursors inside the task or sampler.
 

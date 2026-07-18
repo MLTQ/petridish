@@ -63,6 +63,8 @@ control-enable contracts without requiring NVIDIA hardware or launching trainers
 - **Does**: Proves continuation reuses one run/organism ID, advances from the measured
   checkpoint update, records a phase boundary, and invokes resume-plasticity without
   the fresh-run flag.
+- **Does**: Proves a repeated-shard curriculum is recorded in the same lineage's
+  command, manifest, phase boundary, and append-only metric.
 - **Does**: Proves checkpoint evaluation invokes the read-only trainer path, retains
   lineage/phase metadata, and can request state horizons without a plasticity override.
 - **Does**: Requires read-only audits to use sixteen fixed-seed batches rather than

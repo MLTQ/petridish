@@ -324,6 +324,7 @@ class ExperimentRuntime:
                 tokenizer_profile=str(
                     task_payload.get("tokenizer_profile") or "wordpiece"
                 ),
+                training_shard_tokens=task_payload.get("training_shard_tokens"),
             )
             if task_key == "tiny_stories"
             else load_tiny_shakespeare_task(context_length)

@@ -48,6 +48,9 @@ class SequenceTask:
     special_token_ids: tuple[int, ...] = ()
     unknown_token_id: int | None = None
     validation_unknown_token_rate: float | None = None
+    training_stream_tokens: int = 0
+    full_training_stream_tokens: int = 0
+    training_shard_tokens: int | None = None
 
     def batch(
         self, batch_size: int, generator: torch.Generator, *, evaluation: bool = False

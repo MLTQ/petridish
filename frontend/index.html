@@ -120,11 +120,12 @@
         <label>Organism run <select id="lab-continue-run" name="runId" required></select></label>
         <label>GPU <select id="lab-continue-gpu" name="gpuUuid" required></select></label>
         <label>Additional updates <input name="additionalUpdates" type="number" min="1" value="1000" required></label>
+        <label>Experience curriculum <select id="lab-continue-training-shard" name="trainingShardTokens"><option value="preserve" selected>preserve current stream</option><option value="0">full training stream</option><option value="8192">repeat 8,192-token shard</option><option value="32768">repeat 32,768-token shard</option><option value="131072">repeat 131,072-token shard</option></select></label>
         <label>Next topology phase <select id="lab-continue-structure" name="topologyProfile"><option value="prune_only" selected>prune only</option><option value="adaptive">adaptive prune + grow</option><option value="fixed">fixed control</option></select></label>
         <label>Next lifecycle phase <select id="lab-continue-lifecycle-profile" name="lifecycleProfile"><option value="off" selected>off</option><option value="baseline">baseline</option><option value="balanced">balanced</option><option value="replacement">replacement</option></select></label>
         <label>Phase label <input name="phaseName" maxlength="120" placeholder="adaptive topology"></label>
         <button id="lab-continue" class="primary" type="submit">Continue same organism</button>
-        <output id="lab-continue-status" role="status">Same organism: checkpoint state, connectome, weights, cells, optimizer, stream position, and electrical memory are retained. Evaluation uses read-only clones.</output>
+        <output id="lab-continue-status" role="status">Same organism: checkpoint state, connectome, weights, cells, optimizer, stream cursor, and electrical memory are retained. State-ablation measurements use disposable evaluation copies.</output>
       </form>
     </details>
   </section>

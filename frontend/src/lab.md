@@ -98,10 +98,10 @@ validated launch or stop requests.
   to be continuous.
 - **Does**: Displays measured electrical-state age in tokens beside routing so a
   nominal continuous run cannot masquerade as one while repeatedly reinitializing.
-- **Does**: Displays a saved-state clone versus an identical-token, read-only cold
-  clone and their signed accuracy/loss state-value deltas. Both branches are evaluation-only;
-  neither overwrites or resets the checkpointed organism. The checkpoint electrical
-  age is shown explicitly.
+- **Does**: Displays a saved-state evaluation copy versus an identical-token,
+  disposable zero-state ablation copy and their signed accuracy/loss state-value
+  deltas. Neither copy overwrites or resets the checkpointed organism. The checkpoint
+  electrical age is shown explicitly.
 - **Does**: Derives the loss delta from saved/cold loss for historical records written
   before the backend published that signed field explicitly.
 - **Does**: Launches and displays the bounded electrical-retention intervention so
@@ -120,9 +120,11 @@ validated launch or stop requests.
   recorded in the immutable manifest rather than applied out of band.
 - **Does**: Continues a checkpointed organism into a named topology/lifecycle phase
   without accepting architecture, geometry, connectome, weight, or state replacements.
+- **Does**: Can change a continued TinyStories organism to a deterministic repeated
+  experience shard without resetting or replacing any organism-owned state.
 - **Does**: States the continuation invariant directly in the controls: cells,
   connectome, weights, optimizer, stream position, and electrical memory persist,
-  while checkpoint evaluations operate only on read-only clones.
+  while checkpoint evaluations operate only on disposable copies.
 - **Does**: Displays the immutable lineage ID and current phase, and marks measured
   phase boundaries directly on the existing rolling-loss trace.
 - **Does**: Offers read-only evaluation on stopped checkpoints so new causal metrics

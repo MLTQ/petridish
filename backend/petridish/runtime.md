@@ -46,6 +46,8 @@ training and intervention mutations behind one lock.
   profile, vocabulary, and configuration, restores the complete trainer checkpoint,
   and rebuilds one measured visual trace. TinyStories checkpoints without profile
   metadata retain the legacy wordpiece contract.
+- **Does**: Restores repeated-shard curriculum metadata when present so the viewer
+  describes the same experience distribution as the checkpointed lineage.
 - **Rationale**: Checkpoints use trusted local PyTorch payloads; the WebSocket
   command cannot escape the repository run directory.
 

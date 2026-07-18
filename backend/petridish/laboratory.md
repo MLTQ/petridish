@@ -88,6 +88,9 @@ explicitly enabled trainer processes.
   metric, and rejects continuation while the organism is already running.
 - **Does**: Records the resolved topology profile in the manifest, phase history,
   append-only metric, and trainer command.
+- **Does**: Optionally changes only the TinyStories experience distribution to a
+  deterministic repeated token shard. The checkpoint organism, graph, optimizer,
+  corpus cursor, RNG state, and electrical memory remain the same lineage.
 - **Rationale**: Structural warm-up, adaptive pruning, and lifecycle pressure must be
   phases of one organism rather than separately initialized comparison runs.
 

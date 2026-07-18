@@ -93,6 +93,7 @@ def build_token_task(
     context_length: int = DEFAULT_CONTEXT_LENGTH,
     vocabulary_size: int = DEFAULT_VOCAB_SIZE,
     tokenizer_profile: str = "wordpiece",
+    training_shard_tokens: int | None = None,
     source_url: str | None = None,
 ) -> SequenceTask:
     """Build a deterministic wordpiece or byte-complete corpus task from text."""
@@ -153,7 +154,17 @@ def build_token_task(
         raise ValueError("token corpus is shorter than one context window")
     split = max(context_length + 2, int(encoded.numel() * 0.90))
     split = min(split, encoded.numel() - context_length - 2)
-    train, validation = encoded[:split], encoded[split:]
+    full_train, validation = encoded[:split], encoded[split:]
+    if training_shard_tokens == 0:
+        training_shard_tokens = None
+    if training_shard_tokens is not None:
+        if training_shard_tokens <= context_length + 1:
+            raise ValueError("training shard must exceed one complete context window")
+        if training_shard_tokens > full_train.numel():
+            raise ValueError("training shard exceeds the available training stream")
+        train = full_train[:training_shard_tokens]
+    else:
+        train = full_train
     unigram_accuracy, bigram_accuracy, unigram_loss, bigram_loss = _next_token_baselines(
         train, validation, len(vocabulary)
     )
@@ -162,7 +173,7 @@ def build_token_task(
         key="tiny_stories",
         title="Token Cellular Language Organism",
         description=(
-            "Predict wordpieces from TinyStories while tokens enter and leave as "
+            "Predict TinyStories tokens while they enter and leave as "
             "distributed population codes; no vocabulary item owns a boundary neuron."
         ),
         vocabulary=vocabulary,
@@ -193,16 +204,20 @@ def build_token_task(
             float((validation == unknown).float().mean())
             if unknown is not None else 0.0
         ),
+        training_stream_tokens=int(train.numel()),
+        full_training_stream_tokens=int(full_train.numel()),
+        training_shard_tokens=training_shard_tokens,
     )
 
 
-@lru_cache(maxsize=4)
+@lru_cache(maxsize=16)
 def load_tiny_stories_task(
     context_length: int = DEFAULT_CONTEXT_LENGTH,
     vocabulary_size: int = DEFAULT_VOCAB_SIZE,
     cache_path: str = "data/tinystories/TinyStoriesV2-GPT4-valid.txt",
     *,
     tokenizer_profile: str = "wordpiece",
+    training_shard_tokens: int | None = None,
 ) -> SequenceTask:
     """Download the bounded 22.5 MB validation corpus once and tokenize it locally."""
 
@@ -211,6 +226,7 @@ def load_tiny_stories_task(
         context_length=context_length,
         vocabulary_size=vocabulary_size,
         tokenizer_profile=tokenizer_profile,
+        training_shard_tokens=training_shard_tokens,
         source_url=TINY_STORIES_URL,
     )
 

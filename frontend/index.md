@@ -43,6 +43,11 @@ experiment laboratory above the live organism.
   dendrites but cannot replace them; fixed still conducts through the saved graph.
 - **Does**: Provides a separate continuation form for moving a stopped checkpoint
   into adaptive topology or lifecycle while explicitly retaining the same organism.
+- **Does**: Lets that same-organism continuation optionally repeat a deterministic
+  TinyStories shard; the default preserves the current stream and zero explicitly
+  returns to the full corpus.
+- **Does**: Calls held-out zero-state comparisons disposable ablation copies so the
+  interface never implies that the live organism was reset.
 - **Does**: Shows lineage and phase beside run status so a continuation cannot be
   mistaken for a newly initialized comparison organism.
 - **Does**: Exposes a bounded common learning-rate scale for controlled long-run

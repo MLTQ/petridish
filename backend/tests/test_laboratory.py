@@ -140,6 +140,7 @@ def test_checkpoint_continuation_preserves_run_lineage_and_changes_only_phase(
         ContinueSpec(
             "trial", "GPU-example", additional_updates=1_000,
             structure=True, topology_profile="prune_only", lifecycle_profile="off",
+            training_shard_tokens=8_192,
         )
     )
 
@@ -155,15 +156,19 @@ def test_checkpoint_continuation_preserves_run_lineage_and_changes_only_phase(
     assert manifest["configuration"]["updates"] == 1_500
     assert manifest["configuration"]["structure"] is True
     assert manifest["configuration"]["topologyProfile"] == "prune_only"
+    assert manifest["configuration"]["trainingShardTokens"] == 8_192
     assert manifest["phaseHistory"][-1]["topologyProfile"] == "prune_only"
+    assert manifest["phaseHistory"][-1]["trainingShardTokens"] == 8_192
     assert [phase["startUpdate"] for phase in manifest["phaseHistory"]] == [0, 500]
     assert command[command.index("--updates") + 1] == "1500"
     assert "--resume-plasticity" in command
     assert "--structure" in command
     assert command[command.index("--topology-profile") + 1] == "prune_only"
+    assert command[command.index("--training-shard-tokens") + 1] == "8192"
     assert "--no-resume" not in command
     assert records[-1]["type"] == "phase"
     assert records[-1]["organismId"] == manifest["organismId"]
+    assert records[-1]["trainingShardTokens"] == 8_192
 
 
 def test_checkpoint_evaluation_is_read_only_and_keeps_the_phase(

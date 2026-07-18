@@ -105,6 +105,9 @@ interface MetricRecord {
   phaseIndex?: number;
   phaseName?: string;
   topologyProfile?: string;
+  trainingStreamTokens?: number;
+  fullTrainingStreamTokens?: number;
+  trainingShardTokens?: number | null;
 }
 
 interface OrganismPhase {
@@ -114,6 +117,7 @@ interface OrganismPhase {
   targetUpdate: number;
   structure: boolean;
   lifecycleProfile: string;
+  trainingShardTokens?: number;
 }
 
 interface RunSnapshot {
@@ -249,6 +253,7 @@ export class LaboratoryView {
   private readonly continueGpuSelect = required<HTMLSelectElement>("#lab-continue-gpu");
   private readonly continueLifecycleSelect = required<HTMLSelectElement>("#lab-continue-lifecycle-profile");
   private readonly continueStructureSelect = required<HTMLSelectElement>("#lab-continue-structure");
+  private readonly continueTrainingShardSelect = required<HTMLSelectElement>("#lab-continue-training-shard");
   private readonly continueButton = required<HTMLButtonElement>("#lab-continue");
   private readonly continueStatus = required<HTMLOutputElement>("#lab-continue-status");
   private readonly benchmarksHost = required<HTMLTableSectionElement>("#laboratory-benchmarks");
@@ -371,7 +376,7 @@ export class LaboratoryView {
       ? "new runs receive immutable manifests"
       : "launch control disabled on server";
     this.continueStatus.value = canContinue
-      ? "same organism: continuation retains cells, connectome, weights, optimizer, stream position, and electrical memory; evaluation uses read-only clones"
+      ? "same organism: continuation retains cells, connectome, weights, optimizer, stream cursor, and electrical memory; state ablations use disposable evaluation copies"
       : snapshot.controlEnabled
         ? "no stopped checkpoint is available"
         : "continuation control disabled on server";
@@ -906,6 +911,7 @@ export class LaboratoryView {
     const lifecycleProfile = String(form.get("lifecycleProfile"));
     const topologyProfile = String(form.get("topologyProfile"));
     const phaseName = String(form.get("phaseName") ?? "").trim();
+    const shardSelection = String(form.get("trainingShardTokens") ?? "preserve");
     const body = {
       gpuUuid: String(form.get("gpuUuid")),
       additionalUpdates: Number(form.get("additionalUpdates")),
@@ -914,6 +920,7 @@ export class LaboratoryView {
       topologyProfile,
       structure: topologyProfile !== "fixed",
       phaseName: phaseName || null,
+      trainingShardTokens: shardSelection === "preserve" ? null : Number(shardSelection),
     };
     try {
       const response = await fetch(`/api/lab/runs/${encodeURIComponent(runId)}/continue`, {
@@ -945,6 +952,7 @@ export class LaboratoryView {
     this.continueLifecycleSelect.value = String(
       run.configuration.lifecycleProfile ?? (run.configuration.lifecycle ? "baseline" : "off"),
     );
+    this.continueTrainingShardSelect.value = "preserve";
   }
 
   private lineagePhase(run: RunSnapshot): string {
@@ -1015,14 +1023,19 @@ export class LaboratoryView {
     const baselineSummary = record.unigramBaselineAccuracy === undefined
       ? ""
       : `uni ${this.percent(record.unigramBaselineAccuracy)} / ppl ${this.perplexity(record.unigramBaselineLoss)} · bi ${this.percent(record.bigramBaselineAccuracy)} / ppl ${this.perplexity(record.bigramBaselineLoss)}${record.accuracy === undefined ? "" : ` · model−uni ${this.signedPercent(record.accuracy - record.unigramBaselineAccuracy)} · model−bi ${this.signedPercent(record.accuracy - (record.bigramBaselineAccuracy ?? 0))}`}`;
+    const curriculumSummary = record.trainingStreamTokens === undefined
+      ? ""
+      : record.trainingShardTokens
+        ? `curriculum repeated ${record.trainingStreamTokens.toLocaleString()} / ${record.fullTrainingStreamTokens?.toLocaleString() ?? "—"} training tokens`
+        : `curriculum full ${record.trainingStreamTokens.toLocaleString()} training tokens`;
     const stateSummary = record.coldStateAccuracy === undefined
       ? ""
-      : `saved-state clone ${this.percent(record.accuracy)} · read-only cold clone ${this.percent(record.coldStateAccuracy)} · state Δacc ${this.signedPercent(record.stateCarryAccuracyDelta)} / Δloss ${this.signedNumber(record.stateCarryLossDelta ?? (record.coldStateLoss === undefined || record.loss === undefined ? undefined : record.coldStateLoss - record.loss))} · checkpoint state age ${(record.initialStateTokens ?? 0).toLocaleString()}`;
+      : `saved-state evaluation copy ${this.percent(record.accuracy)} · zero-state ablation copy ${this.percent(record.coldStateAccuracy)} · state Δacc ${this.signedPercent(record.stateCarryAccuracyDelta)} / Δloss ${this.signedNumber(record.stateCarryLossDelta ?? (record.coldStateLoss === undefined || record.loss === undefined ? undefined : record.coldStateLoss - record.loss))} · checkpoint state age ${(record.initialStateTokens ?? 0).toLocaleString()}`;
     const horizonSummary = (record.stateHorizon ?? []).map(
       (point) => `h${point.windows} ${this.percent(point.accuracy)}`,
     ).join(" · ");
-    if (!positionSummary && !baselineSummary && !stateSummary && !horizonSummary) return "—";
-    return [baselineSummary, stateSummary, horizonSummary, positionSummary].filter(Boolean).join(" | ");
+    if (!positionSummary && !baselineSummary && !curriculumSummary && !stateSummary && !horizonSummary) return "—";
+    return [curriculumSummary, baselineSummary, stateSummary, horizonSummary, positionSummary].filter(Boolean).join(" | ");
   }
 
   private signedPercent(value: number | undefined): string {

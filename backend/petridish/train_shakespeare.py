@@ -125,6 +125,7 @@ def save_checkpoint(
             "state_lanes": experiment.state_lanes,
             "topology_profile": experiment.topology_profile,
             "tokenizer_profile": experiment.task.tokenizer_profile,
+            "training_shard_tokens": experiment.task.training_shard_tokens,
         },
         "model": experiment.model.state_dict(),
         "optimizer": experiment.optimizer.state_dict(),
@@ -318,7 +319,7 @@ def _generation_diagnostics(experiment: SequenceExperiment) -> dict[str, Any]:
     }
 
 
-def _baseline_diagnostics(experiment: SequenceExperiment) -> dict[str, float]:
+def _baseline_diagnostics(experiment: SequenceExperiment) -> dict[str, Any]:
     """Return corpus baselines only when the task measured them."""
 
     task = experiment.task
@@ -330,6 +331,9 @@ def _baseline_diagnostics(experiment: SequenceExperiment) -> dict[str, float]:
             ("unigramBaselineLoss", task.unigram_baseline_loss),
             ("bigramBaselineLoss", task.bigram_baseline_loss),
             ("validationUnknownTokenRate", task.validation_unknown_token_rate),
+            ("trainingStreamTokens", task.training_stream_tokens),
+            ("fullTrainingStreamTokens", task.full_training_stream_tokens),
+            ("trainingShardTokens", task.training_shard_tokens),
         )
         if value is not None
     }
@@ -554,6 +558,13 @@ def main() -> None:
     parser.add_argument(
         "--tokenizer-profile", choices=TOKENIZER_PROFILES, default="wordpiece"
     )
+    parser.add_argument(
+        "--training-shard-tokens", type=int,
+        help=(
+            "repeat a deterministic training prefix without replacing the organism; "
+            "zero selects the full stream and omission preserves a resumed checkpoint"
+        ),
+    )
     parser.add_argument("--resume", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--resume-plasticity", action="store_true")
     parser.add_argument("--organism-id")
@@ -580,6 +591,7 @@ def main() -> None:
     latest = args.checkpoint_dir / "latest.pt"
     payload: dict[str, Any] | None = None
     requested_device = torch.device(args.device)
+    requested_training_shard_tokens = args.training_shard_tokens
     if args.resume and latest.exists():
         payload = load_checkpoint(latest, requested_device)
         saved_lineage = dict(payload.get("lineage", {}))
@@ -604,6 +616,15 @@ def main() -> None:
         args.tokenizer_profile = str(
             saved_task.get("tokenizer_profile") or "wordpiece"
         )
+        saved_training_shard_tokens = saved_task.get("training_shard_tokens")
+        if args.resume_plasticity and requested_training_shard_tokens is not None:
+            args.training_shard_tokens = (
+                None
+                if requested_training_shard_tokens == 0
+                else requested_training_shard_tokens
+            )
+        else:
+            args.training_shard_tokens = saved_training_shard_tokens
         config = MnistModelConfig(**payload["configuration"])
         topology_profile = resolve_topology_profile(
             saved_task.get("topology_profile"),
@@ -644,6 +665,7 @@ def main() -> None:
         load_tiny_stories_task(
             args.context_length, args.vocabulary_size,
             tokenizer_profile=args.tokenizer_profile,
+            training_shard_tokens=args.training_shard_tokens,
         )
         if args.task == "tiny_stories"
         else load_tiny_shakespeare_task(args.context_length)
@@ -686,6 +708,7 @@ def main() -> None:
         f"stream={args.stream_mode} retention={args.state_retention:.3f} "
         f"lanes={args.state_lanes} topology={experiment.topology_profile} "
         f"tokenizer={experiment.task.tokenizer_profile or 'character'} "
+        f"training_tokens={experiment.task.training_stream_tokens or 'full'} "
         f"organism={organism_id} phase={phase_index}:{phase_name} "
         f"amp={args.amp} compile={args.compile_mode}",
         flush=True,
@@ -730,6 +753,9 @@ def main() -> None:
             "stateRetention": experiment.state_retention,
             "stateLanes": experiment.state_lanes,
             "topologyProfile": experiment.topology_profile,
+            "trainingStreamTokens": experiment.task.training_stream_tokens,
+            "fullTrainingStreamTokens": experiment.task.full_training_stream_tokens,
+            "trainingShardTokens": experiment.task.training_shard_tokens,
             "electricalStateTokens": (
                 experiment._training_runtime_state.position
                 if experiment._training_runtime_state is not None else 0

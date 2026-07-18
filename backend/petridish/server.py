@@ -69,6 +69,7 @@ class LabContinueRequest(BaseModel):
     structure: bool = True
     topologyProfile: str | None = None
     phaseName: str | None = Field(default=None, max_length=120)
+    trainingShardTokens: int | None = Field(default=None, ge=0)
 
 
 class LabEvaluateRequest(BaseModel):
@@ -190,6 +191,7 @@ async def continue_lab_run(
         structure=request.structure,
         topology_profile=request.topologyProfile,
         phase_name=request.phaseName,
+        training_shard_tokens=request.trainingShardTokens,
     )
     try:
         return await asyncio.to_thread(laboratory.continue_run, spec)

@@ -16,6 +16,13 @@ from checkpoint vocabulary metadata rather than silently restoring 2,048 pieces.
 curriculum or a complete 256-byte UTF-8 vocabulary. Byte mode has no aggregate
 unknown class; resume restores the checkpoint's tokenizer profile and exact
 vocabulary, while old checkpoints default explicitly to wordpiece.
+`--training-shard-tokens N` continues the same organism on a deterministic repeated
+prefix of its existing training corpus while leaving validation complete. The
+checkpoint records the selected shard; omission preserves it on resume and zero
+returns a continuation phase to the full stream. A phase transition keeps cells,
+positions, dendrites, weights, optimizer moments, RNG streams, and every electrical
+channel. Existing corpus cursors are interpreted modulo the selected shard rather
+than randomized, so this is a change in experience distribution, not an organism reset.
 `--stream-mode continuous` is the corpus default: adjacent windows carry the full
 detached cellular runtime state across optimizer steps. `windowed` retains the old
 random-context/cold-electrical-state behavior as a recorded control. Checkpoints save
@@ -54,6 +61,8 @@ generation records also expose exact token IDs plus special/unknown-token ratios
 token-corpus records also carry exact unigram and bigram validation baselines;
 those baselines include add-one-smoothed loss so model perplexity is calibrated as
 well as top-one accuracy;
+the baselines are fitted to the active full stream or repeated shard and always
+evaluated on the unchanged held-out stream;
 generation preserves the training sampler and organism state. `latest.pt` is replaced
 atomically and contains model parameters, optimizer moments, all substrate/topology
 buffers, generation and update counters, configuration, vocabulary, rolling metrics,

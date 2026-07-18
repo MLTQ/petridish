@@ -642,6 +642,28 @@ def test_corpus_stream_windows_are_contiguous_across_training_updates() -> None:
     assert torch.equal(next_positions, positions + task.sequence_length)
 
 
+def test_repeated_training_shard_preserves_cursor_and_full_validation() -> None:
+    text = "One fox ran. Two birds flew. Three cats slept. " * 100
+    full = build_token_task(text, context_length=8, vocabulary_size=32)
+    shard = build_token_task(
+        text, context_length=8, vocabulary_size=32, training_shard_tokens=128
+    )
+    preserved_cursor = torch.tensor([503])
+
+    batch, next_positions = shard.stream_batch(preserved_cursor)
+
+    assert shard.training_stream_tokens == 128
+    assert shard.full_training_stream_tokens == full.training_stream_tokens
+    assert shard.training_shard_tokens == 128
+    assert torch.equal(shard.evaluation_stream, full.evaluation_stream)
+    assert batch.tokens.shape == (1, 8)
+    assert next_positions.item() == (503 + 8) % 128
+    with pytest.raises(ValueError, match="complete context"):
+        build_token_task(
+            text, context_length=8, vocabulary_size=32, training_shard_tokens=9
+        )
+
+
 def test_continuous_training_carries_detached_neuron_state_between_updates() -> None:
     text = "One fox ran. Two birds flew. Three cats slept. " * 30
     task = build_token_task(text, context_length=8, vocabulary_size=32)
@@ -695,7 +717,9 @@ def test_round_robin_state_lanes_add_trajectory_diversity_at_batch_one() -> None
 
 def test_continuous_training_state_survives_checkpoint_resume(tmp_path: Path) -> None:
     text = "One fox ran. Two birds flew. Three cats slept. " * 30
-    task = build_token_task(text, context_length=8, vocabulary_size=32)
+    task = build_token_task(
+        text, context_length=8, vocabulary_size=32, training_shard_tokens=128
+    )
     config = replace(
         corpus_config(), batch_size=1, structural_enabled=0, lifecycle_enabled=0
     )
@@ -727,6 +751,7 @@ def test_continuous_training_state_survives_checkpoint_resume(tmp_path: Path) ->
     assert payload["lineage"] == {
         "organism_id": "organism-test", "phase_index": 0, "phase_name": "warm-up",
     }
+    assert payload["task"]["training_shard_tokens"] == 128
     assert restored.config.structural_enabled == 1
     assert restored.topology_profile == "prune_only"
     assert restored.stream_mode == "continuous"

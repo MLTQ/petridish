@@ -73,6 +73,7 @@ class ContinueSpec:
     structure: bool = True
     topology_profile: str | None = None
     phase_name: str | None = None
+    training_shard_tokens: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -240,6 +241,17 @@ class Laboratory:
             raise ValueError("unknown GPU UUID")
         directory = self._run_directory(spec.run_id)
         manifest = self._read_json(directory / "manifest.json")
+        if spec.training_shard_tokens is not None:
+            if manifest.get("task") != "tiny_stories":
+                raise ValueError("training shards are available only for TinyStories")
+            context_length = int(
+                dict(manifest.get("configuration", {})).get("contextLength", 64)
+            )
+            if (
+                spec.training_shard_tokens != 0
+                and spec.training_shard_tokens <= context_length + 1
+            ):
+                raise ValueError("training shard must exceed one complete context window")
         if not (directory / "latest.pt").is_file():
             raise ValueError("run has no checkpoint to continue")
         pid = int(manifest.get("pid", 0) or 0)
@@ -277,7 +289,21 @@ class Laboratory:
         profile = resolve_lifecycle_profile(
             spec.lifecycle_profile, enabled=spec.lifecycle
         )
+        configuration = dict(manifest.get("configuration", {}))
+        previous_shard_tokens = int(configuration.get("trainingShardTokens", 0) or 0)
+        training_shard_tokens = (
+            previous_shard_tokens
+            if spec.training_shard_tokens is None
+            else spec.training_shard_tokens
+        )
         phase_name = spec.phase_name or self._phase_name(topology_profile, profile)
+        if spec.training_shard_tokens is not None:
+            curriculum = (
+                "full-stream curriculum"
+                if training_shard_tokens == 0
+                else f"{training_shard_tokens:,}-token repeated shard"
+            )
+            phase_name = f"{curriculum} + {phase_name}"
         command = self._continuation_command(
             directory,
             target_update=target_update,
@@ -287,6 +313,7 @@ class Laboratory:
             structure=structure_enabled,
             topology_profile=topology_profile,
             lifecycle_profile=profile,
+            training_shard_tokens=spec.training_shard_tokens,
         )
         phase = {
             "index": phase_index,
@@ -296,10 +323,10 @@ class Laboratory:
             "structure": structure_enabled,
             "topologyProfile": topology_profile,
             "lifecycleProfile": profile,
+            "trainingShardTokens": training_shard_tokens,
             "startedAt": time.time(),
         }
         history.append(phase)
-        configuration = dict(manifest.get("configuration", {}))
         configuration.update(
             {
                 "updates": target_update,
@@ -307,6 +334,7 @@ class Laboratory:
                 "lifecycleProfile": profile,
                 "structure": structure_enabled,
                 "topologyProfile": topology_profile,
+                "trainingShardTokens": training_shard_tokens,
             }
         )
         manifest.update(
@@ -332,6 +360,7 @@ class Laboratory:
                 "structure": structure_enabled,
                 "topologyProfile": topology_profile,
                 "lifecycleProfile": profile,
+                "trainingShardTokens": training_shard_tokens,
                 "timestamp": time.time(),
             },
         )
@@ -499,6 +528,7 @@ class Laboratory:
         structure: bool,
         topology_profile: str,
         lifecycle_profile: str,
+        training_shard_tokens: int | None,
     ) -> list[str]:
         command = [
             sys.executable, "-m", "petridish.train_shakespeare",
@@ -513,6 +543,8 @@ class Laboratory:
         ]
         command.append("--lifecycle" if lifecycle_profile != "off" else "--no-lifecycle")
         command.append("--structure" if structure else "--no-structure")
+        if training_shard_tokens is not None:
+            command.extend(("--training-shard-tokens", str(training_shard_tokens)))
         return command
 
     def _evaluation_command(

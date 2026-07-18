@@ -28,6 +28,12 @@ runtime or the multi-gigabyte training split.
   predictions produces readable text without a language-specific detokenizer.
 - **Does**: Retains the split token tensors as explicit contiguous streams for
   state-carrying truncated-backpropagation experiments.
+- **Does**: Can expose a deterministic prefix of the training stream as a repeated
+  experience shard while retaining the complete held-out validation stream.
+- **Rationale**: A persistent organism can be continued onto a learnable bounded
+  curriculum without replacing its cells, connectome, weights, optimizer, or
+  electrical state. Existing stream cursors are interpreted modulo the new shard;
+  they are not re-randomized.
 
 ### `_next_token_baselines`
 - **Does**: Fits the most-common global token and one-step transition table on the
@@ -43,4 +49,4 @@ runtime or the multi-gigabyte training split.
 | `sequence_tasks.py` | Lazy loading avoids network work for other tasks | Eager download |
 | `sequence_model.py` | Vocabulary may be larger than physical port banks | Restoring one-port-per-token assumptions |
 | Runtime | Cache survives restarts under `data/tinystories/` | Cache location |
-| Checkpoints | Tokenizer profile plus exact vocabulary select the cached task | Silent tokenizer substitution |
+| Checkpoints | Tokenizer profile, exact vocabulary, and optional training-shard size select the cached task | Silent tokenizer or curriculum substitution |

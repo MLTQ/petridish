@@ -60,6 +60,10 @@ same fixture requires smoothed bigram loss to beat smoothed unigram loss. The
 byte-token regression requires all 256 byte values, UTF-8 prompt round trips, no
 special or unknown class, zero validation unknown rate, and rejection of a truncated
 byte vocabulary. The
+repeated-shard regression keeps the complete validation split, interprets an existing
+corpus cursor modulo a deterministic training prefix, and rejects a shard shorter than
+one context. The checkpoint regression records that curriculum alongside the same
+organism-owned electrical and structural state. The
 continuous-experience regressions prove adjacent windows share the boundary token,
 optimizer updates carry detached neuron state, checkpoints resume the exact lane and
 runtime state, and cell death preserves each surviving neuron's state by physical
