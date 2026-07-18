@@ -149,6 +149,9 @@ validated launch or stop requests.
   two named branches can receive different interventions from byte-identical cells,
   graph, weights, optimizer, RNG, cursors, and electrical memory. Branch ancestry and
   checkpoint update remain visible beside the immutable organism lineage.
+- **Does**: Labels the current phase `CANONICAL LIVING LINE` or `COUNTERFACTUAL ·
+  never merged`; the continuation request persists that experimental role rather
+  than inferring scientific authority from a shared organism ID.
 - **Does**: Can change a continued TinyStories organism to a deterministic repeated
   experience shard without resetting or replacing any organism-owned state.
 - **Does**: Can explicitly expand existing carried stream domains without appending

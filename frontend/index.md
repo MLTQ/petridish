@@ -46,6 +46,8 @@ experiment laboratory above the live organism.
 - **Does**: Accepts an optional counterfactual branch ID so continuation can first
   copy and fingerprint the exact stopped checkpoint, enabling paired GPU interventions
   without replacing or overwriting the source organism.
+- **Does**: Requires every continuation to be visibly designated as either the
+  canonical living line or a counterfactual measurement that will never be merged.
 - **Does**: Lets that same-organism continuation optionally repeat a deterministic
   TinyStories shard; the default preserves the current stream and zero explicitly
   returns to the full corpus.

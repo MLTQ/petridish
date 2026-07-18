@@ -158,6 +158,7 @@ interface MetricRecord {
 interface OrganismPhase {
   index: number;
   name: string;
+  role?: "canonical" | "counterfactual";
   startUpdate: number;
   targetUpdate: number;
   structure: boolean;
@@ -188,6 +189,7 @@ interface RunSnapshot {
   parentCheckpoint?: { runId: string; update: number; sha256: string } | null;
   branchRootRunId?: string | null;
   branchDepth?: number;
+  currentRole?: "canonical" | "counterfactual";
   commit: string | null;
   latestTrain: MetricRecord | null;
   latestHeldOut: MetricRecord | null;
@@ -332,6 +334,7 @@ export class LaboratoryView {
   private readonly continueForm = required<HTMLFormElement>("#laboratory-continue-form");
   private readonly continueRunSelect = required<HTMLSelectElement>("#lab-continue-run");
   private readonly continueForkRunInput = required<HTMLInputElement>("#lab-continue-fork-run");
+  private readonly continuePhaseRoleSelect = required<HTMLSelectElement>("#lab-continue-phase-role");
   private readonly continueGpuSelect = required<HTMLSelectElement>("#lab-continue-gpu");
   private readonly continueLifecycleSelect = required<HTMLSelectElement>("#lab-continue-lifecycle-profile");
   private readonly continueStructureSelect = required<HTMLSelectElement>("#lab-continue-structure");
@@ -359,6 +362,11 @@ export class LaboratoryView {
     this.form.addEventListener("submit", (event) => void this.launch(event));
     this.continueForm.addEventListener("submit", (event) => void this.continueOrganism(event));
     this.continueRunSelect.addEventListener("change", () => this.syncContinuationPhase(true));
+    this.continueForkRunInput.addEventListener("input", () => {
+      if (this.continueForkRunInput.value.trim()) {
+        this.continuePhaseRoleSelect.value = "counterfactual";
+      }
+    });
     this.taskSelect.addEventListener("change", () => {
       this.messageStepsSelect.value = this.taskSelect.value === "tiny_stories" ? "12" : "2";
       this.broadcastGainInput.value = this.taskSelect.value === "tiny_stories" ? "0.35" : "0.3";
@@ -1330,6 +1338,7 @@ export class LaboratoryView {
     const lifecycleProfile = String(form.get("lifecycleProfile"));
     const topologyProfile = String(form.get("topologyProfile"));
     const phaseName = String(form.get("phaseName") ?? "").trim();
+    const phaseRole = String(form.get("phaseRole") ?? "canonical");
     const shardSelection = String(form.get("trainingShardTokens") ?? "preserve");
     const laneSelection = String(form.get("stateLanes") ?? "").trim();
     const gradientClipSelection = String(form.get("gradientClip") ?? "").trim();
@@ -1347,6 +1356,7 @@ export class LaboratoryView {
       topologyProfile,
       structure: topologyProfile !== "fixed",
       phaseName: phaseName || null,
+      phaseRole,
       trainingShardTokens: shardSelection === "preserve" ? null : Number(shardSelection),
       expandExistingLaneDomains: form.get("expandExistingLaneDomains") === "on",
       stateLanes: laneSelection === "" ? null : Number(laneSelection),
@@ -1382,10 +1392,10 @@ export class LaboratoryView {
       });
       const payload = await response.json() as {
         runId?: string; organismId?: string; phaseIndex?: number;
-        checkpointSha256?: string; detail?: string;
+        phaseRole?: string; checkpointSha256?: string; detail?: string;
       };
       if (!response.ok) throw new Error(payload.detail ?? `continuation failed (${response.status})`);
-      this.continueStatus.value = `${payload.runId} · same organism · phase ${payload.phaseIndex} · source checkpoint ${payload.checkpointSha256?.slice(0, 12) ?? "verified"}`;
+      this.continueStatus.value = `${payload.runId} · ${payload.phaseRole ?? phaseRole} · same organism · phase ${payload.phaseIndex} · source checkpoint ${payload.checkpointSha256?.slice(0, 12) ?? "verified"}`;
       if (payload.runId) this.selectedRuns.add(payload.runId);
       this.continueForkRunInput.value = "";
       await this.refresh();
@@ -1414,6 +1424,8 @@ export class LaboratoryView {
       this.continueGradientClipInput.value = "";
       this.continueRandomOffsetAuxiliaryInput.value = "";
       this.continueRandomOffsetAuxiliaryScopeSelect.value = "preserve";
+      this.continuePhaseRoleSelect.value = run.currentRole
+        ?? (run.parentCheckpoint ? "counterfactual" : "canonical");
     }
     const currentLanes = Number(run.configuration.stateLanes ?? 1);
     const maximumStateLanes = this.snapshot?.capabilities.maximumStateLanes ?? 32;
@@ -1435,6 +1447,11 @@ export class LaboratoryView {
 
   private lineagePhase(run: RunSnapshot): string {
     const phase = (run.phaseHistory ?? []).at(-1);
+    const role = phase?.role ?? run.currentRole
+      ?? (run.parentCheckpoint ? "counterfactual" : "canonical");
+    const roleLabel = role === "counterfactual"
+      ? "COUNTERFACTUAL · never merged"
+      : "CANONICAL LIVING LINE";
     const lineage = run.organismId ? run.organismId.replace(/^organism-/, "").slice(0, 8) : "legacy";
     const curriculum = phase?.trainingShardTokens
       ? ` · repeat ${phase.trainingShardTokens.toLocaleString()}`
@@ -1462,7 +1479,7 @@ export class LaboratoryView {
     const continuation = phase?.sourceCheckpointSha256
       ? ` · resumed exact state ${phase.sourceCheckpointSha256.slice(0, 12)}`
       : "";
-    return `organism ${lineage} · p${phase?.index ?? 0} ${phase?.name ?? "training"}${curriculum}${carriedExpansion}${auxiliaryLabel} · ${lanes} lane${lanes === 1 ? "" : "s"}${continuation}${branch}`;
+    return `${roleLabel} · organism ${lineage} · p${phase?.index ?? 0} ${phase?.name ?? "training"}${curriculum}${carriedExpansion}${auxiliaryLabel} · ${lanes} lane${lanes === 1 ? "" : "s"}${continuation}${branch}`;
   }
 
   private populateSelect(select: HTMLSelectElement, choices: { value: string; label: string }[]): void {

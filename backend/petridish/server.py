@@ -77,6 +77,9 @@ class LabContinueRequest(BaseModel):
     structure: bool = True
     topologyProfile: str | None = None
     phaseName: str | None = Field(default=None, max_length=120)
+    phaseRole: str | None = Field(
+        default=None, pattern="^(canonical|counterfactual)$"
+    )
     trainingShardTokens: int | None = Field(default=None, ge=0)
     expandExistingLaneDomains: bool = False
     stateLanes: int | None = Field(default=None, ge=1, le=MAX_STATE_LANES)
@@ -236,6 +239,7 @@ async def continue_lab_run(
         structure=request.structure,
         topology_profile=request.topologyProfile,
         phase_name=request.phaseName,
+        phase_role=request.phaseRole,
         training_shard_tokens=request.trainingShardTokens,
         expand_existing_lane_domains=request.expandExistingLaneDomains,
         state_lanes=request.stateLanes,

@@ -24,7 +24,8 @@ control-enable contracts without requiring NVIDIA hardware or launching trainers
 - **Does**: Reject path traversal and process launch when control is disabled.
 - **Does**: Proves a checkpoint fork copies bytes rather than sharing a mutable
   inode, preserves lineage and phase history, fingerprints its exact parent, leaves
-  the source manifest unchanged, and refuses to branch a running organism.
+  the source manifest unchanged, marks the branch counterfactual, and refuses to
+  branch a running organism.
 - **Does**: Proves a failed-phase retry launches the exact persisted continuation
   command, preserves checkpoint bytes, organism ID, and phase history, fingerprints
   the checkpoint, and supersedes only the old failure in current status.
@@ -77,6 +78,8 @@ control-enable contracts without requiring NVIDIA hardware or launching trainers
 - **Does**: Proves every new continuation phase fingerprints the exact checkpoint it
   resumes and publishes the same SHA-256 identity in its result, manifest, phase
   history, and append-only phase record.
+- **Does**: Proves canonical/counterfactual phase role is validated and persisted in
+  responses, manifests, phase history, and append-only phase records.
 - **Does**: Proves a repeated-shard curriculum is recorded in the same lineage's
   command, manifest, phase boundary, and append-only metric.
 - **Does**: Proves append-only lane expansion reaches the command, manifest, phase

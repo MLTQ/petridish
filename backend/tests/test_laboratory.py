@@ -209,6 +209,7 @@ def test_checkpoint_fork_preserves_exact_organism_and_records_parent(
         "runId": "prune-branch",
         "organismId": "organism-preserved",
         "parentCheckpoint": {"runId": "source", "update": 5250, "sha256": digest},
+        "phaseRole": "counterfactual",
         "status": "checkpointed",
     }
     assert (branch / "latest.pt").read_bytes() == checkpoint
@@ -218,9 +219,11 @@ def test_checkpoint_fork_preserves_exact_organism_and_records_parent(
     assert branch_manifest["parentCheckpoint"] == result["parentCheckpoint"]
     assert branch_manifest["branchRootRunId"] == "source"
     assert branch_manifest["branchDepth"] == 1
+    assert branch_manifest["currentRole"] == "counterfactual"
     assert branch_manifest["pid"] == 0
     assert branch_records[-1]["type"] == "branch"
     assert branch_records[-1]["checkpointSha256"] == digest
+    assert branch_records[-1]["phaseRole"] == "counterfactual"
     assert json.loads((source / "manifest.json").read_text()) == manifest
 
 
@@ -570,6 +573,7 @@ def test_checkpoint_continuation_preserves_run_lineage_and_changes_only_phase(
         ContinueSpec(
             "trial", "GPU-example", additional_updates=1_000,
             structure=True, topology_profile="prune_only", lifecycle_profile="off",
+            phase_role="canonical",
             training_shard_tokens=8_192,
             state_lanes=16,
             gradient_clip=5.0,
@@ -587,7 +591,9 @@ def test_checkpoint_continuation_preserves_run_lineage_and_changes_only_phase(
     assert result["runId"] == "trial"
     assert result["organismId"] == manifest["organismId"]
     assert result["checkpointSha256"] == checkpoint_sha256
+    assert result["phaseRole"] == "canonical"
     assert manifest["lastContinuationCheckpointSha256"] == checkpoint_sha256
+    assert manifest["currentRole"] == "canonical"
     assert manifest["configuration"]["updates"] == 1_500
     assert manifest["configuration"]["structure"] is True
     assert manifest["configuration"]["topologyProfile"] == "prune_only"
@@ -597,6 +603,7 @@ def test_checkpoint_continuation_preserves_run_lineage_and_changes_only_phase(
     assert manifest["configuration"]["randomOffsetAuxiliaryWeight"] == 0
     assert manifest["configuration"]["randomOffsetAuxiliaryScope"] == "full_corpus"
     assert manifest["phaseHistory"][-1]["topologyProfile"] == "prune_only"
+    assert manifest["phaseHistory"][-1]["role"] == "canonical"
     assert manifest["phaseHistory"][-1]["trainingShardTokens"] == 8_192
     assert manifest["phaseHistory"][-1]["stateLanes"] == 16
     assert manifest["phaseHistory"][-1]["gradientClip"] == 5.0
@@ -620,6 +627,7 @@ def test_checkpoint_continuation_preserves_run_lineage_and_changes_only_phase(
     assert "--no-resume" not in command
     assert records[-1]["type"] == "phase"
     assert records[-1]["organismId"] == manifest["organismId"]
+    assert records[-1]["phaseRole"] == "canonical"
     assert records[-1]["trainingShardTokens"] == 8_192
     assert records[-1]["stateLanes"] == 16
     assert records[-1]["gradientClip"] == 5.0
@@ -1053,6 +1061,12 @@ def test_laboratory_records_prune_only_without_disabling_structure(tmp_path: Pat
     with pytest.raises(ValueError, match="topology profile"):
         laboratory._validate_spec(
             LaunchSpec("invalid", "GPU-example", topology_profile="regrow-everything")
+        )
+    with pytest.raises(ValueError, match="phase role"):
+        laboratory.continue_run(
+            ContinueSpec(
+                "invalid", "GPU-example", phase_role="replacement-organism"
+            )
         )
 
 

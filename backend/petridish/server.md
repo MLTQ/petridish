@@ -56,6 +56,8 @@ and exact-phase resume after a deliberate stop.
 ### `LabContinueRequest`
 - **Does**: Bounds additional updates and selects only the next topology/lifecycle
   policy for an existing checkpointed organism.
+- **Does**: Accepts an explicit canonical/counterfactual experimental role so the UI
+  cannot present a measurement fork as the organism that will continue living.
 - **Does**: Accepts an optional repeated-shard curriculum for a continuation phase;
   omission preserves the active stream and zero selects the full corpus.
 - **Does**: Accepts an explicit carried-stream domain expansion flag; the laboratory

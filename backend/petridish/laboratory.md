@@ -111,6 +111,8 @@ explicitly enabled trainer processes.
 ### `ContinueSpec` / `Laboratory.continue_run`
 - **Does**: Advances a stopped checkpoint into a new topology/lifecycle phase in the
   same run directory and on the same organism lineage.
+- **Does**: Records whether the phase is the canonical living continuation or a
+  counterfactual measurement that is never merged back into that living line.
 - **Does**: Fingerprints the exact source checkpoint before every new phase and
   records that SHA-256 identity in the phase history, append-only boundary metric,
   manifest, and response; provenance is therefore verifiable even without a fork.
@@ -153,6 +155,8 @@ explicitly enabled trainer processes.
 ### `ForkSpec` / `Laboratory.fork_run`
 - **Does**: Copies a stopped atomic checkpoint and its metric history into a new,
   separately named counterfactual branch without constructing a model or organism.
+- **Does**: Marks the new branch counterfactual by default; an explicit later
+  continuation may designate that exact descendant as the canonical living line.
 - **Does**: Preserves the organism ID and records the parent run, checkpoint update,
   SHA-256 checkpoint identity, root run, and branch depth in the branch manifest.
 - **Does**: Publishes the branch directory atomically and rejects running sources,

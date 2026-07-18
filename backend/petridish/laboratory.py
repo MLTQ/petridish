@@ -78,6 +78,7 @@ class ContinueSpec:
     structure: bool = True
     topology_profile: str | None = None
     phase_name: str | None = None
+    phase_role: str | None = None
     training_shard_tokens: int | None = None
     expand_existing_lane_domains: bool = False
     state_lanes: int | None = None
@@ -229,6 +230,7 @@ class Laboratory:
             "version": 2,
             "runId": spec.run_id,
             "organismId": organism_id,
+            "currentRole": "canonical",
             "task": spec.task,
             "architecture": spec.architecture,
             "gpuUuid": spec.gpu_uuid,
@@ -266,6 +268,7 @@ class Laboratory:
                 {
                     "index": 0,
                     "name": phase_name,
+                    "role": "canonical",
                     "startUpdate": 0,
                     "targetUpdate": spec.updates,
                     "structure": structure_enabled,
@@ -319,6 +322,8 @@ class Laboratory:
             )
         if spec.lifecycle_profile not in LIFECYCLE_PROFILES:
             raise ValueError("unknown lifecycle profile")
+        if spec.phase_role not in {None, "canonical", "counterfactual"}:
+            raise ValueError("unknown phase role")
         topology_profile = resolve_topology_profile(
             spec.topology_profile, structure=spec.structure
         )
@@ -496,6 +501,12 @@ class Laboratory:
                     "carried-stream domain expansion requires a broader curriculum"
                 )
         phase_name = spec.phase_name or self._phase_name(topology_profile, profile)
+        phase_role = spec.phase_role or str(
+            manifest.get(
+                "currentRole",
+                "counterfactual" if manifest.get("parentCheckpoint") else "canonical",
+            )
+        )
         if spec.training_shard_tokens is not None and spec.phase_name is None:
             curriculum = (
                 "full-stream curriculum"
@@ -532,6 +543,7 @@ class Laboratory:
         phase = {
             "index": phase_index,
             "name": phase_name,
+            "role": phase_role,
             "startUpdate": start_update,
             "targetUpdate": target_update,
             "structure": structure_enabled,
@@ -577,6 +589,7 @@ class Laboratory:
                 "gpuUuid": spec.gpu_uuid,
                 "configuration": configuration,
                 "phaseHistory": history,
+                "currentRole": phase_role,
                 "commit": self._git_commit(),
                 "command": command,
                 "lastContinuationCheckpointSha256": checkpoint_sha256,
@@ -591,6 +604,7 @@ class Laboratory:
                 "organismId": organism_id,
                 "phaseIndex": phase_index,
                 "phaseName": phase_name,
+                "phaseRole": phase_role,
                 "structure": structure_enabled,
                 "topologyProfile": topology_profile,
                 "lifecycleProfile": profile,
@@ -615,6 +629,7 @@ class Laboratory:
             "runId": spec.run_id,
             "organismId": organism_id,
             "phaseIndex": phase_index,
+            "phaseRole": phase_role,
             "checkpointSha256": checkpoint_sha256,
             "pid": process.pid,
             "status": "running",
@@ -673,6 +688,7 @@ class Laboratory:
                         "branchRootRunId", spec.source_run_id
                     ),
                     "branchDepth": int(manifest.get("branchDepth", 0) or 0) + 1,
+                    "currentRole": "counterfactual",
                     "branchedAt": time.time(),
                 }
             )
@@ -686,6 +702,7 @@ class Laboratory:
                     "sourceRunId": spec.source_run_id,
                     "forkRunId": spec.fork_run_id,
                     "checkpointSha256": checkpoint_sha256,
+                    "phaseRole": "counterfactual",
                     "timestamp": time.time(),
                 },
             )
@@ -697,6 +714,7 @@ class Laboratory:
             "runId": spec.fork_run_id,
             "organismId": organism_id,
             "parentCheckpoint": parent_checkpoint,
+            "phaseRole": "counterfactual",
             "status": "checkpointed",
         }
 
@@ -1406,6 +1424,12 @@ class Laboratory:
                     ),
                     "configuration": configuration,
                     "organismId": manifest.get("organismId"),
+                    "currentRole": manifest.get(
+                        "currentRole",
+                        "counterfactual"
+                        if manifest.get("parentCheckpoint")
+                        else "canonical",
+                    ),
                     "phaseHistory": phase_history,
                     "parentCheckpoint": manifest.get("parentCheckpoint"),
                     "branchRootRunId": manifest.get("branchRootRunId"),
