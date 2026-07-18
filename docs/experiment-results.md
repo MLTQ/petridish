@@ -594,3 +594,13 @@ decoder 0.611, token encoder 1.467, cell rule 9.108, and synapses 5.761. Conditi
 credit dominates the unigram-bias gradient, but the physical graph receives large
 gradients despite contributing harmful traffic. The same lineage is now expanding to
 2,048 bytes with its fixed 16,565-edge graph and 96,000-token electrical age intact.
+
+The 4090 local organism's fixed-graph 8,192-byte phase was stopped checkpoint-safely
+at update 1,301 after 301 updates because phase-local accuracy remained 18.99%. A
+larger 1,024-byte read-only audit measured 19.82% validation accuracy and space-only
+generation. Yet topology causality remained strong: graph silence worsened loss by
+0.02182, global source rotation by 6.33700, and within-destination weight reassignment
+by 0.63901. This is robust evidence that endpoint identity and synaptic pairing affect
+computation, but not evidence of useful byte prediction. The same local-only lineage
+is now on the 128-byte overfit control with its cells, 17,130-edge graph, optimizer,
+and 83,264-token electrical history preserved.
