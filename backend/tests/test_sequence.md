@@ -72,7 +72,8 @@ remain finite, and survive checkpoints. The
 state-horizon curve must report ordered window/token spans from identical validation
 tokens while advancing the sampler exactly once. The
 state-lane regression must alternate two independent persistent trajectories at
-batch one, retain both states, and report their exact age range. Pre-update process
+batch one, retain both states, report their exact age range, and expose authoritative
+structure/lifecycle gate reasons. Pre-update process
 failures must persist a newline-free, bounded record. The
 excitotoxicity regression verifies stun, seeded recovery without
 edge deletion, and lethal classification only after accumulated damage crosses the

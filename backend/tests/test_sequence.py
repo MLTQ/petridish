@@ -661,6 +661,10 @@ def test_round_robin_state_lanes_add_trajectory_diversity_at_batch_one() -> None
     assert metrics["stateLanes"] == 2
     assert metrics["minimumElectricalStateTokens"] == 8
     assert metrics["maximumElectricalStateTokens"] == 16
+    assert metrics["structureUnlocked"] is False
+    assert metrics["structureUnlockReason"] == "disabled by configuration"
+    assert metrics["structuralWarmupRemaining"] >= 0
+    assert metrics["lifecycleReason"] == "disabled by configuration"
 
 
 def test_continuous_training_state_survives_checkpoint_resume(tmp_path: Path) -> None:

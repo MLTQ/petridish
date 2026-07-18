@@ -44,6 +44,14 @@ interface MetricRecord {
   cumulativeRecoveries?: number;
   cumulativeGrownEdges?: number;
   cumulativePrunedEdges?: number;
+  lifecycleActive?: boolean;
+  lifecycleReason?: string;
+  lifecycleWarmupRemaining?: number;
+  structureUnlocked?: boolean;
+  structureUnlockReason?: string;
+  structuralWarmupRemaining?: number;
+  structurePlateauRemaining?: number;
+  structuralInterval?: number;
   generationPrompt?: string;
   generationSample?: string;
   generationUniqueTokenRatio?: number;
@@ -644,10 +652,10 @@ export class LaboratoryView {
         ? `${String(run.configuration.streamMode ?? "windowed")} · retention ${String(run.configuration.stateRetention ?? "1 legacy")} · ${String(run.configuration.stateLanes ?? 1)} state lane${Number(run.configuration.stateLanes ?? 1) === 1 ? "" : "s"} · ${stateAge} · ${diagnostic.minimumOutputHops ?? "—"}/${diagnostic.medianOutputHops ?? "—"} hops · ${diagnostic.tokenReachableOutputs ?? 0}/${diagnostic.contextReachableOutputs ?? 0}/${diagnostic.reachableOutputs ?? 0} token/context/graph · broadcast ${String(run.configuration.broadcastGain ?? "legacy")}${(diagnostic.tokenReachableOutputs ?? 0) === 0 && Number(run.configuration.messageSteps ?? 0) < Number(diagnostic.minimumOutputHops ?? 0) ? ` · insufficient ${run.configuration.messageSteps ?? "—"} < ${diagnostic.minimumOutputHops ?? "—"}` : ""}`
         : "—";
       const lifecycle = diagnostic
-        ? `${String(run.configuration.lifecycleProfile ?? (run.configuration.lifecycle ? "baseline" : "off"))} · ${diagnostic.stunnedCells ?? 0} stunned · +${diagnostic.cumulativeBirths ?? 0}/−${diagnostic.cumulativeDeaths ?? 0} cells · ${diagnostic.cumulativeStuns ?? 0}/${diagnostic.cumulativeRecoveries ?? 0} stun/recover`
+        ? `${String(run.configuration.lifecycleProfile ?? (run.configuration.lifecycle ? "baseline" : "off"))} · ${diagnostic.lifecycleReason ?? (diagnostic.lifecycleActive ? "active" : "inactive")}${(diagnostic.lifecycleWarmupRemaining ?? 0) > 0 ? ` · ${diagnostic.lifecycleWarmupRemaining} warm-up updates` : ""} · ${diagnostic.stunnedCells ?? 0} stunned · +${diagnostic.cumulativeBirths ?? 0}/−${diagnostic.cumulativeDeaths ?? 0} cells · ${diagnostic.cumulativeStuns ?? 0}/${diagnostic.cumulativeRecoveries ?? 0} stun/recover`
         : "—";
       const structure = diagnostic
-        ? `${run.configuration.structure === false ? "fixed" : "adaptive"} · +${diagnostic.cumulativeGrownEdges ?? 0}/−${diagnostic.cumulativePrunedEdges ?? 0} edges · ${diagnostic.pruneEligibleEdges ?? 0} eligible · gen ${diagnostic.generation ?? 0}`
+        ? `${run.configuration.structure === false ? "fixed" : diagnostic.structureUnlocked ? "adaptive active" : "adaptive locked"} · ${diagnostic.structureUnlockReason ?? "reason unreported"}${(diagnostic.structuralWarmupRemaining ?? 0) > 0 ? ` · ${diagnostic.structuralWarmupRemaining} warm-up updates` : !diagnostic.structureUnlocked && (diagnostic.structurePlateauRemaining ?? 0) > 0 ? ` · ≤${diagnostic.structurePlateauRemaining} plateau updates` : ""} · +${diagnostic.cumulativeGrownEdges ?? 0}/−${diagnostic.cumulativePrunedEdges ?? 0} edges · ${diagnostic.pruneEligibleEdges ?? 0} eligible · gen ${diagnostic.generation ?? 0}`
         : "—";
       const sample = heldOut?.generationSample === undefined
         ? "—"

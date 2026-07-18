@@ -43,8 +43,9 @@ The trainer writes one append-only JSONL record per optimizer update, a measured
 topology/routing/lifecycle diagnostic at the progress interval, and separate
 held-out records at an infrequent configurable interval. Diagnostics distinguish
 physical from conducting edges, report pruning pressure and exact cumulative edge
-turnover, and compare output reach within one token, one context, and the complete
-graph. Held-out records include a fixed-prompt greedy continuation and diversity ratio;
+turnover, expose lifecycle/structure gate reasons plus remaining warm-up or plateau
+budget, and compare output reach within one token, one context, and the complete graph.
+Held-out records include a fixed-prompt greedy continuation and diversity ratio;
 token-corpus records also carry exact unigram and bigram validation baselines;
 those baselines include add-one-smoothed loss so model perplexity is calibrated as
 well as top-one accuracy;

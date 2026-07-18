@@ -236,6 +236,7 @@ def _scientific_metrics(experiment: SequenceExperiment) -> dict[str, Any]:
         if experiment.state_lanes > 1 else [experiment._training_runtime_state]
     )
     lane_ages = [state.position for state in lane_states if state is not None]
+    plateau_age = experiment.training_step - experiment.last_accuracy_improvement_step
     return {
         "electricalStateTokens": (
             experiment._training_runtime_state.position
@@ -262,7 +263,15 @@ def _scientific_metrics(experiment: SequenceExperiment) -> dict[str, Any]:
         ),
         "outputCount": substrate.output_count,
         "lifecycleActive": experiment.lifecycle_active,
+        "lifecycleReason": experiment.lifecycle_reason,
+        "lifecycleWarmupRemaining": experiment.lifecycle_warmup_remaining,
         "structureUnlocked": experiment.structure_unlocked,
+        "structureUnlockReason": experiment.structure_unlock_reason,
+        "structuralWarmupRemaining": experiment.structural_warmup_remaining,
+        "structurePlateauRemaining": max(
+            0, config.structure_plateau_trials - plateau_age
+        ),
+        "structuralInterval": config.structural_interval,
         "lastBirths": experiment.last_births,
         "lastDeaths": experiment.last_deaths,
         "cumulativeBirths": experiment.cumulative_births,

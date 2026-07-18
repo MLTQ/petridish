@@ -28,6 +28,8 @@ validated launch or stop requests.
 - **Does**: Shows measured physical/conducting topology, token/context/graph reach,
   cell and edge turnover, pruning pressure, and the latest fixed-prompt generation
   for each selected corpus run.
+- **Does**: Shows authoritative topology/lifecycle gate reasons and remaining warm-up
+  or plateau budget so zero turnover is not mistaken for a reset or broken mutation.
 - **Does**: Aggregates held-out position accuracy into `p0–3`, `p4–15`, and `p16+`
   bands, separating organism startup/settling from steady-state token prediction.
 - **Does**: Places exact corpus unigram and bigram accuracy beside those bands so
