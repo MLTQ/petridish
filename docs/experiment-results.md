@@ -1496,3 +1496,60 @@ The treatment must now continue long enough to receive an actual breadth dose. A
 10.2% genuinely novel input under the preserved cursor schedule. Its 500-update
 endpoint remains frozen as the short-exposure reference; a matched long control can
 be run sequentially on the 2070 while the unrelated 4090 workload remains untouched.
+
+## Phase 22 — Sustained lived breadth exposes specialization rather than language
+
+The phase-21 treatment endpoint was copied exactly into
+`nca-u16250-16k-long`. Its parent fingerprint was
+`3377863fe20c1c5ccd10c02f563568d9c8d09da611d8fc3e3154c1e3375b589b`;
+the source remained frozen at that hash. The descendant continued the same organism
+from update 16,250 through 18,750 on the 2070 with fixed topology, lifecycle off,
+and persistent-state gradients only. No lane, cursor, runtime state, cell, graph,
+optimizer, or RNG was reconstructed. The terminal checkpoint retained organism ID
+`organism-b2505376398a491e8cf4150a5daf3fab`, 2,224 cells, all 13,737 learned edges,
+169/169 distinct active runtime trajectories, 169 current 16K domains, and the exact
+origin tensor of 16×2K, 89×4K, and 64×8K. Electrical ages spanned
+2,048–156,992 tokens. Terminal SHA is
+`c6a38e5a38a27830f22307ff50e22bf5155b994920da69083103d9b283b4686d`.
+
+The treatment received the planned breadth dose. Phase 22 contained 19,067 novel
+tokens in 314 of 2,500 windows. Combined with phase 21, the living organism received
+19,638 genuinely beyond-origin tokens in 325 of 3,000 windows: 10.228% of 192,000
+sensory tokens. Phase-22 familiar windows still reached 68.68% / 1.28279, while
+novel windows reached only 35.51% / 2.78488. Their mixture produced 64.51% /
+1.47145 overall and 63.65% / 1.51429 over the terminal 160 windows. The comparison
+therefore cannot be read from aggregate accuracy alone: performance loss is
+concentrated where the same persistent trajectories actually encounter unseen text.
+
+Gradient clipping remained severe but stable rather than failing numerically. Median
+clip scale was 0.06227, the tenth percentile was 0.03771, and 87.76% of updates were
+at or below 0.1. Every update stayed finite. This is a continuing optimization
+pressure, but not an explanation based on a reset, crash, or one-off gradient spike.
+
+Broader lived input did not yield language generalization. The last scheduled
+validation audit at update 18,500 measured 9.77% / 5.12549, below the 19.09% unigram
+and 31.44% bigram accuracy baselines. A disposable zero-state copy measured 9.38% /
+4.84700: persistent electricity was nearly neutral for top-one choice and harmful
+for loss on unrelated validation text. The learned connectome remained causal.
+Silencing it cost 4.30 accuracy points and 0.10087 loss; rotating endpoints cost
+1.17 points and 0.27489 loss; reassigning source/weight pairs cost 3.13 points and
+0.32242 loss. The organism is not bypassing or regenerating its structure, but that
+structure implements a stream-specialized solution. Fixed-prompt generation collapsed
+to 31.25% unique tokens and remained incoherent: `  pa    ss aa  f`.
+
+Commits `db07c3a` and `6c4fab9` make this continuity and exposure visible. Every new
+phase now fingerprints its exact source checkpoint in the manifest, phase boundary,
+append-only metric, API response, and laboratory UI. Fixed topology is labeled as a
+learned graph that is frozen but still conducting. Trainer records now accumulate
+phase novel tokens/windows across same-phase worker resumes, rather than exposing
+only whichever familiar or novel window happened to be current when the browser
+polled.
+
+The matched long control began only after the treatment exited and atomically saved.
+`nca-u16250-8k-long-control` resumed on the same 2070 from its untouched phase-21
+control checkpoint at exact SHA
+`839275ae9474522ac227f1a743d48045ac009ff0658bb3313dd96be1d1437bad`.
+Its recorded phase-22 source fingerprint matches that value, its target is the same
+18,750 update, and it retains the 16×2K, 89×4K, and 64×8K replay domains. This
+sequential same-GPU control will distinguish harm from genuinely novel input from
+ordinary long-run drift before the next mechanism changes.
