@@ -10,6 +10,8 @@ control-enable contracts without requiring NVIDIA hardware or launching trainers
 ### Metrics and discovery tests
 - **Does**: Verify partial JSONL records are ignored, payload size is bounded, and
   latest training/held-out measurements remain distinct.
+- **Does**: Keeps the latest scientific diagnostic separate from optimizer and
+  held-out/generation records.
 
 ### Safety tests
 - **Does**: Reject path traversal and process launch when control is disabled.

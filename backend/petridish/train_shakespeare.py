@@ -39,6 +39,8 @@ def _experiment_state(experiment: SequenceExperiment) -> dict[str, Any]:
         "last_death_causes", "cumulative_births", "cumulative_deaths",
         "cumulative_death_causes", "last_stuns", "last_recoveries",
         "cumulative_stuns", "cumulative_recoveries",
+        "last_grown_edges", "last_pruned_edges", "cumulative_grown_edges",
+        "cumulative_pruned_edges",
     )
     state = {name: getattr(experiment, name) for name in names}
     state.update(
@@ -157,6 +159,73 @@ def _gradients_finite(experiment: SequenceExperiment) -> bool:
         parameter.grad is None or bool(torch.isfinite(parameter.grad).all())
         for parameter in experiment.model.parameters()
     )
+
+
+@torch.no_grad()
+def _scientific_metrics(experiment: SequenceExperiment) -> dict[str, Any]:
+    """Measure topology, routing, pruning pressure, and cellular lifecycle state."""
+
+    substrate = experiment.model.substrate
+    config = experiment.config
+    living = substrate.living_sites
+    active = substrate.active_edge_mask
+    safe_sources = substrate.dendrite_source.clamp_min(0)
+    responsive = active & ~substrate.stunned.unsqueeze(1) & ~substrate.stunned[safe_sources]
+    prune_eligible = (
+        responsive
+        & (substrate.edge_age >= config.edge_grace_trials)
+        & (substrate.edge_utility < config.prune_utility)
+    )
+    diagnostics = substrate.graph_diagnostics()
+    context_budget = config.message_steps * experiment.task.sequence_length
+    return {
+        "generation": substrate.generation,
+        "livingCells": int(living.numel()),
+        "stunnedCells": int(substrate.stunned[living].sum()),
+        "meanEnergy": float(substrate.energy[living].mean()),
+        "meanExcitotoxicDamage": float(substrate.excitotoxic_damage[living].mean()),
+        "edgeCount": int(active.sum()),
+        "conductingEdgeCount": int(responsive.sum()),
+        "pruneEligibleEdges": int(prune_eligible.sum()),
+        "minimumOutputHops": diagnostics.minimum_output_hops,
+        "medianOutputHops": diagnostics.median_output_hops,
+        "reachableOutputs": diagnostics.reachable_outputs,
+        "tokenReachableOutputs": diagnostics.temporally_reachable_outputs,
+        "contextReachableOutputs": sum(
+            hops <= context_budget for hops in diagnostics.output_hops
+        ),
+        "outputCount": substrate.output_count,
+        "lifecycleActive": experiment.lifecycle_active,
+        "structureUnlocked": experiment.structure_unlocked,
+        "lastBirths": experiment.last_births,
+        "lastDeaths": experiment.last_deaths,
+        "cumulativeBirths": experiment.cumulative_births,
+        "cumulativeDeaths": experiment.cumulative_deaths,
+        "lastStuns": experiment.last_stuns,
+        "lastRecoveries": experiment.last_recoveries,
+        "cumulativeStuns": experiment.cumulative_stuns,
+        "cumulativeRecoveries": experiment.cumulative_recoveries,
+        "lastGrownEdges": experiment.last_grown_edges,
+        "lastPrunedEdges": experiment.last_pruned_edges,
+        "cumulativeGrownEdges": experiment.cumulative_grown_edges,
+        "cumulativePrunedEdges": experiment.cumulative_pruned_edges,
+    }
+
+
+@torch.no_grad()
+def _generation_diagnostics(experiment: SequenceExperiment) -> dict[str, Any]:
+    """Return one fixed-prompt greedy continuation without consuming sampler state."""
+
+    if experiment.task.encode is None or experiment.task.decode is None:
+        return {}
+    prompt = "Once upon a time" if experiment.task.key == "tiny_stories" else "ROMEO:"
+    sample, token_ids = experiment.greedy_completion(prompt, max_tokens=16)
+    return {
+        "generationPrompt": prompt,
+        "generationSample": sample,
+        "generationTokenCount": len(token_ids),
+        "generationUniqueTokenRatio": len(set(token_ids)) / max(1, len(token_ids)),
+    }
 
 
 def _fresh_config(
@@ -304,9 +373,20 @@ def main() -> None:
             held_out = experiment.evaluate_metrics(max(1, args.eval_batches))
             _append_metric(
                 metrics_path,
-                {"type": "held_out", "update": experiment.training_step, **held_out},
+                {
+                    "type": "held_out", "update": experiment.training_step,
+                    **held_out, **_scientific_metrics(experiment),
+                    **_generation_diagnostics(experiment),
+                },
             )
         if experiment.training_step % max(1, args.progress_interval) == 0:
+            _append_metric(
+                metrics_path,
+                {
+                    "type": "diagnostic", "update": experiment.training_step,
+                    **_scientific_metrics(experiment),
+                },
+            )
             elapsed = time.perf_counter() - interval_started
             finite = _gradients_finite(experiment)
             allocated = (
@@ -321,7 +401,7 @@ def main() -> None:
                 f"update={experiment.training_step} loss={experiment.rolling_loss:.4f} "
                 f"accuracy={experiment.rolling_accuracy:.4f} "
                 f"updates/s={interval_updates / elapsed:.3f} "
-                f"chars/s={interval_updates * config.batch_size * args.context_length / elapsed:.1f} "
+                f"tokens/s={interval_updates * config.batch_size * args.context_length / elapsed:.1f} "
                 f"gpu={allocated:.2f}/{reserved:.2f}GiB finite={finite}",
                 flush=True,
             )

@@ -37,6 +37,8 @@ class StructuralUpdate:
     deaths: int
     death_causes: dict[str, int]
     recoveries: int = 0
+    grown_edges: int = 0
+    pruned_edges: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,6 +49,7 @@ class GraphDiagnostics:
     median_output_hops: float | None
     reachable_outputs: int
     temporally_reachable_outputs: int
+    output_hops: tuple[int, ...]
 
 
 class SpatialSubstrate(nn.Module):
@@ -312,6 +315,7 @@ class SpatialSubstrate(nn.Module):
             median,
             len(ordered),
             sum(value <= self.config.message_steps for value in ordered),
+            tuple(ordered),
         )
         return self._diagnostic_cache
 
@@ -464,6 +468,7 @@ class SpatialSubstrate(nn.Module):
             source = int(self.dendrite_source[target, slot])
             if source >= 0:
                 events.append({"type": "pruned", "source": source, "destination": target})
+        pruned_edges = int(prune_mask.sum())
         self._clear_edges(prune_mask)
         changed |= prune_mask
 
@@ -487,8 +492,13 @@ class SpatialSubstrate(nn.Module):
         )
         changed_sites[born_sites] = True
         changed |= birth_edges
-        if apply_topology:
-            changed |= self._discover_and_grow(events)
+        growth_edges = (
+            self._discover_and_grow(events)
+            if apply_topology
+            else torch.zeros_like(self.dendrite_source, dtype=torch.bool)
+        )
+        changed |= growth_edges
+        grown_edges = int(birth_edges.sum()) + int(growth_edges.sum())
         self.roles[:, 0] = self.occupied.float()
         self._diagnostic_cache = None
         return StructuralUpdate(
@@ -499,6 +509,8 @@ class SpatialSubstrate(nn.Module):
             int(dead_sites.numel()),
             death_causes,
             len(recovered_sites),
+            grown_edges,
+            pruned_edges,
         )
 
     @torch.no_grad()

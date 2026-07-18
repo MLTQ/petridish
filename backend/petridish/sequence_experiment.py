@@ -121,6 +121,10 @@ class SequenceExperiment:
         self.cumulative_recoveries = 0
         self.cumulative_births = 0
         self.cumulative_deaths = 0
+        self.last_grown_edges = 0
+        self.last_pruned_edges = 0
+        self.cumulative_grown_edges = 0
+        self.cumulative_pruned_edges = 0
         self.cumulative_death_causes = {
             "starvation": 0, "excitotoxicity": 0, "maintenance": 0
         }
@@ -325,6 +329,8 @@ class SequenceExperiment:
         self.cumulative_stuns += self.last_stuns
         self.last_births = 0
         self.last_deaths = 0
+        self.last_grown_edges = 0
+        self.last_pruned_edges = 0
         self.last_death_causes = {"starvation": 0, "excitotoxicity": 0, "maintenance": 0}
         lifecycle_due = lifecycle_active and (
             completed - self.config.lifecycle_warmup_trials
@@ -344,6 +350,10 @@ class SequenceExperiment:
             self.cumulative_recoveries += update.recoveries
             self.last_births = update.births
             self.last_deaths = update.deaths
+            self.last_grown_edges = update.grown_edges
+            self.last_pruned_edges = update.pruned_edges
+            self.cumulative_grown_edges += update.grown_edges
+            self.cumulative_pruned_edges += update.pruned_edges
             self.last_death_causes.update(update.death_causes)
             self.cumulative_births += update.births
             self.cumulative_deaths += update.deaths
@@ -506,6 +516,36 @@ class SequenceExperiment:
         self.visual_cursor = max(0, len(result.frames) - 1)
         self.next_token_prediction = self.task.vocabulary[int(self.last_predictions[-1])]
         return generated
+
+    @torch.no_grad()
+    def greedy_completion(
+        self, prompt: str, *, max_tokens: int = 16
+    ) -> tuple[str, list[int]]:
+        """Generate a deterministic diagnostic without mutating interactive state."""
+
+        if self.task.encode is None or self.task.decode is None:
+            raise ValueError("generation diagnostics are available only for corpus tasks")
+        token_ids = self.task.encode(prompt or "\n")[-self.task.sequence_length :]
+        tokens = torch.tensor(token_ids, device=self.device).unsqueeze(0)
+        was_training = self.model.training
+        self.model.eval()
+        try:
+            result = self.model(tokens, capture_trace=False)
+            runtime_state = result.runtime_state
+            next_logits = result.logits[0, -1]
+            generated_ids: list[int] = []
+            for _ in range(max(1, max_tokens)):
+                token = int(next_logits.argmax())
+                generated_ids.append(token)
+                next_input = torch.tensor([[token]], device=self.device)
+                result = self.model(
+                    next_input, capture_trace=False, runtime_state=runtime_state
+                )
+                runtime_state = result.runtime_state
+                next_logits = result.logits[0, -1]
+        finally:
+            self.model.train(was_training)
+        return self.task.decode(generated_ids), generated_ids
 
     @torch.no_grad()
     def _preview_text(self, text: str) -> None:
@@ -691,6 +731,10 @@ class SequenceExperiment:
         self._reset_mutation_optimizer_state(update.changed_edges, update.changed_sites)
         self.last_births = update.births
         self.last_deaths = update.deaths
+        self.last_grown_edges = update.grown_edges
+        self.last_pruned_edges = update.pruned_edges
+        self.cumulative_grown_edges += update.grown_edges
+        self.cumulative_pruned_edges += update.pruned_edges
         self.last_death_causes = {
             "starvation": 0, "excitotoxicity": 0, "maintenance": 0, **update.death_causes
         }

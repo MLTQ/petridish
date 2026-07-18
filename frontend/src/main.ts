@@ -275,9 +275,13 @@ function receiveSnapshot(snapshot: ExperimentSnapshot): void {
     `${snapshot.metrics.meanEnergy.toFixed(3)} · ${snapshot.metrics.stressedCells.toLocaleString()} stressed`,
   );
   text("#metric-age", `${snapshot.metrics.meanAge.toFixed(1)} trials`);
+  const sequenceTask = snapshot.task.kind === "sequence" ? snapshot.task : null;
+  text("#metric-turnover-label", sequenceTask ? "turnover (cells · edges)" : "population turnover");
   text(
     "#metric-turnover",
-    `${snapshot.task.cumulativeBirths.toLocaleString()} born · ${snapshot.task.cumulativeDeaths.toLocaleString()} died`,
+    sequenceTask
+      ? `+${sequenceTask.cumulativeBirths.toLocaleString()}/−${sequenceTask.cumulativeDeaths.toLocaleString()} · +${sequenceTask.cumulativeGrownEdges.toLocaleString()}/−${sequenceTask.cumulativePrunedEdges.toLocaleString()}`
+      : `${snapshot.task.cumulativeBirths.toLocaleString()} born · ${snapshot.task.cumulativeDeaths.toLocaleString()} died`,
   );
   text(
     "#metric-death-causes",
@@ -296,8 +300,14 @@ function receiveSnapshot(snapshot: ExperimentSnapshot): void {
       : `${minimumHops} min · ${medianHops ?? minimumHops} median`,
   );
   text(
+    "#metric-reachability-label",
+    sequenceTask ? "output reach token / context / graph" : "output reach step / graph",
+  );
+  text(
     "#metric-reachability",
-    `${snapshot.metrics.temporallyReachableOutputs ?? 0}/${snapshot.metrics.reachableOutputs ?? 0}`,
+    sequenceTask
+      ? `${snapshot.metrics.temporallyReachableOutputs ?? 0}/${snapshot.metrics.contextReachableOutputs ?? 0}/${snapshot.metrics.reachableOutputs ?? 0}`
+      : `${snapshot.metrics.temporallyReachableOutputs ?? 0}/${snapshot.metrics.reachableOutputs ?? 0}`,
   );
   text("#metric-attention", (snapshot.metrics.meanAttentionEntropy ?? 0).toFixed(3));
   text(

@@ -20,6 +20,8 @@ values.
 Cell channels append measured stunned state and cumulative excitotoxic damage.
 Task and metric payloads report current and cumulative stun/recovery counts so
 temporary silencing remains distinct from pruning and death.
+They also report exact edge growth/pruning totals and distinguish output reach in
+one token from reach accumulated across the full persistent context.
 
-The Tiny Shakespeare configuration payload includes 68 among its discrete field
-choices; other tasks retain only their existing power-of-two choices.
+Both corpus configuration payloads include the 68×68 single-column geometry among
+their discrete field choices; non-corpus tasks retain power-of-two choices.

@@ -30,6 +30,8 @@ birth, inherited lineage, cause-classified death, content-aware growth, and prun
 ### `GraphDiagnostics` / `graph_diagnostics`
 - **Does**: Caches directed sensory-to-output hop distance and temporal
   reachability until topology changes.
+- **Does**: Retains the bounded output-hop distribution so sequence experiments
+  can distinguish one-token reach from reach accumulated across a context.
 
 ### `GraphSnapshot`
 - **Does**: Detaches dendrite sources, weights, utility, measured forward flow,
@@ -56,6 +58,8 @@ birth, inherited lineage, cause-classified death, content-aware growth, and prun
 ### `structural_step`
 - **Does**: Independently gates topology mutation and lifecycle turnover, reports
   death causes, and returns every changed edge and genotype site.
+- **Does**: Reports exact grown and pruned edge counts independently from the
+  bounded event list used for visualization.
 - **Rationale**: Topology mutates only between differentiable trials.
 - **Rationale**: A connection requires a free target dendrite and unused source
   axon capacity; both incoming and outgoing maintenance drain energy.

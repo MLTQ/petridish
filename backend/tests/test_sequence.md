@@ -39,6 +39,9 @@ sequence split across incremental calls produces the same logits as one uninterr
 forward pass. The excitotoxicity regression verifies stun, seeded recovery without
 edge deletion, and lethal classification only after accumulated damage crosses the
 configured threshold.
+Headless diagnostics separately verify physical/conducting edges, one-token/context/
+graph reachability ordering, and exact pruning counts. Fixed-prompt greedy generation
+must be repeatable without consuming the training sampler or mutating interactive state.
 
 Benchmark artifact replacement is required to be atomic so the polling laboratory
 sees either the previous complete JSON document or the next one, never a partial write.

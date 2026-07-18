@@ -232,6 +232,9 @@ class Laboratory:
             latest_held_out = next(
                 (record for record in reversed(records) if record.get("type") == "held_out"), None
             )
+            latest_diagnostics = next(
+                (record for record in reversed(records) if record.get("type") == "diagnostic"), None
+            )
             running = active.get(directory.name)
             manifest_pid = int(manifest.get("pid", 0) or 0)
             if running is None and manifest_pid > 0 and self._pid_alive(manifest_pid):
@@ -248,6 +251,7 @@ class Laboratory:
                     "commit": manifest.get("commit"),
                     "latestTrain": latest_train,
                     "latestHeldOut": latest_held_out,
+                    "latestDiagnostics": latest_diagnostics,
                     "hasCheckpoint": has_checkpoint,
                 }
             )

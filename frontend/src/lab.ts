@@ -17,13 +17,36 @@ interface GpuSnapshot {
 }
 
 interface MetricRecord {
-  type: "train" | "held_out";
+  type: "train" | "held_out" | "diagnostic";
   update: number;
   loss?: number;
   rollingLoss?: number;
   accuracy?: number;
   targetCharactersPerSecond?: number;
   targetTokensPerSecond?: number;
+  generation?: number;
+  livingCells?: number;
+  stunnedCells?: number;
+  meanEnergy?: number;
+  meanExcitotoxicDamage?: number;
+  edgeCount?: number;
+  conductingEdgeCount?: number;
+  pruneEligibleEdges?: number;
+  minimumOutputHops?: number | null;
+  medianOutputHops?: number | null;
+  reachableOutputs?: number;
+  tokenReachableOutputs?: number;
+  contextReachableOutputs?: number;
+  outputCount?: number;
+  cumulativeBirths?: number;
+  cumulativeDeaths?: number;
+  cumulativeStuns?: number;
+  cumulativeRecoveries?: number;
+  cumulativeGrownEdges?: number;
+  cumulativePrunedEdges?: number;
+  generationPrompt?: string;
+  generationSample?: string;
+  generationUniqueTokenRatio?: number;
 }
 
 interface RunSnapshot {
@@ -37,6 +60,7 @@ interface RunSnapshot {
   commit: string | null;
   latestTrain: MetricRecord | null;
   latestHeldOut: MetricRecord | null;
+  latestDiagnostics: MetricRecord | null;
   hasCheckpoint: boolean;
 }
 
@@ -120,6 +144,7 @@ export class LaboratoryView {
   private readonly runsHost = required<HTMLTableSectionElement>("#laboratory-runs");
   private readonly chart = required<SVGSVGElement>("#laboratory-chart");
   private readonly legend = required<HTMLElement>("#laboratory-chart-legend");
+  private readonly diagnosticsHost = required<HTMLTableSectionElement>("#laboratory-diagnostics");
   private readonly status = required<HTMLOutputElement>("#laboratory-status");
   private readonly refreshButton = required<HTMLButtonElement>("#laboratory-refresh");
   private readonly form = required<HTMLFormElement>("#laboratory-launch-form");
@@ -179,6 +204,7 @@ export class LaboratoryView {
     const known = new Set(snapshot.runs.map((run) => run.id));
     this.selectedRuns = new Set([...this.selectedRuns].filter((id) => known.has(id)));
     this.renderRuns(snapshot.runs, snapshot.gpus);
+    this.renderRunDiagnostics(snapshot.runs);
     this.populateSelect(
       this.gpuSelect,
       snapshot.gpus.map((gpu) => ({ value: gpu.uuid, label: gpu.name })),
@@ -409,6 +435,7 @@ export class LaboratoryView {
         }
         if (checkbox.checked) this.selectedRuns.add(run.id);
         else this.selectedRuns.delete(run.id);
+        this.renderRunDiagnostics(this.snapshot?.runs ?? []);
         void this.refreshHistories();
       });
       const compare = document.createElement("td");
@@ -452,6 +479,42 @@ export class LaboratoryView {
       rows.push(row);
     }
     this.runsHost.replaceChildren(...rows);
+  }
+
+  private renderRunDiagnostics(runs: RunSnapshot[]): void {
+    const selected = runs.filter((run) => this.selectedRuns.has(run.id));
+    const rows = selected.map((run) => {
+      const diagnostic = run.latestDiagnostics;
+      const heldOut = run.latestHeldOut;
+      const row = document.createElement("tr");
+      const graph = diagnostic
+        ? `${diagnostic.livingCells ?? "—"} cells · ${diagnostic.edgeCount ?? "—"} physical · ${diagnostic.conductingEdgeCount ?? "—"} conducting`
+        : "—";
+      const routing = diagnostic
+        ? `${diagnostic.minimumOutputHops ?? "—"}/${diagnostic.medianOutputHops ?? "—"} hops · ${diagnostic.tokenReachableOutputs ?? 0}/${diagnostic.contextReachableOutputs ?? 0}/${diagnostic.reachableOutputs ?? 0} token/context/graph`
+        : "—";
+      const lifecycle = diagnostic
+        ? `${diagnostic.stunnedCells ?? 0} stunned · +${diagnostic.cumulativeBirths ?? 0}/−${diagnostic.cumulativeDeaths ?? 0} cells · ${diagnostic.cumulativeStuns ?? 0}/${diagnostic.cumulativeRecoveries ?? 0} stun/recover`
+        : "—";
+      const structure = diagnostic
+        ? `+${diagnostic.cumulativeGrownEdges ?? 0}/−${diagnostic.cumulativePrunedEdges ?? 0} edges · ${diagnostic.pruneEligibleEdges ?? 0} eligible · gen ${diagnostic.generation ?? 0}`
+        : "—";
+      const sample = heldOut?.generationSample === undefined
+        ? "—"
+        : `${heldOut.generationPrompt ?? ""} → ${this.compactSample(heldOut.generationSample)} · ${this.percent(heldOut.generationUniqueTokenRatio)} unique`;
+      for (const value of [run.id, graph, routing, lifecycle, structure, sample]) {
+        const cell = document.createElement("td");
+        cell.textContent = value;
+        row.append(cell);
+      }
+      return row;
+    });
+    if (rows.length === 0) {
+      const row = document.createElement("tr");
+      row.innerHTML = '<td colspan="6">Select a run to inspect measured organism diagnostics.</td>';
+      rows.push(row);
+    }
+    this.diagnosticsHost.replaceChildren(...rows);
   }
 
   private async refreshHistories(): Promise<void> {
@@ -590,5 +653,10 @@ export class LaboratoryView {
     const span = document.createElement("span");
     span.textContent = value;
     return span.innerHTML;
+  }
+
+  private compactSample(value: string): string {
+    const visible = value.replaceAll("\n", " ↵ ").replaceAll("\t", " ⇥ ").trim();
+    return visible.length <= 72 ? visible : `${visible.slice(0, 69)}…`;
   }
 }

@@ -56,6 +56,8 @@ inspection for every organism.
   and spaces cannot masquerade as missing data.
 - **Does**: Makes leading-space wordpieces explicit and reports measured energy,
   stunned population, cumulative damage, and excitotoxic deaths.
+- **Does**: Reports cumulative cell and edge turnover separately and distinguishes
+  output reach within one token, one persistent context, and the complete graph.
 - **Does**: Exposes headless training only for sequence organisms; stopping it asks
   the backend to rebuild a current trace before rendering resumes.
 - **Rationale**: Mode switches remain pending and disable the action until the

@@ -150,6 +150,10 @@ def build_sequence_snapshot(experiment: SequenceExperiment) -> dict[str, Any]:
             "recoveries": experiment.last_recoveries,
             "cumulativeStuns": experiment.cumulative_stuns,
             "cumulativeRecoveries": experiment.cumulative_recoveries,
+            "grownEdges": experiment.last_grown_edges,
+            "prunedEdges": experiment.last_pruned_edges,
+            "cumulativeGrownEdges": experiment.cumulative_grown_edges,
+            "cumulativePrunedEdges": experiment.cumulative_pruned_edges,
         },
         "metrics": {
             "reward": round(experiment.last_reward, 5),
@@ -172,6 +176,14 @@ def build_sequence_snapshot(experiment: SequenceExperiment) -> dict[str, Any]:
             "medianOutputHops": diagnostics.median_output_hops,
             "reachableOutputs": diagnostics.reachable_outputs,
             "temporallyReachableOutputs": diagnostics.temporally_reachable_outputs,
+            "contextReachableOutputs": sum(
+                hops <= cfg.message_steps * experiment.task.sequence_length
+                for hops in diagnostics.output_hops
+            ),
+            "lastGrownEdges": experiment.last_grown_edges,
+            "lastPrunedEdges": experiment.last_pruned_edges,
+            "cumulativeGrownEdges": experiment.cumulative_grown_edges,
+            "cumulativePrunedEdges": experiment.cumulative_pruned_edges,
             "activeParameters": active_parameters,
             "parametersPerLivingCell": round(active_parameters / max(1, living_count), 3),
             "device": str(experiment.device),

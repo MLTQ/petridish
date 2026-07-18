@@ -24,6 +24,13 @@ validated launch or stop requests.
 ### `drawChart`
 - **Does**: Draws comparable rolling loss against optimizer update using measured JSONL records.
 
+### `renderRunDiagnostics`
+- **Does**: Shows measured physical/conducting topology, token/context/graph reach,
+  cell and edge turnover, pruning pressure, and the latest fixed-prompt generation
+  for each selected corpus run.
+- **Rationale**: Loss alone cannot establish that a cellular routing or lifecycle
+  mechanism is functioning.
+
 ### `renderBenchmarks` / `drawBenchmarkChart`
 - **Does**: Tabulates persisted architecture sweeps and plots the newest matched
   task/profile/update cohort on a shared 0–100% held-out accuracy scale.

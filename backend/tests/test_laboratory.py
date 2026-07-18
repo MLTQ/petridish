@@ -63,6 +63,7 @@ def test_discovery_summarizes_latest_train_and_evaluation(tmp_path: Path) -> Non
         "\n".join(
             (
                 json.dumps({"type": "train", "update": 10, "loss": 3.5}),
+                json.dumps({"type": "diagnostic", "update": 10, "edgeCount": 812}),
                 json.dumps({"type": "held_out", "update": 10, "loss": 3.6}),
             )
         ),
@@ -75,6 +76,7 @@ def test_discovery_summarizes_latest_train_and_evaluation(tmp_path: Path) -> Non
     assert summary["status"] == "checkpointed"
     assert summary["latestTrain"]["loss"] == 3.5
     assert summary["latestHeldOut"]["loss"] == 3.6
+    assert summary["latestDiagnostics"]["edgeCount"] == 812
 
 
 def test_zombie_trainer_is_not_reported_as_alive(

@@ -15,6 +15,8 @@ experiment laboratory above the live organism.
 ### `.laboratory`
 - **Does**: Hosts measured GPU lanes, persisted-run comparison, rolling-loss chart,
   and an explicitly enabled launch form without displacing live dish controls.
+- **Does**: Places selected-run topology, routing, lifecycle, pruning, and fixed-prompt
+  generation evidence directly below the corresponding loss histories.
 - **Does**: Keeps historical topology-recovery data available to the laboratory
   parser but removes that lesion-oriented plot from the active investigation surface.
 - **Interacts with**: `LaboratoryView` in `lab.ts` and `/api/lab`.
@@ -55,6 +57,8 @@ experiment laboratory above the live organism.
 - **Does**: Expose learning phase, hop distance, temporal reachability, local
   attention entropy, effective capacity, lifecycle state, turnover, energy,
   stress, and death causes.
+- **Does**: Distinguishes cell turnover from edge growth/pruning and labels
+  sequence reach as token/context/complete-graph counts.
 
 ### MNIST phase readout
 - **Does**: Reuses the task heading/badge for input, forward traffic, backward

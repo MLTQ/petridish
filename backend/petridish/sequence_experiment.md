@@ -73,8 +73,14 @@ token, and records its measured frame. Generation never performs an optimizer or
 also reports the greedy next-token prediction so sampling can be distinguished from
 the model's modal choice.
 
+`greedy_completion` runs a deterministic incremental continuation for unattended
+checkpoint diagnostics. It preserves the training sampler, interactive prompt state,
+and model train/eval mode, so measurement cannot alter the organism's learning path.
+
 Training records stun and recovery events separately from births/deaths. Excitotoxic
 death counts only cumulative damage; transient overload is not classified as death.
+Exact edge-growth and pruning totals are retained independently from the bounded
+visual event stream and survive checkpoints.
 
 Corpus construction primes the viewer with only four measured tokens; this avoids a
 full training-context forward pass while the runtime lock is switching experiments.

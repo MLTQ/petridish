@@ -107,6 +107,10 @@ export interface SequenceTaskSnapshot {
   recoveries: number;
   cumulativeStuns: number;
   cumulativeRecoveries: number;
+  grownEdges: number;
+  prunedEdges: number;
+  cumulativeGrownEdges: number;
+  cumulativePrunedEdges: number;
 }
 
 export type TaskSnapshot = MnistTaskSnapshot | SequenceTaskSnapshot;
@@ -173,6 +177,11 @@ export interface ExperimentSnapshot {
     medianOutputHops?: number | null;
     reachableOutputs?: number;
     temporallyReachableOutputs?: number;
+    contextReachableOutputs?: number;
+    lastGrownEdges?: number;
+    lastPrunedEdges?: number;
+    cumulativeGrownEdges?: number;
+    cumulativePrunedEdges?: number;
     activeParameters?: number;
     parametersPerLivingCell?: number;
     device: string;

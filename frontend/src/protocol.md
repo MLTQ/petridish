@@ -36,6 +36,8 @@ Types every server snapshot and viewer command at the Python/TypeScript boundary
   tokenizer, prompt text, generated suffix, and the next greedy-token diagnostic.
 - **Does**: Publishes stun/recovery counts and excitotoxic death separately from
   ordinary turnover.
+- **Does**: Publishes exact edge growth/pruning totals and one-token versus
+  persistent-context output reach for sequence organisms.
 
 ### `HyperparameterSnapshot`
 - **Does**: Types one authoritative numeric slider definition and current value.

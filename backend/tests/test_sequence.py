@@ -29,7 +29,11 @@ from petridish.sequence_tasks import (
     resolve_sequence_task,
 )
 from petridish.token_corpus_task import build_token_task
-from petridish.train_shakespeare import _fresh_config, _migrate_model_state
+from petridish.train_shakespeare import (
+    _fresh_config,
+    _migrate_model_state,
+    _scientific_metrics,
+)
 
 
 def small_config():
@@ -483,6 +487,61 @@ def test_token_corpus_uses_one_64_port_column_per_boundary() -> None:
     assert (substrate.output_sites % config.width).unique().tolist() == [66]
     assert sorted((substrate.input_sites // config.width).tolist()) == list(range(1, 65))
     assert sorted((substrate.output_sites // config.width).tolist()) == list(range(1, 65))
+
+
+def test_greedy_generation_diagnostic_preserves_training_state() -> None:
+    text = "Once upon a time there was a little fox. " * 80
+    task = build_token_task(text, context_length=8, vocabulary_size=32)
+    experiment = SequenceExperiment(task, small_config(), seed=42, device="cpu")
+    experiment.model.train()
+    generator_state = experiment.generator.get_state().clone()
+    interactive_state = (
+        experiment.interactive_prompt,
+        experiment.generated_text,
+        experiment.next_token_prediction,
+    )
+
+    first, first_ids = experiment.greedy_completion("Once upon", max_tokens=4)
+    second, second_ids = experiment.greedy_completion("Once upon", max_tokens=4)
+
+    assert first == second
+    assert first_ids == second_ids
+    assert len(first_ids) == 4
+    assert experiment.model.training is True
+    assert torch.equal(experiment.generator.get_state(), generator_state)
+    assert (
+        experiment.interactive_prompt,
+        experiment.generated_text,
+        experiment.next_token_prediction,
+    ) == interactive_state
+
+
+def test_headless_scientific_metrics_separate_routing_and_lifecycle() -> None:
+    text = "Once upon a time there was a little fox. " * 80
+    task = build_token_task(text, context_length=8, vocabulary_size=32)
+    experiment = SequenceExperiment(task, small_config(), seed=43, device="cpu")
+    metrics = _scientific_metrics(experiment)
+
+    assert metrics["edgeCount"] >= metrics["conductingEdgeCount"]
+    assert metrics["contextReachableOutputs"] >= metrics["tokenReachableOutputs"]
+    assert metrics["reachableOutputs"] >= metrics["contextReachableOutputs"]
+    assert metrics["outputCount"] == 64
+    assert metrics["cumulativeGrownEdges"] == 0
+    assert metrics["cumulativePrunedEdges"] == 0
+
+
+def test_structural_update_reports_unbounded_exact_prune_count() -> None:
+    substrate = SpatialSubstrate(small_config(), layout="tiny_language", seed=44)
+    _, _, sources = substrate.edge_list()
+    source = int(sources[0])
+    substrate.occupied[source] = False
+    expected = int(((substrate.dendrite_source >= 0) & ~substrate.active_edge_mask).sum())
+
+    update = substrate.structural_step(apply_lifecycle=False, apply_topology=False)
+
+    assert expected > 0
+    assert update.pruned_edges == expected
+    assert update.grown_edges == 0
 
 
 def test_excitotoxicity_stuns_recovers_and_only_repetition_becomes_lethal() -> None:

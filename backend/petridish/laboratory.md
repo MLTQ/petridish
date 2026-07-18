@@ -23,6 +23,8 @@ explicitly enabled trainer processes.
 ### `Laboratory.metrics`
 - **Does**: Returns at most 2,000 valid records from the tail of a run's JSONL log.
 - **Rationale**: Browser polling cannot force unbounded file reads or payloads.
+- **Does**: Keeps optimizer, held-out/generation, and scientific diagnostic record
+  types distinct so the frontend never infers biology from loss records.
 
 ### `Laboratory._discover_benchmarks`
 - **Does**: Reads up to 100 recent JSON benchmark artifacts and returns at most

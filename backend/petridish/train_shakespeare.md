@@ -23,8 +23,13 @@ transformer population. GRU remains the default and preserves existing checkpoin
 Version-one GRU checkpoints written before the architecture wrapper are migrated
 from `cell_rule.*` to `cell_rule.rule.*` keys during restore; optimizer ordering is unchanged.
 
-The trainer writes one append-only JSONL record per optimizer update plus separate
-held-out records at an infrequent configurable interval. `latest.pt` is replaced
+The trainer writes one append-only JSONL record per optimizer update, a measured
+topology/routing/lifecycle diagnostic at the progress interval, and separate
+held-out records at an infrequent configurable interval. Diagnostics distinguish
+physical from conducting edges, report pruning pressure and exact cumulative edge
+turnover, and compare output reach within one token, one context, and the complete
+graph. Held-out records include a fixed-prompt greedy continuation and diversity ratio;
+generation preserves the training sampler and organism state. `latest.pt` is replaced
 atomically and contains model parameters, optimizer moments, all substrate/topology
 buffers, generation and update counters, configuration, vocabulary, rolling metrics,
 and Python, NumPy, Torch, CUDA, sampler, evaluation, and substrate lifecycle random states.
@@ -33,8 +38,8 @@ By default a fresh invocation resumes `latest.pt` when present. Resume restores 
 saved configuration, context, seed, vocabulary contract, AMP mode, organism, and
 optimizer before continuing from the saved update count. `SIGINT` and `SIGTERM` set a
 stop flag; the current indivisible update finishes, then a final atomic checkpoint is
-written. Progress reports loss, accuracy, update and character throughput, GPU memory,
-and a finite-loss/gradient check.
+written. Progress reports loss, accuracy, update and target-token throughput, GPU
+memory, and a finite-loss/gradient check.
 
 Compilation remains opt-in because the measured stable-forward attempt currently has
 dynamic topology graph breaks; production runs should use `--compile off`.
