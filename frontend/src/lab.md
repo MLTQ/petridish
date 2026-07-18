@@ -129,6 +129,8 @@ validated launch or stop requests.
   while checkpoint evaluations operate only on disposable copies.
 - **Does**: Displays the immutable lineage ID and current phase, and marks measured
   phase boundaries directly on the existing rolling-loss trace.
+- **Does**: Shows the current repeated-shard size or full-stream curriculum directly
+  beside the lineage phase before the next held-out audit is available.
 - **Does**: Offers read-only evaluation on stopped checkpoints so new causal metrics
   can be collected without continuing training or changing plasticity phase; the
   button appears only when the serving backend advertises the matching route.

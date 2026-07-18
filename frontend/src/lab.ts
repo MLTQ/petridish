@@ -965,7 +965,10 @@ export class LaboratoryView {
   private lineagePhase(run: RunSnapshot): string {
     const phase = (run.phaseHistory ?? []).at(-1);
     const lineage = run.organismId ? run.organismId.replace(/^organism-/, "").slice(0, 8) : "legacy";
-    return `${lineage} · p${phase?.index ?? 0} ${phase?.name ?? "training"}`;
+    const curriculum = phase?.trainingShardTokens
+      ? ` · repeat ${phase.trainingShardTokens.toLocaleString()}`
+      : phase?.trainingShardTokens === 0 ? " · full stream" : "";
+    return `${lineage} · p${phase?.index ?? 0} ${phase?.name ?? "training"}${curriculum}`;
   }
 
   private populateSelect(select: HTMLSelectElement, choices: { value: string; label: string }[]): void {
