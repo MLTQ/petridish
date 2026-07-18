@@ -43,6 +43,8 @@ def _experiment_state(experiment: SequenceExperiment) -> dict[str, Any]:
     names = (
         "tick", "training_step", "seen_examples", "last_loss", "last_reward",
         "last_batch_accuracy", "test_accuracy", "recall_pair_count",
+        "last_random_offset_auxiliary_loss",
+        "last_random_offset_auxiliary_accuracy",
         "last_synapse_update_ratio", "last_mean_attention_entropy",
         "last_gradient_norms",
         "lifecycle_active", "lifecycle_reason", "structure_unlocked",
@@ -66,6 +68,9 @@ def _experiment_state(experiment: SequenceExperiment) -> dict[str, Any]:
             "stream_mode": experiment.stream_mode,
             "state_retention": experiment.state_retention,
             "state_lanes": experiment.state_lanes,
+            "random_offset_auxiliary_weight": (
+                experiment.random_offset_auxiliary_weight
+            ),
             "topology_profile": experiment.topology_profile,
             "_training_stream_positions": experiment._training_stream_positions,
             "_training_stream_lengths": experiment._training_stream_lengths,
@@ -485,6 +490,15 @@ def _scientific_metrics(experiment: SequenceExperiment) -> dict[str, Any]:
         ),
         "stateRetention": experiment.state_retention,
         "stateLanes": experiment.state_lanes,
+        "randomOffsetAuxiliaryWeight": (
+            experiment.random_offset_auxiliary_weight
+        ),
+        "randomOffsetAuxiliaryLoss": (
+            experiment.last_random_offset_auxiliary_loss
+        ),
+        "randomOffsetAuxiliaryAccuracy": (
+            experiment.last_random_offset_auxiliary_accuracy
+        ),
         "activeStateLanes": active_state_lanes,
         "coldStateLanes": experiment.state_lanes - active_state_lanes,
         "experienceTrajectoryCount": experience_trajectories,
@@ -812,6 +826,13 @@ def main() -> None:
     parser.add_argument("--stream-mode", choices=STREAM_MODES, default="continuous")
     parser.add_argument("--state-retention", type=float, default=1.0)
     parser.add_argument("--state-lanes", type=int)
+    parser.add_argument(
+        "--random-offset-auxiliary-weight", type=float,
+        help=(
+            "weight for one disposable cold-state random training context per "
+            "persistent-lane update; omission preserves a resumed checkpoint"
+        ),
+    )
     parser.add_argument("--broadcast-gain", type=float)
     parser.add_argument("--architecture", choices=CELL_ARCHITECTURES, default="gru")
     parser.add_argument("--updates", type=int, default=100_000)
@@ -872,6 +893,11 @@ def main() -> None:
         parser.error("--state-retention must be between 0 and 1")
     if args.state_lanes is not None and not 1 <= args.state_lanes <= MAX_STATE_LANES:
         parser.error(f"--state-lanes must be between 1 and {MAX_STATE_LANES}")
+    if (
+        args.random_offset_auxiliary_weight is not None
+        and not 0 <= args.random_offset_auxiliary_weight <= 10
+    ):
+        parser.error("--random-offset-auxiliary-weight must be between 0 and 10")
     if args.trajectory_lane is not None and (
         not args.evaluate_only or args.evaluation_split != "trajectory"
     ):
@@ -896,6 +922,9 @@ def main() -> None:
     requested_training_shard_tokens = args.training_shard_tokens
     requested_state_lanes = args.state_lanes
     requested_gradient_clip = args.gradient_clip
+    requested_random_offset_auxiliary_weight = (
+        args.random_offset_auxiliary_weight
+    )
     if (
         requested_gradient_clip is not None
         and args.resume
@@ -905,6 +934,16 @@ def main() -> None:
         parser.error(
             "--gradient-clip changes a restored organism only with "
             "--resume-plasticity"
+        )
+    if (
+        requested_random_offset_auxiliary_weight is not None
+        and args.resume
+        and latest.exists()
+        and not args.resume_plasticity
+    ):
+        parser.error(
+            "--random-offset-auxiliary-weight changes a restored organism only "
+            "with --resume-plasticity"
         )
     if args.resume and latest.exists():
         payload = load_checkpoint(latest, requested_device)
@@ -934,6 +973,20 @@ def main() -> None:
             args.state_lanes = requested_state_lanes
         else:
             args.state_lanes = saved_state_lanes
+        saved_random_offset_auxiliary_weight = float(
+            saved_task.get("random_offset_auxiliary_weight", 0.0)
+        )
+        if (
+            args.resume_plasticity
+            and requested_random_offset_auxiliary_weight is not None
+        ):
+            args.random_offset_auxiliary_weight = (
+                requested_random_offset_auxiliary_weight
+            )
+        else:
+            args.random_offset_auxiliary_weight = (
+                saved_random_offset_auxiliary_weight
+            )
         args.vocabulary_size = len(tuple(saved_task.get("vocabulary", ())))
         args.tokenizer_profile = str(
             saved_task.get("tokenizer_profile") or "wordpiece"
@@ -966,6 +1019,9 @@ def main() -> None:
             )
     else:
         args.state_lanes = requested_state_lanes or 1
+        args.random_offset_auxiliary_weight = (
+            requested_random_offset_auxiliary_weight or 0.0
+        )
         organism_id = args.organism_id or f"organism-{uuid.uuid4().hex}"
         phase_index = args.phase_index or 0
         phase_name = args.phase_name or "initial training"
@@ -1004,6 +1060,9 @@ def main() -> None:
         task, config, seed=args.seed, device=args.device, amp_mode=args.amp,
         stream_mode=args.stream_mode, state_retention=args.state_retention,
         state_lanes=args.state_lanes,
+        random_offset_auxiliary_weight=(
+            args.random_offset_auxiliary_weight
+        ),
         topology_profile=topology_profile,
     )
     if payload is not None:
@@ -1036,6 +1095,7 @@ def main() -> None:
         f"architecture={config.cell_architecture} batch={config.batch_size} "
         f"stream={args.stream_mode} retention={args.state_retention:.3f} "
         f"lanes={args.state_lanes} topology={experiment.topology_profile} "
+        f"random_offset_aux={experiment.random_offset_auxiliary_weight:g} "
         f"tokenizer={experiment.task.tokenizer_profile or 'character'} "
         f"training_tokens={experiment.task.training_stream_tokens or 'full'} "
         f"organism={organism_id} phase={phase_index}:{phase_name} "
@@ -1103,6 +1163,15 @@ def main() -> None:
             "streamMode": experiment.stream_mode,
             "stateRetention": experiment.state_retention,
             "stateLanes": experiment.state_lanes,
+            "randomOffsetAuxiliaryWeight": (
+                experiment.random_offset_auxiliary_weight
+            ),
+            "randomOffsetAuxiliaryLoss": (
+                experiment.last_random_offset_auxiliary_loss
+            ),
+            "randomOffsetAuxiliaryAccuracy": (
+                experiment.last_random_offset_auxiliary_accuracy
+            ),
             "stateLane": (experiment.training_step - 1) % experiment.state_lanes,
             "stateLaneStreamTokens": int(
                 experiment._training_stream_lengths[

@@ -52,6 +52,7 @@ class LaunchSpec:
     stream_mode: str = "continuous"
     state_retention: float = 0.9
     state_lanes: int = 1
+    random_offset_auxiliary_weight: float = 0.0
     message_steps: int = 2
     broadcast_gain: float = 0.3
     updates: int = 100_000
@@ -79,6 +80,7 @@ class ContinueSpec:
     training_shard_tokens: int | None = None
     state_lanes: int | None = None
     gradient_clip: float | None = None
+    random_offset_auxiliary_weight: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -162,6 +164,7 @@ class Laboratory:
                 "sameLineageRetry": True,
                 "samePhaseResume": True,
                 "phaseGradientClip": True,
+                "randomOffsetAuxiliary": True,
             },
             "gpus": gpus,
             "runs": self._discover_runs(active_runs),
@@ -232,6 +235,9 @@ class Laboratory:
                 "streamMode": spec.stream_mode,
                 "stateRetention": spec.state_retention,
                 "stateLanes": spec.state_lanes,
+                "randomOffsetAuxiliaryWeight": (
+                    spec.random_offset_auxiliary_weight
+                ),
                 "messageSteps": spec.message_steps,
                 "broadcastGain": spec.broadcast_gain,
                 "updates": spec.updates,
@@ -255,6 +261,9 @@ class Laboratory:
                     "topologyProfile": topology_profile,
                     "lifecycleProfile": lifecycle_profile,
                     "gradientClip": 1.0,
+                    "randomOffsetAuxiliaryWeight": (
+                        spec.random_offset_auxiliary_weight
+                    ),
                     "startedAt": time.time(),
                 }
             ],
@@ -276,6 +285,13 @@ class Laboratory:
             raise ValueError("additional updates must be positive")
         if spec.gradient_clip is not None and not 0.01 <= spec.gradient_clip <= 100:
             raise ValueError("gradient clip must be between 0.01 and 100")
+        if (
+            spec.random_offset_auxiliary_weight is not None
+            and not 0 <= spec.random_offset_auxiliary_weight <= 10
+        ):
+            raise ValueError(
+                "random-offset auxiliary weight must be between zero and ten"
+            )
         if (
             spec.state_lanes is not None
             and not 1 <= spec.state_lanes <= MAX_STATE_LANES
@@ -369,6 +385,17 @@ class Laboratory:
             if spec.gradient_clip is None
             else spec.gradient_clip
         )
+        previous_random_offset_auxiliary_weight = float(
+            (latest_train or {}).get(
+                "randomOffsetAuxiliaryWeight",
+                configuration.get("randomOffsetAuxiliaryWeight", 0.0),
+            )
+        )
+        random_offset_auxiliary_weight = (
+            previous_random_offset_auxiliary_weight
+            if spec.random_offset_auxiliary_weight is None
+            else spec.random_offset_auxiliary_weight
+        )
         previous_state_lanes = int(
             (latest_train or {}).get(
                 "stateLanes", configuration.get("stateLanes", 1)
@@ -434,6 +461,9 @@ class Laboratory:
             training_shard_tokens=spec.training_shard_tokens,
             state_lanes=spec.state_lanes,
             gradient_clip=spec.gradient_clip,
+            random_offset_auxiliary_weight=(
+                spec.random_offset_auxiliary_weight
+            ),
         )
         phase = {
             "index": phase_index,
@@ -446,6 +476,7 @@ class Laboratory:
             "trainingShardTokens": training_shard_tokens,
             "stateLanes": state_lanes,
             "gradientClip": gradient_clip,
+            "randomOffsetAuxiliaryWeight": random_offset_auxiliary_weight,
             "startGrownEdges": int(
                 (latest_diagnostic or {}).get("cumulativeGrownEdges", 0)
             ),
@@ -467,6 +498,7 @@ class Laboratory:
                 "trainingShardTokens": training_shard_tokens,
                 "stateLanes": state_lanes,
                 "gradientClip": gradient_clip,
+                "randomOffsetAuxiliaryWeight": random_offset_auxiliary_weight,
             }
         )
         manifest.update(
@@ -495,6 +527,7 @@ class Laboratory:
                 "trainingShardTokens": training_shard_tokens,
                 "stateLanes": state_lanes,
                 "gradientClip": gradient_clip,
+                "randomOffsetAuxiliaryWeight": random_offset_auxiliary_weight,
                 "startGrownEdges": phase["startGrownEdges"],
                 "startPrunedEdges": phase["startPrunedEdges"],
                 "startBirths": phase["startBirths"],
@@ -767,6 +800,7 @@ class Laboratory:
             training_shard_tokens=None,
             state_lanes=None,
             gradient_clip=None,
+            random_offset_auxiliary_weight=None,
         )
         checkpoint_sha256 = self._file_sha256(checkpoint)
         process = self._start_process(spec.run_id, spec.gpu_uuid, command, directory)
@@ -896,6 +930,10 @@ class Laboratory:
             raise ValueError(
                 f"state lanes must be between one and {MAX_STATE_LANES}"
             )
+        if not 0 <= spec.random_offset_auxiliary_weight <= 10:
+            raise ValueError(
+                "random-offset auxiliary weight must be between zero and ten"
+            )
         if spec.batch_size < 1 or spec.batch_size > 256:
             raise ValueError("batch size must be between 1 and 256")
         if spec.message_steps < 1 or spec.message_steps > 16:
@@ -931,6 +969,8 @@ class Laboratory:
             "--stream-mode", spec.stream_mode,
             "--state-retention", str(spec.state_retention),
             "--state-lanes", str(spec.state_lanes),
+            "--random-offset-auxiliary-weight",
+            str(spec.random_offset_auxiliary_weight),
             "--message-steps", str(spec.message_steps),
             "--broadcast-gain", str(spec.broadcast_gain),
             "--architecture", spec.architecture,
@@ -969,6 +1009,7 @@ class Laboratory:
         training_shard_tokens: int | None,
         state_lanes: int | None,
         gradient_clip: float | None,
+        random_offset_auxiliary_weight: float | None,
     ) -> list[str]:
         command = [
             sys.executable, "-m", "petridish.train_shakespeare",
@@ -989,6 +1030,13 @@ class Laboratory:
             command.extend(("--state-lanes", str(state_lanes)))
         if gradient_clip is not None:
             command.extend(("--gradient-clip", str(gradient_clip)))
+        if random_offset_auxiliary_weight is not None:
+            command.extend(
+                (
+                    "--random-offset-auxiliary-weight",
+                    str(random_offset_auxiliary_weight),
+                )
+            )
         return command
 
     def _evaluation_command(
@@ -1110,6 +1158,10 @@ class Laboratory:
                     configuration["gradientClip"] = float(
                         latest_train.get("gradientClip") or 1.0
                     )
+                if "randomOffsetAuxiliaryWeight" in latest_train:
+                    configuration["randomOffsetAuxiliaryWeight"] = float(
+                        latest_train.get("randomOffsetAuxiliaryWeight") or 0.0
+                    )
                 measured_phase_index = int(latest_train.get("phaseIndex", 0) or 0)
                 recorded_phase_index = max(
                     (int(phase.get("index", 0)) for phase in phase_history),
@@ -1147,6 +1199,9 @@ class Laboratory:
                             ),
                             "stateLanes": configuration.get("stateLanes", 1),
                             "gradientClip": configuration.get("gradientClip", 1.0),
+                            "randomOffsetAuxiliaryWeight": configuration.get(
+                                "randomOffsetAuxiliaryWeight", 0.0
+                            ),
                             "startedAt": first_measured.get("timestamp"),
                             "recoveredFromMetrics": True,
                         }

@@ -151,6 +151,13 @@ domain. This distinguishes nominal allocation, complete per-domain coverage, and
 balanced duplicate coverage.
 Every optimizer record also names the round-robin lane that produced it so per-lane
 competence and interference can be measured without reconstructing hidden state.
+`--random-offset-auxiliary-weight 0..10` optionally adds one cold, disposable random
+training context to each persistent-lane optimizer update. It runs through the same
+organism and accumulates shared-rule/synapse gradient, but never overwrites a saved
+lane, cursor, or runtime tensor. The checkpoint and every train/scientific record
+store its weight; train records also store the auxiliary's unweighted loss and
+accuracy. Ordinary resume rejects an override, while explicit plasticity continuation
+may change it without reconstructing any organism-owned state.
 `--topology-profile fixed|adaptive|prune_only` names the phase policy independently
 from lifecycle. Fixed continues to route through the saved graph without endpoint
 mutation; adaptive prunes and grows; prune-only removes signed-low-utility dendrites

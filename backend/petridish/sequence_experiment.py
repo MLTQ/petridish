@@ -50,6 +50,7 @@ class SequenceExperiment:
         stream_mode: str = "windowed",
         state_retention: float = 1.0,
         state_lanes: int = 1,
+        random_offset_auxiliary_weight: float = 0.0,
         topology_profile: str | None = None,
     ) -> None:
         self.task = resolve_sequence_task(task)
@@ -66,9 +67,14 @@ class SequenceExperiment:
             raise ValueError(
                 f"state lanes must be between one and {MAX_STATE_LANES}"
             )
+        if not 0 <= random_offset_auxiliary_weight <= 10:
+            raise ValueError(
+                "random-offset auxiliary weight must be between zero and ten"
+            )
         self.stream_mode = stream_mode
         self.state_retention = state_retention
         self.state_lanes = state_lanes
+        self.random_offset_auxiliary_weight = random_offset_auxiliary_weight
         self.topology_profile = resolve_topology_profile(
             topology_profile, structure=bool(self.config.structural_enabled)
         )
@@ -145,6 +151,8 @@ class SequenceExperiment:
         self.last_loss = math.log(len(self.task.vocabulary))
         self.last_reward = 0.0
         self.last_batch_accuracy = 0.0
+        self.last_random_offset_auxiliary_loss: float | None = None
+        self.last_random_offset_auxiliary_accuracy: float | None = None
         self.test_accuracy: float | None = None
         self.accuracy_history: deque[float] = deque(maxlen=160)
         self.loss_history: deque[float] = deque(maxlen=160)
@@ -381,6 +389,30 @@ class SequenceExperiment:
                 neuron_credit += -(state.grad.detach() * state.detach()).mean(dim=(0, 2))
                 credited += 1
         neuron_credit /= max(1, credited)
+        self.last_random_offset_auxiliary_loss = None
+        self.last_random_offset_auxiliary_accuracy = None
+        if self.random_offset_auxiliary_weight > 0:
+            auxiliary_batch = self._batch(self.config.batch_size)
+            with torch.autocast(
+                device_type=self.device.type,
+                dtype=self.amp_dtype,
+                enabled=self.amp_dtype is not None,
+            ):
+                auxiliary_result = self.compute_model(
+                    auxiliary_batch.tokens,
+                    capture_trace=False,
+                    runtime_state=None,
+                )
+            auxiliary_loss, auxiliary_accuracy = self._masked_loss_accuracy(
+                auxiliary_result.logits, auxiliary_batch
+            )
+            if not bool(torch.isfinite(auxiliary_loss)):
+                raise FloatingPointError(
+                    "non-finite random-offset auxiliary loss before backward"
+                )
+            (self.random_offset_auxiliary_weight * auxiliary_loss).backward()
+            self.last_random_offset_auxiliary_loss = float(auxiliary_loss.detach())
+            self.last_random_offset_auxiliary_accuracy = auxiliary_accuracy
         edge_gradient = self.model.substrate.synapse_weight.grad
         edge_credit = (
             torch.zeros_like(self.model.substrate.synapse_weight)

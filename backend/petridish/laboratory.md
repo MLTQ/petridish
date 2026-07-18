@@ -35,6 +35,9 @@ explicitly enabled trainer processes.
   indefinite-state control.
 - **Does**: Records one to 512 round-robin persistent state lanes independently
   from tensor batch size.
+- **Does**: Records a zero-by-default random-offset auxiliary weight; a nonzero
+  value adds disposable shared-rule training contexts without creating or replacing
+  persistent organism lanes.
 - **Does**: Records fixed, adaptive, or prune-only topology independently from
   lifecycle. Prune-only retains the lineage and forbids replacement growth.
 - **Does**: Derives the compatibility lifecycle boolean from the resolved profile so
@@ -60,6 +63,8 @@ explicitly enabled trainer processes.
   deliberate audit stop can restart without inventing a curriculum boundary.
 - **Does**: Advertises phase-local gradient-clip control so a newer frontend never
   submits an optimizer intervention to a server that would ignore it.
+- **Does**: Advertises the random-offset auxiliary separately so an older trainer
+  cannot silently ignore a trajectory-generalization intervention.
 - **Interacts with**: `/api/lab` in `server.py` and `lab.ts`.
 
 ### `Laboratory.metrics`
@@ -131,6 +136,10 @@ explicitly enabled trainer processes.
 - **Does**: Optionally changes only the restored configuration's global gradient
   norm ceiling, records the resolved value in manifest/phase/metrics, and omits the
   trainer flag when continuation must preserve the checkpoint-owned value.
+- **Does**: Optionally changes a bounded random-offset auxiliary weight, recording
+  the resolved value in manifest, phase history, phase metric, and trainer command.
+  Blank preserves the checkpoint value; the transient auxiliary context contributes
+  shared gradient but cannot replace any saved state lane or cursor.
 - **Rationale**: Structural warm-up, adaptive pruning, and lifecycle pressure must be
   phases of one organism rather than separately initialized comparison runs.
 

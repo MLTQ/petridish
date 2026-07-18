@@ -751,6 +751,44 @@ def test_continuous_training_carries_detached_neuron_state_between_updates() -> 
     )
 
 
+def test_random_offset_auxiliary_updates_shared_rule_without_replacing_lane_state() -> None:
+    text = "One fox ran. Two birds flew. Three cats slept. " * 30
+    task = build_token_task(text, context_length=8, vocabulary_size=32)
+    config = replace(
+        corpus_config(), batch_size=1, structural_enabled=0, lifecycle_enabled=0
+    )
+    control = SequenceExperiment(
+        task, config, seed=144, device="cpu", stream_mode="continuous"
+    )
+    treatment = SequenceExperiment(
+        task, config, seed=144, device="cpu", stream_mode="continuous",
+        random_offset_auxiliary_weight=0.25,
+    )
+    initial_positions = treatment._training_stream_positions.clone()
+
+    control.train_updates(1)
+    treatment.train_updates(1)
+
+    assert treatment.random_offset_auxiliary_weight == pytest.approx(0.25)
+    assert treatment.last_random_offset_auxiliary_loss is not None
+    assert math.isfinite(treatment.last_random_offset_auxiliary_loss)
+    assert treatment.last_random_offset_auxiliary_accuracy is not None
+    assert 0 <= treatment.last_random_offset_auxiliary_accuracy <= 1
+    assert control.last_random_offset_auxiliary_loss is None
+    assert control.last_random_offset_auxiliary_accuracy is None
+    assert treatment._training_runtime_state is not None
+    assert treatment._training_runtime_state.position == task.sequence_length
+    assert len(treatment._training_runtime_bank) == 1
+    assert treatment._training_runtime_bank[0] is treatment._training_runtime_state
+    assert torch.equal(
+        treatment._training_stream_positions,
+        initial_positions + task.sequence_length,
+    )
+    assert torch.equal(
+        treatment._training_stream_positions, control._training_stream_positions
+    )
+
+
 def test_round_robin_state_lanes_add_trajectory_diversity_at_batch_one() -> None:
     text = "One fox ran. Two birds flew. Three cats slept. " * 30
     task = build_token_task(text, context_length=8, vocabulary_size=32)

@@ -1177,3 +1177,72 @@ cells, graph, optimizer, RNG, and electrical state remain exact; only the new la
 receive their assigned domain. This tests genuine corpus expansion against an
 age- and capacity-matched replay control without reintroducing the rejected clipping
 intervention.
+
+### An 8K bank learned its own trajectory but not a reusable broader rule
+
+Phase 17 began from two byte-identical copies of the stronger phase-16 clip-one
+checkpoint. Source, 4K replay control, and 8K breadth treatment all had SHA-256
+`cff9b5b133a4cc5888686343fec49ecdb94214df4e6d0c9f99c0577112d187f1`
+before either descendant ran. The source remained frozen. Both descendants retained
+organism ID `organism-b2505376398a491e8cf4150a5daf3fab`, all 2,224 cells and their
+positions, all 13,737 learned directed edges, learned parameters, optimizer moments,
+random streams, and every one of the 105 existing electrical/private/workspace state
+lanes. Exactly 64 new lanes were appended to each. Control assigned its new bank to
+the existing 4K domain; treatment assigned its new bank to an 8K domain with exactly
+one lane in each of the 64 cursor phases. Topology, lifecycle, and the norm-one
+gradient ceiling were unchanged. Both ran 1,000 updates to 14,250.
+
+The matched new-bank curves separated cold-lane transfer from genuine corpus breadth.
+Control's new 4K lanes progressed from 55.47% on their first visit to 76.71%, 77.66%,
+76.44%, 77.88%, and 78.20% over visits two through six. Treatment's new 8K lanes
+progressed from 26.88% to 36.74%, 37.84%, 37.30%, 37.38%, and 35.69%. Its inherited
+lanes remained stable near 74–76%, so the failure was not wholesale erasure of the
+accumulated organism. The last 160 training windows reached 78.86% / 0.77402 in
+control, separating into 85.94% / 0.50734 on 2K and 78.07% / 0.80365 on 4K. Treatment
+reached 59.44% / 1.69968 overall: 79.79% / 0.90436 on 2K, 74.38% / 0.94326 on retained
+4K, and only 35.69% / 2.84403 on the new 8K bank. Median pre-clip norms remained
+16.64 control and 16.55 treatment, with median scales 0.0601 and 0.0605, so the result
+does not reopen the rejected clipping intervention.
+
+Exact trajectories show that the broader bank nevertheless acquired real stateful,
+physically routed computation. Inherited lane 16 reached 84.77% control and 83.11%
+treatment. Newly appended lane 105 reached 83.40% on control 4K and 71.19% on treatment
+8K. On treatment lane 105, cold state reduced accuracy to 51.17%, graph silence to
+4.10%, endpoint rotation to 7.03%, within-target source/weight reassignment to 3.32%,
+and broadcast silence to 12.70%. The organism therefore learned a causal continuation
+along that saved 8K experience rather than bypassing its connectome.
+
+That solution did not transfer to random offsets. The corrected fixed random audit
+measured 68.55% / 1.16260 for control 4K but only 12.11% / 4.58095 for treatment 8K.
+Control's graph silence/rotation/reassignment accuracies were 3.61/6.64/5.86%; the
+treatment's were 2.54/7.91/3.52%. Saved electrical state added 16.80 points to control
+but only 0.39 points to the random 8K audit. The treatment can continue one learned
+trajectory with its saved state, but its shared cellular rule does not yet predict an
+arbitrary context in the enlarged domain.
+
+Held-out language likewise remains unsolved. Control measured 11.33% / 5.58403 and
+treatment 10.55% / 4.94956, both below the 19.09% unigram accuracy baseline; fixed
+samples were `t ahey pnr  and ` and `  hrry pat  anr `. The treatment's lower loss
+suggests slightly less concentrated error, not useful language.
+
+This audit uncovered and repaired a measurement defect without changing either
+organism. The headline carried-state evaluation and its intact-graph reference had
+previously consumed successive random slices. The evaluator now rewinds its dedicated
+evaluation RNG so both replay identical tokens; a regression requires their accuracy
+and loss to agree. All phase-17 audits were rerun under that corrected contract. The
+terminal checkpoints remained byte-identical through the service deployment and all
+corrected state/graph/validation/trajectory audits:
+`78e3e71d1071a0b7afb240249dc9c462783dfc913dfa070366df2722860252c8`
+for control and
+`840501028a30d8748ff72086ecfce5ac8f88ac65f31af29b3f683660b466a060`
+for treatment.
+
+The next intervention should target trajectory dependence directly. From exact copies
+of the breadth endpoint, a matched control can continue ordinary persistent-lane
+training while a treatment adds a disposable random-offset auxiliary batch to each
+optimizer update. The primary lanes and all organism-owned state continue normally;
+the auxiliary context runs through the same cells and graph, contributes gradient to
+the shared rule and synapses, and is discarded rather than replacing any saved lane.
+This tests whether explicit pressure for state-independent context prediction can turn
+the physically routed trajectory solution into a reusable conditional rule before
+changing the organism's topology or lifecycle again.

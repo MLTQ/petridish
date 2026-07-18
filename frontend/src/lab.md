@@ -189,6 +189,10 @@ validated launch or stop requests.
 - **Does**: Offers a capability-gated optional continuation ceiling from 0.01 through
   100. Blank preserves the checkpoint value; a supplied value is recorded as a
   same-organism optimizer intervention rather than a reconstructed run default.
+- **Does**: Offers a capability-gated zero-to-ten random-offset auxiliary weight.
+  Blank preserves the checkpoint setting; diagnostics show its resolved weight plus
+  measured unweighted loss/accuracy, distinguishing transient generalization pressure
+  from the primary persistent-lane trajectory.
 - **Does**: Separates phase-local grown/pruned edge counts from lifetime totals when
   the matching phase boundary recorded its starting counters.
 - **Does**: Offers read-only evaluation on stopped checkpoints so new causal metrics

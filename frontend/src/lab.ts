@@ -139,6 +139,9 @@ interface MetricRecord {
   totalGradientNorm?: number;
   gradientClipScale?: number;
   gradientClip?: number;
+  randomOffsetAuxiliaryWeight?: number;
+  randomOffsetAuxiliaryLoss?: number | null;
+  randomOffsetAuxiliaryAccuracy?: number | null;
   evaluationSplit?: "validation" | "training" | "trajectory";
   trajectoryLane?: number | null;
   trajectoryStreamTokens?: number | null;
@@ -154,6 +157,7 @@ interface OrganismPhase {
   trainingShardTokens?: number;
   stateLanes?: number;
   gradientClip?: number;
+  randomOffsetAuxiliaryWeight?: number;
   startGrownEdges?: number;
   startPrunedEdges?: number;
   startBirths?: number;
@@ -205,6 +209,7 @@ interface LaboratorySnapshot {
     sameLineageRetry?: boolean;
     samePhaseResume?: boolean;
     phaseGradientClip?: boolean;
+    randomOffsetAuxiliary?: boolean;
   };
   gpus: GpuSnapshot[];
   runs: RunSnapshot[];
@@ -315,6 +320,7 @@ export class LaboratoryView {
   private readonly continueTrainingShardSelect = required<HTMLSelectElement>("#lab-continue-training-shard");
   private readonly continueStateLanesInput = required<HTMLInputElement>("#lab-continue-state-lanes");
   private readonly continueGradientClipInput = required<HTMLInputElement>("#lab-continue-gradient-clip");
+  private readonly continueRandomOffsetAuxiliaryInput = required<HTMLInputElement>("#lab-continue-random-offset-auxiliary");
   private readonly continueButton = required<HTMLButtonElement>("#lab-continue");
   private readonly continueStatus = required<HTMLOutputElement>("#lab-continue-status");
   private readonly benchmarksHost = required<HTMLTableSectionElement>("#laboratory-benchmarks");
@@ -455,6 +461,12 @@ export class LaboratoryView {
     );
     if (!snapshot.capabilities.phaseGradientClip) {
       this.continueGradientClipInput.value = "";
+    }
+    this.continueRandomOffsetAuxiliaryInput.disabled = !(
+      canContinue && snapshot.capabilities.randomOffsetAuxiliary
+    );
+    if (!snapshot.capabilities.randomOffsetAuxiliary) {
+      this.continueRandomOffsetAuxiliaryInput.value = "";
     }
     this.continueForkRunInput.disabled = !(
       canContinue && snapshot.capabilities.checkpointFork
@@ -887,6 +899,14 @@ export class LaboratoryView {
       const gradientSummary = run.latestTrain?.classBiasGradientNorm === undefined
         ? ""
         : ` · grad bias/readout/token/rule/edge ${this.scientific(run.latestTrain.classBiasGradientNorm)}/${this.scientific(run.latestTrain.outputReadoutGradientNorm)}/${this.scientific(run.latestTrain.tokenEncoderGradientNorm)}/${this.scientific(run.latestTrain.cellRuleGradientNorm)}/${this.scientific(run.latestTrain.synapseGradientNorm)} · total ${this.scientific(run.latestTrain.totalGradientNorm)} → ceiling ${this.number(run.latestTrain.gradientClip ?? Number(run.configuration.gradientClip ?? 1), 3)} × clip ${this.number(run.latestTrain.gradientClipScale, 3)}${this.gradientPressure(run)}`;
+      const randomOffsetAuxiliary = Number(
+        run.latestTrain?.randomOffsetAuxiliaryWeight
+        ?? run.configuration.randomOffsetAuxiliaryWeight
+        ?? 0,
+      );
+      const auxiliarySummary = randomOffsetAuxiliary > 0
+        ? ` · random-offset aux ×${this.number(randomOffsetAuxiliary, 2)} loss ${this.number(run.latestTrain?.randomOffsetAuxiliaryLoss ?? undefined, 3)} acc ${this.percent(run.latestTrain?.randomOffsetAuxiliaryAccuracy ?? undefined)}`
+        : " · random-offset aux off";
       const shardCausality = shardAudit?.graphReferenceAccuracy === undefined
         ? ""
         : ` · shard causal ref ${this.percent(shardAudit.graphReferenceAccuracy)} · silence Δacc ${this.signedPercent(shardAudit.graphSilencedAccuracyDelta)} / Δloss ${this.signedNumber(shardAudit.graphSilencedLossDelta)} · rotate Δacc ${this.signedPercent(shardAudit.sourceRotatedAccuracyDelta)} / Δloss ${this.signedNumber(shardAudit.sourceRotatedLossDelta)} · reassign Δacc ${this.signedPercent(shardAudit.weightReassignedAccuracyDelta)} / Δloss ${this.signedNumber(shardAudit.weightReassignedLossDelta)}`;
@@ -895,7 +915,7 @@ export class LaboratoryView {
         .map((audit) => ` · trajectory lane ${audit.trajectoryLane ?? "—"}${audit.trajectoryStreamTokens == null ? "" : ` @ ${audit.trajectoryStreamTokens.toLocaleString()} tokens`} ref ${this.percent(audit.graphReferenceAccuracy)} · silence Δacc ${this.signedPercent(audit.graphSilencedAccuracyDelta)} / Δloss ${this.signedNumber(audit.graphSilencedLossDelta)} · rotate Δacc ${this.signedPercent(audit.sourceRotatedAccuracyDelta)} / Δloss ${this.signedNumber(audit.sourceRotatedLossDelta)} · reassign Δacc ${this.signedPercent(audit.weightReassignedAccuracyDelta)} / Δloss ${this.signedNumber(audit.weightReassignedLossDelta)}`)
         .join("");
       const routing = diagnostic
-        ? `${String(run.configuration.tokenizerProfile ?? "legacy tokenizer")} · ${String(run.configuration.streamMode ?? "windowed")} · retention ${String(run.configuration.stateRetention ?? "1 legacy")} · ${String(run.configuration.stateLanes ?? 1)} state lane${Number(run.configuration.stateLanes ?? 1) === 1 ? "" : "s"} · ${stateAge}${phaseCoverage}${streamDomains}${laneAccuracy} · ${diagnostic.minimumOutputHops ?? "—"}/${diagnostic.medianOutputHops ?? "—"} hops · ${diagnostic.tokenReachableOutputs ?? 0}/${diagnostic.contextReachableOutputs ?? 0}/${diagnostic.reachableOutputs ?? 0} token/context/graph · broadcast ${String(run.configuration.broadcastGain ?? "legacy")}${(diagnostic.tokenReachableOutputs ?? 0) === 0 && Number(run.configuration.messageSteps ?? 0) < Number(diagnostic.minimumOutputHops ?? 0) ? ` · insufficient ${run.configuration.messageSteps ?? "—"} < ${diagnostic.minimumOutputHops ?? "—"}` : ""}${gradientSummary}${heldOut?.graphReferenceAccuracy === undefined ? "" : ` · validation causal ref ${this.percent(heldOut.graphReferenceAccuracy)} · silence Δacc ${this.signedPercent(heldOut.graphSilencedAccuracyDelta)} / Δloss ${this.signedNumber(heldOut.graphSilencedLossDelta)} · rotate topology Δacc ${this.signedPercent(heldOut.sourceRotatedAccuracyDelta)} / Δloss ${this.signedNumber(heldOut.sourceRotatedLossDelta)}${heldOut.weightReassignedLossDelta === undefined ? "" : ` · reassign weights Δacc ${this.signedPercent(heldOut.weightReassignedAccuracyDelta)} / Δloss ${this.signedNumber(heldOut.weightReassignedLossDelta)}`}${heldOut.broadcastAblationApplicable ? ` · silence broadcast Δacc ${this.signedPercent(heldOut.broadcastSilencedAccuracyDelta)} / Δloss ${this.signedNumber(heldOut.broadcastSilencedLossDelta)}` : ""}`}${shardCausality}${trajectoryCausality}`
+        ? `${String(run.configuration.tokenizerProfile ?? "legacy tokenizer")} · ${String(run.configuration.streamMode ?? "windowed")} · retention ${String(run.configuration.stateRetention ?? "1 legacy")} · ${String(run.configuration.stateLanes ?? 1)} state lane${Number(run.configuration.stateLanes ?? 1) === 1 ? "" : "s"} · ${stateAge}${phaseCoverage}${streamDomains}${laneAccuracy} · ${diagnostic.minimumOutputHops ?? "—"}/${diagnostic.medianOutputHops ?? "—"} hops · ${diagnostic.tokenReachableOutputs ?? 0}/${diagnostic.contextReachableOutputs ?? 0}/${diagnostic.reachableOutputs ?? 0} token/context/graph · broadcast ${String(run.configuration.broadcastGain ?? "legacy")}${auxiliarySummary}${(diagnostic.tokenReachableOutputs ?? 0) === 0 && Number(run.configuration.messageSteps ?? 0) < Number(diagnostic.minimumOutputHops ?? 0) ? ` · insufficient ${run.configuration.messageSteps ?? "—"} < ${diagnostic.minimumOutputHops ?? "—"}` : ""}${gradientSummary}${heldOut?.graphReferenceAccuracy === undefined ? "" : ` · validation causal ref ${this.percent(heldOut.graphReferenceAccuracy)} · silence Δacc ${this.signedPercent(heldOut.graphSilencedAccuracyDelta)} / Δloss ${this.signedNumber(heldOut.graphSilencedLossDelta)} · rotate topology Δacc ${this.signedPercent(heldOut.sourceRotatedAccuracyDelta)} / Δloss ${this.signedNumber(heldOut.sourceRotatedLossDelta)}${heldOut.weightReassignedLossDelta === undefined ? "" : ` · reassign weights Δacc ${this.signedPercent(heldOut.weightReassignedAccuracyDelta)} / Δloss ${this.signedNumber(heldOut.weightReassignedLossDelta)}`}${heldOut.broadcastAblationApplicable ? ` · silence broadcast Δacc ${this.signedPercent(heldOut.broadcastSilencedAccuracyDelta)} / Δloss ${this.signedNumber(heldOut.broadcastSilencedLossDelta)}` : ""}`}${shardCausality}${trajectoryCausality}`
         : "—";
       const lifecycle = diagnostic
         ? `${String(run.configuration.lifecycleProfile ?? (run.configuration.lifecycle ? "baseline" : "off"))} · ${diagnostic.lifecycleReason ?? (diagnostic.lifecycleActive ? "active" : "inactive")}${(diagnostic.lifecycleWarmupRemaining ?? 0) > 0 ? ` · ${diagnostic.lifecycleWarmupRemaining} warm-up updates` : ""} · ${diagnostic.stunnedCells ?? 0} stunned · +${diagnostic.cumulativeBirths ?? 0}/−${diagnostic.cumulativeDeaths ?? 0} cells · ${diagnostic.cumulativeStuns ?? 0}/${diagnostic.cumulativeRecoveries ?? 0} stun/recover`
@@ -1244,6 +1264,9 @@ export class LaboratoryView {
     const shardSelection = String(form.get("trainingShardTokens") ?? "preserve");
     const laneSelection = String(form.get("stateLanes") ?? "").trim();
     const gradientClipSelection = String(form.get("gradientClip") ?? "").trim();
+    const randomOffsetAuxiliarySelection = String(
+      form.get("randomOffsetAuxiliaryWeight") ?? "",
+    ).trim();
     const body = {
       gpuUuid: String(form.get("gpuUuid")),
       additionalUpdates: Number(form.get("additionalUpdates")),
@@ -1255,6 +1278,9 @@ export class LaboratoryView {
       trainingShardTokens: shardSelection === "preserve" ? null : Number(shardSelection),
       stateLanes: laneSelection === "" ? null : Number(laneSelection),
       gradientClip: gradientClipSelection === "" ? null : Number(gradientClipSelection),
+      randomOffsetAuxiliaryWeight: randomOffsetAuxiliarySelection === ""
+        ? null
+        : Number(randomOffsetAuxiliarySelection),
     };
     try {
       if (forkRunId) {
@@ -1308,6 +1334,7 @@ export class LaboratoryView {
       this.continueTrainingShardSelect.value = "preserve";
       this.continueStateLanesInput.value = "";
       this.continueGradientClipInput.value = "";
+      this.continueRandomOffsetAuxiliaryInput.value = "";
     }
     const currentLanes = Number(run.configuration.stateLanes ?? 1);
     const maximumStateLanes = this.snapshot?.capabilities.maximumStateLanes ?? 32;
@@ -1320,6 +1347,7 @@ export class LaboratoryView {
       this.continueStateLanesInput.value = "";
     }
     this.continueGradientClipInput.placeholder = `blank preserves ${Number(run.configuration.gradientClip ?? 1)}`;
+    this.continueRandomOffsetAuxiliaryInput.placeholder = `blank preserves ${Number(run.configuration.randomOffsetAuxiliaryWeight ?? 0)}`;
   }
 
   private lineagePhase(run: RunSnapshot): string {
@@ -1328,11 +1356,17 @@ export class LaboratoryView {
     const curriculum = phase?.trainingShardTokens
       ? ` · repeat ${phase.trainingShardTokens.toLocaleString()}`
       : phase?.trainingShardTokens === 0 ? " · full stream" : "";
+    const auxiliary = Number(
+      phase?.randomOffsetAuxiliaryWeight
+      ?? run.configuration.randomOffsetAuxiliaryWeight
+      ?? 0,
+    );
+    const auxiliaryLabel = auxiliary > 0 ? ` · random aux ×${auxiliary}` : "";
     const lanes = phase?.stateLanes ?? Number(run.configuration.stateLanes ?? 1);
     const branch = run.parentCheckpoint
       ? ` · exact fork d${run.branchDepth ?? "?"} ← ${run.parentCheckpoint.runId}@${run.parentCheckpoint.update.toLocaleString()} sha ${run.parentCheckpoint.sha256.slice(0, 12)}`
       : "";
-    return `organism ${lineage} · p${phase?.index ?? 0} ${phase?.name ?? "training"}${curriculum} · ${lanes} lane${lanes === 1 ? "" : "s"}${branch}`;
+    return `organism ${lineage} · p${phase?.index ?? 0} ${phase?.name ?? "training"}${curriculum}${auxiliaryLabel} · ${lanes} lane${lanes === 1 ? "" : "s"}${branch}`;
   }
 
   private populateSelect(select: HTMLSelectElement, choices: { value: string; label: string }[]): void {

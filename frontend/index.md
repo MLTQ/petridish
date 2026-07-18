@@ -67,6 +67,9 @@ experiment laboratory above the live organism.
   stability experiments.
 - **Does**: Exposes an optional bounded gradient-clip ceiling only on persistent
   continuation; blank explicitly preserves the checkpoint's current ceiling.
+- **Does**: Exposes an optional zero-to-ten random-offset auxiliary weight only on
+  persistent continuation. Blank preserves the checkpoint value; the UI labels it as
+  an auxiliary objective rather than another state lane or organism.
 - **Does**: Uses a task-neutral stepping-stone table and chart for recall and direct
   physical-routing, memory, composition, and persistent-stream overfit controls.
 - **Does**: Labels detailed held-out accuracy as binding slot or supervised stream

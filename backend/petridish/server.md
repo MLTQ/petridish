@@ -48,6 +48,8 @@ and exact-phase resume after a deliberate stop.
   relaxation experiments.
 - **Does**: Bounds persistent trajectory lanes from one through 512 separately
   from CUDA tensor batch size.
+- **Does**: Bounds a zero-by-default random-offset auxiliary weight from zero through
+  ten for explicit shared-rule generalization experiments.
 - **Rationale**: The API never accepts a shell command or arbitrary path.
 
 ### `LabContinueRequest`
@@ -61,6 +63,8 @@ and exact-phase resume after a deliberate stop.
   categorical validation and records the resolved phase policy.
 - **Does**: Accepts an optional 0.01–100 gradient-norm ceiling; omission preserves
   the restored checkpoint's current ceiling rather than substituting a default.
+- **Does**: Accepts an optional zero-to-ten random-offset auxiliary weight; omission
+  preserves the restored checkpoint value and never alters persistent lane storage.
 - **Rationale**: Architecture, geometry, weights, state, and existing corpus cursors
   come from the checkpoint. A shard changes which experiences repeat and a lane
   expansion adds cold trajectories; neither replaces organism-owned state.
