@@ -72,6 +72,9 @@ memory, workspace, fast-memory, and binding-memory state when active.
 Training and scientific records expose `electricalStateTokens`, the exact absolute
 token position carried by that runtime state; a continuous run therefore proves its
 electrical age directly instead of inferring it from update count.
+Training records expose both lineage rolling metrics and process-phase-local rolling
+metrics. The latter begin a new reporting window at continuation without clearing or
+modifying any organism, optimizer, graph, sampler, or electrical state.
 Continuous held-out records begin from a tensor-cloned copy of the checkpoint's
 actual electrical/private/workspace state and report its seed age. An identical
 contiguous-token cold-state ablation begins without that state; their accuracy delta

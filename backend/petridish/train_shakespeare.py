@@ -702,6 +702,8 @@ def main() -> None:
     started = time.perf_counter()
     interval_started = started
     interval_updates = 0
+    phase_accuracy_history: deque[float] = deque(maxlen=160)
+    phase_loss_history: deque[float] = deque(maxlen=160)
     print(
         f"starting at update {experiment.training_step} on {experiment.device}; "
         f"architecture={config.cell_architecture} batch={config.batch_size} "
@@ -735,6 +737,8 @@ def main() -> None:
             torch.cuda.synchronize(experiment.device)
         update_started = time.perf_counter()
         experiment.train_updates(1)
+        phase_accuracy_history.append(experiment.last_batch_accuracy)
+        phase_loss_history.append(experiment.last_loss)
         if experiment.device.type == "cuda":
             torch.cuda.synchronize(experiment.device)
         update_seconds = time.perf_counter() - update_started
@@ -749,6 +753,10 @@ def main() -> None:
             "accuracy": experiment.last_batch_accuracy,
             "rollingLoss": experiment.rolling_loss,
             "rollingAccuracy": experiment.rolling_accuracy,
+            "phaseRollingLoss": sum(phase_loss_history) / len(phase_loss_history),
+            "phaseRollingAccuracy": (
+                sum(phase_accuracy_history) / len(phase_accuracy_history)
+            ),
             "streamMode": experiment.stream_mode,
             "stateRetention": experiment.state_retention,
             "stateLanes": experiment.state_lanes,

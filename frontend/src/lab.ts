@@ -21,8 +21,10 @@ interface MetricRecord {
   update: number;
   loss?: number;
   rollingLoss?: number;
+  phaseRollingLoss?: number;
   accuracy?: number;
   rollingAccuracy?: number;
+  phaseRollingAccuracy?: number;
   targetCharactersPerSecond?: number;
   targetTokensPerSecond?: number;
   generation?: number;
@@ -650,8 +652,17 @@ export class LaboratoryView {
         run.architecture.toUpperCase(),
         run.gpuUuid ? (gpuNames.get(run.gpuUuid) ?? run.gpuUuid.slice(0, 12)) : "—",
         run.latestTrain?.update?.toLocaleString() ?? "—",
-        this.number(run.latestTrain?.rollingLoss ?? run.latestTrain?.loss, 3),
-        this.percent(run.latestTrain?.rollingAccuracy ?? run.latestTrain?.accuracy),
+        this.number(
+          run.latestTrain?.phaseRollingLoss
+            ?? run.latestTrain?.rollingLoss
+            ?? run.latestTrain?.loss,
+          3,
+        ),
+        this.percent(
+          run.latestTrain?.phaseRollingAccuracy
+            ?? run.latestTrain?.rollingAccuracy
+            ?? run.latestTrain?.accuracy,
+        ),
         this.number(run.latestHeldOut?.loss, 3),
         this.percent(run.latestHeldOut?.accuracy),
         this.number(
