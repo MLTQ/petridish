@@ -39,6 +39,8 @@ control-enable contracts without requiring NVIDIA hardware or launching trainers
 ### Topology and failure status tests
 - **Does**: Preserves an explicit fixed-connectome trainer flag independently from
   lifecycle and reports ended non-finite runs as failed.
+- **Does**: Preserves and bounds the common learning-rate scale used by long-run
+  stability controls.
 
 ## Contracts
 

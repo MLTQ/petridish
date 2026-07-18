@@ -27,6 +27,8 @@ experiment laboratory above the live organism.
 - **Does**: Exposes cellular microticks per token beside corpus launch controls so
   one-token routing budget is an explicit intervention.
 - **Does**: Selects fixed or adaptive topology independently from lifecycle.
+- **Does**: Exposes a bounded common learning-rate scale for controlled long-run
+  stability experiments.
 - **Does**: Uses a task-neutral stepping-stone table and chart for recall and direct
   physical-routing, memory, composition, and persistent-stream overfit controls.
 - **Does**: Labels detailed held-out accuracy as binding slot or supervised stream

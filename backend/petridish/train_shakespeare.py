@@ -239,6 +239,7 @@ def _fresh_config(
     message_steps: int | None,
     architecture: str,
     lifecycle: bool,
+    learning_rate_scale: float = 1.0,
     lifecycle_profile: str = "off",
     structure: bool = True,
 ) -> MnistModelConfig:
@@ -255,6 +256,9 @@ def _fresh_config(
         cell_architecture=architecture,
         lifecycle_enabled=int(lifecycle),
         structural_enabled=int(structure),
+        learning_rate=defaults.learning_rate * learning_rate_scale,
+        readout_learning_rate=defaults.readout_learning_rate * learning_rate_scale,
+        synapse_learning_rate=defaults.synapse_learning_rate * learning_rate_scale,
     )
     profile = resolve_lifecycle_profile(lifecycle_profile, enabled=lifecycle)
     return apply_lifecycle_profile(config, profile)
@@ -282,6 +286,7 @@ def main() -> None:
     parser.add_argument("--architecture", choices=CELL_ARCHITECTURES, default="gru")
     parser.add_argument("--updates", type=int, default=100_000)
     parser.add_argument("--seed", type=int, default=1)
+    parser.add_argument("--learning-rate-scale", type=float, default=1.0)
     parser.add_argument("--amp", choices=("off", "bfloat16"), default="off")
     parser.add_argument(
         "--compile", dest="compile_mode",
@@ -299,6 +304,8 @@ def main() -> None:
         "--lifecycle-profile", choices=LIFECYCLE_PROFILES, default="off"
     )
     args = parser.parse_args()
+    if not 0.01 <= args.learning_rate_scale <= 1.0:
+        parser.error("--learning-rate-scale must be between 0.01 and 1.0")
 
     latest = args.checkpoint_dir / "latest.pt"
     payload: dict[str, Any] | None = None
@@ -319,6 +326,7 @@ def main() -> None:
             message_steps=args.message_steps,
             architecture=args.architecture,
             lifecycle=args.lifecycle,
+            learning_rate_scale=args.learning_rate_scale,
             lifecycle_profile=args.lifecycle_profile,
             structure=args.structure,
         )

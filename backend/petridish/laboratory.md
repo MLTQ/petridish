@@ -18,6 +18,8 @@ explicitly enabled trainer processes.
 - **Does**: Records `off`, original `baseline`, empirically `balanced`, or
   population-stable `replacement` lifecycle policy in the immutable run manifest.
 - **Does**: Records adaptive versus fixed topology independently from lifecycle.
+- **Does**: Records and bounds one common learning-rate scale for rule, readout,
+  and synapse optimizer groups.
 - **Does**: Derives the compatibility lifecycle boolean from the resolved profile so
   the manifest and trainer command cannot disagree.
 

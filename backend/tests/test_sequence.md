@@ -16,6 +16,8 @@ distributed token organism's 64 ports each occupy one unique boundary column on
 68×68, preserve graph-layout semantic order, and keep 68 unavailable to non-corpus tasks.
 The headless-launch regression also prevents CLI overrides from silently replacing
 the token task's lifecycle and pruning warm-up schedule with Shakespeare defaults.
+It also requires the stability intervention to scale rule, readout, and synapse
+learning rates together without changing their relative schedule.
 Named lifecycle-profile tests preserve the original baseline while proving the
 balanced intervention keeps stun, recovery, starvation, and eventual death but
 equalizes maximum births/deaths and lowers the empirically saturated pressures.

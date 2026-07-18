@@ -72,6 +72,8 @@ validated launch or stop requests.
   shorter than the measured minimum sensory-to-output route.
 - **Does**: Launches and displays fixed/adaptive topology independently from the
   selected lifecycle profile, and accepts a measured `failed` run state.
+- **Does**: Launches a bounded common learning-rate scale so stability controls are
+  recorded in the immutable manifest rather than applied out of band.
 - **Does**: Renders direct-routing controls with microticks, minimum hops, and
   one-token output reach instead of recall-only columns, with the measured task's
   chance baseline drawn directly on the accuracy plot.

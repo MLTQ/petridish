@@ -39,6 +39,7 @@ class LaunchSpec:
     message_steps: int = 2
     updates: int = 100_000
     seed: int = 1
+    learning_rate_scale: float = 1.0
     amp: str = "bfloat16"
     lifecycle: bool = False
     lifecycle_profile: str = "off"
@@ -134,6 +135,7 @@ class Laboratory:
                 "messageSteps": spec.message_steps,
                 "updates": spec.updates,
                 "seed": spec.seed,
+                "learningRateScale": spec.learning_rate_scale,
                 "amp": spec.amp,
                 "lifecycle": lifecycle_enabled,
                 "lifecycleProfile": lifecycle_profile,
@@ -202,6 +204,8 @@ class Laboratory:
             raise ValueError("message steps must be between 1 and 16")
         if spec.updates < 1:
             raise ValueError("updates must be positive")
+        if not 0.01 <= spec.learning_rate_scale <= 1.0:
+            raise ValueError("learning-rate scale must be between 0.01 and 1.0")
         if spec.amp not in {"off", "bfloat16"}:
             raise ValueError("unsupported AMP mode")
         if spec.lifecycle_profile not in LIFECYCLE_PROFILES:
@@ -218,6 +222,7 @@ class Laboratory:
             "--architecture", spec.architecture,
             "--amp", spec.amp, "--compile", "off",
             "--updates", str(spec.updates), "--seed", str(spec.seed),
+            "--learning-rate-scale", str(spec.learning_rate_scale),
             "--checkpoint-dir", str(directory), "--checkpoint-interval", "100",
             "--eval-interval", "500", "--eval-batches", "4",
             "--progress-interval", "10", "--no-resume",

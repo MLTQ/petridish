@@ -32,6 +32,8 @@ runtime device is configurable independently from trainer workers.
 - **Does**: Carries a named lifecycle intervention separately from the compatibility
   enable flag.
 - **Does**: Carries adaptive/fixed topology independently from lifecycle.
+- **Does**: Bounds a common learning-rate scale from 0.01 through 1.0 for stability
+  controls.
 - **Rationale**: The API never accepts a shell command or arbitrary path.
 
 ### `websocket_endpoint`

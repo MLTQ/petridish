@@ -651,6 +651,7 @@ export class LaboratoryView {
       batchSize: Number(form.get("batchSize")), contextLength: 64,
       messageSteps: Number(form.get("messageSteps")),
       updates: Number(form.get("updates")), seed: Number(form.get("seed")),
+      learningRateScale: Number(form.get("learningRateScale")),
       amp: String(form.get("amp")), lifecycle: lifecycleProfile !== "off",
       lifecycleProfile, structure: String(form.get("structure")) === "adaptive",
     };

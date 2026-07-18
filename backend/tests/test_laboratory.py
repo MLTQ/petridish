@@ -79,6 +79,23 @@ def test_laboratory_can_launch_a_true_fixed_connectome(tmp_path: Path) -> None:
     assert "--no-structure" in command
 
 
+def test_laboratory_preserves_bounded_learning_rate_scale(tmp_path: Path) -> None:
+    laboratory = Laboratory(tmp_path, run_root=tmp_path / "runs", control_enabled=True)
+    spec = LaunchSpec(
+        "trial", "GPU-example", task="tiny_stories", field_size=68,
+        learning_rate_scale=0.25,
+    )
+
+    laboratory._validate_spec(spec)
+    command = laboratory._trainer_command(spec, tmp_path / "runs" / "trial")
+
+    assert command[command.index("--learning-rate-scale") + 1] == "0.25"
+    with pytest.raises(ValueError, match="learning-rate scale"):
+        laboratory._validate_spec(
+            LaunchSpec("invalid", "GPU-example", learning_rate_scale=0.0)
+        )
+
+
 def test_legacy_lifecycle_flag_resolves_to_recorded_baseline(tmp_path: Path) -> None:
     laboratory = Laboratory(tmp_path, run_root=tmp_path / "runs", control_enabled=True)
     spec = LaunchSpec(

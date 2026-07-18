@@ -192,6 +192,22 @@ def test_headless_token_launch_preserves_task_specific_warmups() -> None:
     assert config.structural_warmup_trials == 1_000
 
 
+def test_headless_launch_scales_all_optimizer_rates_together() -> None:
+    defaults = sequence_config("tiny_stories")
+    scaled = _fresh_config(
+        "tiny_stories", field_size=68, batch_size=1, message_steps=4,
+        architecture="gru", lifecycle=False, learning_rate_scale=0.25,
+    )
+
+    assert scaled.learning_rate == pytest.approx(defaults.learning_rate * 0.25)
+    assert scaled.readout_learning_rate == pytest.approx(
+        defaults.readout_learning_rate * 0.25
+    )
+    assert scaled.synapse_learning_rate == pytest.approx(
+        defaults.synapse_learning_rate * 0.25
+    )
+
+
 def test_balanced_lifecycle_retains_biomimicry_without_death_budget_collapse() -> None:
     baseline = sequence_config("tiny_stories")
     balanced = apply_lifecycle_profile(baseline, "balanced")

@@ -45,6 +45,7 @@ class LabLaunchRequest(BaseModel):
     messageSteps: int = Field(default=2, ge=1, le=16)
     updates: int = Field(default=100_000, ge=1)
     seed: int = 1
+    learningRateScale: float = Field(default=1.0, ge=0.01, le=1.0)
     amp: str = "bfloat16"
     lifecycle: bool = False
     lifecycleProfile: str = "off"
@@ -115,6 +116,7 @@ async def launch_lab_run(request: LabLaunchRequest) -> dict[str, object]:
         message_steps=request.messageSteps,
         updates=request.updates,
         seed=request.seed,
+        learning_rate_scale=request.learningRateScale,
         amp=request.amp,
         lifecycle=request.lifecycle,
         lifecycle_profile=request.lifecycleProfile,

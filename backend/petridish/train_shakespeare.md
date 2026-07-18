@@ -19,8 +19,10 @@ synaptic weights and cell rules trainable.
 
 ### `_fresh_config`
 
-Applies field, batch, microtick, architecture, named lifecycle, and topology launch choices
-while preserving all other task-specific defaults, including structural timing.
+Applies field, batch, microtick, architecture, named lifecycle, topology, and a
+bounded common learning-rate scale while preserving all other task-specific defaults,
+including structural timing. The scale changes rule, readout, and synapse optimizer
+rates together so long-run stability controls do not alter their relative schedule.
 
 `--architecture` selects a checkpointed homogeneous GRU, LSTM, ESN, or temporal
 transformer population. GRU remains the default and preserves existing checkpoints.

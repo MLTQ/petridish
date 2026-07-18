@@ -100,6 +100,7 @@
         <label>Microticks / token <select id="lab-message-steps" name="messageSteps"><option value="2" selected>2</option><option value="4">4</option><option value="8">8</option><option value="10">10</option><option value="12">12</option><option value="16">16</option></select></label>
         <label>Updates <input id="lab-updates" name="updates" type="number" min="1" value="1000" required></label>
         <label>Seed <input id="lab-seed" name="seed" type="number" value="1" required></label>
+        <label>Learning-rate scale <input id="lab-learning-rate-scale" name="learningRateScale" type="number" min="0.01" max="1" step="0.05" value="1" required></label>
         <label>AMP <select id="lab-amp" name="amp"><option value="bfloat16">bfloat16</option><option value="off">off</option></select></label>
         <label>Lifecycle <select id="lab-lifecycle-profile" name="lifecycleProfile"><option value="off">off</option><option value="baseline">baseline</option><option value="balanced">balanced</option><option value="replacement">replacement</option></select></label>
         <label>Topology <select id="lab-structure" name="structure"><option value="adaptive">adaptive</option><option value="fixed">fixed</option></select></label>
