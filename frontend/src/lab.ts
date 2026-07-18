@@ -126,6 +126,7 @@ interface LaboratorySnapshot {
     architectures: string[];
     ampModes: string[];
     lifecycleProfiles: string[];
+    checkpointEvaluation?: boolean;
   };
   gpus: GpuSnapshot[];
   runs: RunSnapshot[];
@@ -634,6 +635,7 @@ export class LaboratoryView {
       if (
         run.status !== "running" && run.hasCheckpoint
         && this.snapshot?.controlEnabled
+        && this.snapshot.capabilities.checkpointEvaluation
       ) {
         const evaluate = document.createElement("button");
         evaluate.type = "button";

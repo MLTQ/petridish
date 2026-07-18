@@ -110,7 +110,8 @@ validated launch or stop requests.
 - **Does**: Displays the immutable lineage ID and current phase, and marks measured
   phase boundaries directly on the existing rolling-loss trace.
 - **Does**: Offers read-only evaluation on stopped checkpoints so new causal metrics
-  can be collected without continuing training or changing plasticity phase.
+  can be collected without continuing training or changing plasticity phase; the
+  button appears only when the serving backend advertises the matching route.
 - **Does**: Renders direct-routing controls with microticks, minimum hops, and
   one-token output reach instead of recall-only columns, with the measured task's
   chance baseline drawn directly on the accuracy plot.

@@ -107,6 +107,7 @@ class Laboratory:
                 "architectures": list(CELL_ARCHITECTURES),
                 "ampModes": ["off", "bfloat16"],
                 "lifecycleProfiles": list(LIFECYCLE_PROFILES),
+                "checkpointEvaluation": True,
             },
             "gpus": gpus,
             "runs": self._discover_runs(active_runs),

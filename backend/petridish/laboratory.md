@@ -36,6 +36,8 @@ explicitly enabled trainer processes.
 
 ### `Laboratory.snapshot`
 - **Does**: Reports GPU telemetry, compute processes, capabilities, and run summaries.
+- **Does**: Advertises checkpoint evaluation explicitly so a frontend loaded before
+  the matching server restart cannot expose a nonfunctional mutation control.
 - **Interacts with**: `/api/lab` in `server.py` and `lab.ts`.
 
 ### `Laboratory.metrics`

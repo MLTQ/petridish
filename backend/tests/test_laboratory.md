@@ -22,6 +22,8 @@ control-enable contracts without requiring NVIDIA hardware or launching trainers
 
 ### Safety tests
 - **Does**: Reject path traversal and process launch when control is disabled.
+- **Does**: Requires the server snapshot to advertise checkpoint evaluation before
+  the frontend exposes that action.
 - **Does**: Verify a defunct Linux trainer is not reported as a live run merely
   because its PID still exists.
 

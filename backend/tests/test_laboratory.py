@@ -38,6 +38,17 @@ def test_launch_is_disabled_by_default(tmp_path: Path) -> None:
         laboratory.launch(LaunchSpec("trial", "GPU-example"))
 
 
+def test_snapshot_advertises_checkpoint_evaluation_route(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    laboratory = Laboratory(tmp_path, run_root=tmp_path / "runs")
+    monkeypatch.setattr(laboratory, "_gpu_snapshot", lambda: ([], []))
+    monkeypatch.setattr(laboratory, "_discover_runs", lambda active: [])
+    monkeypatch.setattr(laboratory, "_discover_benchmarks", lambda: [])
+
+    assert laboratory.snapshot()["capabilities"]["checkpointEvaluation"] is True
+
+
 def test_spec_preserves_single_column_geometry(tmp_path: Path) -> None:
     laboratory = Laboratory(tmp_path, run_root=tmp_path / "runs", control_enabled=True)
 
