@@ -15,7 +15,8 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from .laboratory import (
-    ContinueSpec, EvaluateSpec, ForkSpec, Laboratory, LaunchSpec, RetrySpec,
+    ContinueSpec, EvaluateSpec, ForkSpec, Laboratory, LaunchSpec, ResumeSpec,
+    RetrySpec,
 )
 from .sequence_experiment import MAX_STATE_LANES
 from .runtime import ExperimentRuntime
@@ -97,6 +98,12 @@ class LabEvaluateRequest(BaseModel):
 
 class LabRetryRequest(BaseModel):
     """Browser-safe GPU selection for an exact failed-phase retry."""
+
+    gpuUuid: str
+
+
+class LabResumeRequest(BaseModel):
+    """Browser-safe GPU selection for an unchanged stopped phase."""
 
     gpuUuid: str
 
@@ -257,6 +264,23 @@ async def retry_lab_run(
         return await asyncio.to_thread(
             laboratory.retry_run,
             RetrySpec(run_id=run_id, gpu_uuid=request.gpuUuid),
+        )
+    except PermissionError as error:
+        raise HTTPException(status_code=403, detail=str(error)) from error
+    except (OSError, ValueError) as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+
+@app.post("/api/lab/runs/{run_id}/resume")
+async def resume_lab_run(
+    run_id: str, request: LabResumeRequest
+) -> dict[str, object]:
+    """Restart a deliberately stopped checkpoint in its existing phase."""
+
+    try:
+        return await asyncio.to_thread(
+            laboratory.resume_run,
+            ResumeSpec(run_id=run_id, gpu_uuid=request.gpuUuid),
         )
     except PermissionError as error:
         raise HTTPException(status_code=403, detail=str(error)) from error

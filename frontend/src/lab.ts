@@ -17,7 +17,7 @@ interface GpuSnapshot {
 }
 
 interface MetricRecord {
-  type: "train" | "held_out" | "training_audit" | "trajectory_audit" | "diagnostic" | "failure" | "phase" | "retry" | "checkpoint";
+  type: "train" | "held_out" | "training_audit" | "trajectory_audit" | "diagnostic" | "failure" | "phase" | "retry" | "resume" | "checkpoint";
   update: number;
   loss?: number;
   rollingLoss?: number;
@@ -193,6 +193,7 @@ interface LaboratorySnapshot {
     trajectoryLaneAudit?: boolean;
     checkpointFork?: boolean;
     sameLineageRetry?: boolean;
+    samePhaseResume?: boolean;
   };
   gpus: GpuSnapshot[];
   runs: RunSnapshot[];
@@ -757,6 +758,19 @@ export class LaboratoryView {
           state.append(retry);
         }
       }
+      const currentPhase = (run.phaseHistory ?? []).at(-1);
+      if (
+        run.status !== "running" && run.status !== "failed" && run.hasCheckpoint
+        && this.snapshot?.controlEnabled
+        && this.snapshot.capabilities.samePhaseResume
+        && Number(currentPhase?.targetUpdate ?? 0) > Number(run.latestTrain?.update ?? 0)
+      ) {
+        const resume = document.createElement("button");
+        resume.type = "button";
+        resume.textContent = "Resume same phase";
+        resume.addEventListener("click", () => void this.resumeCheckpoint(run, resume));
+        state.append(resume);
+      }
       if (
         run.status !== "running" && run.hasCheckpoint
         && this.snapshot?.controlEnabled
@@ -1157,6 +1171,32 @@ export class LaboratoryView {
     this.status.value = response.ok
       ? `${run.id}: ${payload.status ?? "running"} same organism ${payload.organismId ?? ""} · checkpoint ${payload.checkpointSha256?.slice(0, 12) ?? "verified"}`
       : (payload.detail ?? "same-lineage retry failed");
+    await this.refresh();
+  }
+
+  private async resumeCheckpoint(
+    run: RunSnapshot, button: HTMLButtonElement,
+  ): Promise<void> {
+    const gpuUuid = run.gpuUuid ?? this.snapshot?.gpus[0]?.uuid;
+    if (!gpuUuid) {
+      this.status.value = `${run.id}: no GPU available for same-phase resume`;
+      return;
+    }
+    button.disabled = true;
+    const response = await fetch(
+      `/api/lab/runs/${encodeURIComponent(run.id)}/resume`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ gpuUuid }),
+      },
+    );
+    const payload = await response.json() as {
+      status?: string; phaseIndex?: number; targetUpdate?: number; detail?: string;
+    };
+    this.status.value = response.ok
+      ? `${run.id}: ${payload.status ?? "running"} same phase ${payload.phaseIndex ?? "—"} → ${payload.targetUpdate?.toLocaleString() ?? "target"}`
+      : (payload.detail ?? "same-phase resume failed");
     await this.refresh();
   }
 

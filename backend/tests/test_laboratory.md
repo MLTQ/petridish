@@ -32,6 +32,9 @@ control-enable contracts without requiring NVIDIA hardware or launching trainers
   `--no-resume`, even when a checkpoint file happens to exist.
 - **Does**: Requires the server snapshot to advertise checkpoint evaluation before
   the frontend exposes that action.
+- **Does**: Proves a deliberately stopped phase resumes to its original target from
+  a fingerprinted unchanged checkpoint, even after evaluation overwrote the last
+  process command, without appending a phase or resupplying shard/lane mutations.
 - **Does**: Verify a defunct Linux trainer is not reported as a live run merely
   because its PID still exists.
 

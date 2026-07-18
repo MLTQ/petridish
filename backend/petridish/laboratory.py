@@ -97,6 +97,14 @@ class RetrySpec:
 
 
 @dataclass(frozen=True, slots=True)
+class ResumeSpec:
+    """Restart one deliberately stopped phase from its unchanged checkpoint."""
+
+    run_id: str
+    gpu_uuid: str
+
+
+@dataclass(frozen=True, slots=True)
 class EvaluateSpec:
     """Read-only held-out evaluation for one checkpointed organism."""
 
@@ -151,6 +159,7 @@ class Laboratory:
                 "trajectoryLaneAudit": True,
                 "checkpointFork": True,
                 "sameLineageRetry": True,
+                "samePhaseResume": True,
             },
             "gpus": gpus,
             "runs": self._discover_runs(active_runs),
@@ -586,7 +595,7 @@ class Laboratory:
         last_boundary = max(
             (
                 index for index, record in enumerate(records)
-                if record.get("type") in {"phase", "retry"}
+                if record.get("type") in {"phase", "retry", "resume"}
             ),
             default=-1,
         )
@@ -668,6 +677,113 @@ class Laboratory:
             "organismId": organism_id,
             "checkpointSha256": checkpoint_sha256,
             "retryCount": retry_count,
+            "pid": process.pid,
+            "status": "running",
+        }
+
+    def resume_run(self, spec: ResumeSpec) -> dict[str, Any]:
+        """Resume an incomplete stopped phase without creating or changing a phase."""
+
+        if not self.control_enabled:
+            raise PermissionError("laboratory process control is disabled")
+        available = {gpu["uuid"] for gpu in self._gpu_snapshot()[0]}
+        if spec.gpu_uuid not in available:
+            raise ValueError("unknown GPU UUID")
+        directory = self._run_directory(spec.run_id)
+        manifest_path = directory / "manifest.json"
+        manifest = self._read_json(manifest_path)
+        checkpoint = directory / "latest.pt"
+        if not checkpoint.is_file():
+            raise ValueError("run has no checkpoint to resume")
+        pid = int(manifest.get("pid", 0) or 0)
+        if pid > 0 and self._pid_alive(pid):
+            raise ValueError("organism is already running")
+
+        phases = list(manifest.get("phaseHistory") or [])
+        if not phases:
+            raise ValueError("run has no recorded phase to resume")
+        phase = dict(phases[-1])
+        records = self.metrics(spec.run_id, limit=2_000)
+        last_boundary = max(
+            (
+                index for index, record in enumerate(records)
+                if record.get("type") in {"phase", "retry", "resume"}
+            ),
+            default=-1,
+        )
+        if any(
+            record.get("type") == "failure" for record in records[last_boundary + 1 :]
+        ):
+            raise ValueError("failed phase must use same-lineage retry")
+        latest_train = next(
+            (record for record in reversed(records) if record.get("type") == "train"),
+            {},
+        )
+        update = int(latest_train.get("update", 0) or 0)
+        target_update = int(phase.get("targetUpdate", 0) or 0)
+        if target_update <= update:
+            raise ValueError("recorded phase has already reached its target update")
+        organism_id = str(manifest.get("organismId") or "")
+        if not organism_id:
+            raise ValueError("checkpoint manifest has no organism lineage ID")
+        phase_index = int(phase.get("index", 0) or 0)
+        phase_name = str(phase.get("name", "training"))
+        topology_profile = resolve_topology_profile(
+            str(phase.get("topologyProfile", "fixed")),
+            structure=bool(phase.get("structure", False)),
+        )
+        lifecycle_profile = resolve_lifecycle_profile(
+            str(phase.get("lifecycleProfile", "off")), enabled=False
+        )
+        command = self._continuation_command(
+            directory,
+            target_update=target_update,
+            organism_id=organism_id,
+            phase_index=phase_index,
+            phase_name=phase_name,
+            structure=topology_mutates(topology_profile),
+            topology_profile=topology_profile,
+            lifecycle_profile=lifecycle_profile,
+            training_shard_tokens=None,
+            state_lanes=None,
+        )
+        checkpoint_sha256 = self._file_sha256(checkpoint)
+        process = self._start_process(spec.run_id, spec.gpu_uuid, command, directory)
+        resumed_at = time.time()
+        resume_count = int(manifest.get("resumeCount", 0) or 0) + 1
+        manifest.update(
+            {
+                "pid": process.pid,
+                "gpuUuid": spec.gpu_uuid,
+                "command": command,
+                "commit": self._git_commit(),
+                "lastResumeAt": resumed_at,
+                "resumeCount": resume_count,
+                "lastResumeCheckpointSha256": checkpoint_sha256,
+            }
+        )
+        self._write_json(manifest_path, manifest)
+        self._append_jsonl(
+            directory / "metrics.jsonl",
+            {
+                "type": "resume",
+                "update": update,
+                "organismId": organism_id,
+                "phaseIndex": phase_index,
+                "phaseName": phase_name,
+                "targetUpdate": target_update,
+                "checkpointSha256": checkpoint_sha256,
+                "resumeCount": resume_count,
+                "timestamp": resumed_at,
+            },
+        )
+        return {
+            "runId": spec.run_id,
+            "organismId": organism_id,
+            "phaseIndex": phase_index,
+            "targetUpdate": target_update,
+            "checkpointSha256": checkpoint_sha256,
+            "resumeCount": resume_count,
             "pid": process.pid,
             "status": "running",
         }
@@ -947,7 +1063,7 @@ class Laboratory:
             latest_phase_offset = max(
                 (
                     index for index, record in enumerate(records)
-                    if record.get("type") in {"phase", "retry"}
+                        if record.get("type") in {"phase", "retry", "resume"}
                 ),
                 default=-1,
             )

@@ -10,7 +10,8 @@ from types import SimpleNamespace
 import pytest
 
 from petridish.laboratory import (
-    ContinueSpec, EvaluateSpec, ForkSpec, Laboratory, LaunchSpec, RetrySpec,
+    ContinueSpec, EvaluateSpec, ForkSpec, Laboratory, LaunchSpec, ResumeSpec,
+    RetrySpec,
 )
 
 
@@ -239,6 +240,7 @@ def test_snapshot_advertises_checkpoint_evaluation_route(
     assert capabilities["phaseBalancedLaneExpansion"] is True
     assert capabilities["checkpointFork"] is True
     assert capabilities["sameLineageRetry"] is True
+    assert capabilities["samePhaseResume"] is True
     assert capabilities["tokenizerProfiles"] == ["wordpiece", "byte"]
 
 
@@ -352,6 +354,88 @@ def test_retry_rejects_any_command_that_can_construct_a_fresh_organism(
 
     with pytest.raises(ValueError, match="same-lineage"):
         laboratory.retry_run(RetrySpec("unsafe", "GPU-example"))
+
+
+def test_deliberate_stop_resumes_the_same_phase_from_fingerprinted_checkpoint(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    run = tmp_path / "runs" / "persistent"
+    run.mkdir(parents=True)
+    checkpoint = b"same organism after deliberate interim audit"
+    (run / "latest.pt").write_bytes(checkpoint)
+    phase_history = [
+        {
+            "index": 14, "name": "phase-complete breadth",
+            "startUpdate": 8750, "targetUpdate": 11750,
+            "structure": False, "topologyProfile": "fixed",
+            "lifecycleProfile": "off", "trainingShardTokens": 4096,
+            "stateLanes": 96,
+        }
+    ]
+    (run / "manifest.json").write_text(
+        json.dumps(
+            {
+                "runId": "persistent", "organismId": "organism-persistent",
+                "pid": 0,
+                "command": ["python", "-m", "petridish.train_shakespeare", "--evaluate-only"],
+                "phaseHistory": phase_history,
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run / "metrics.jsonl").write_text(
+        "\n".join(
+            (
+                json.dumps({"type": "phase", "update": 8750}),
+                json.dumps({"type": "train", "update": 10020}),
+                json.dumps({"type": "training_audit", "update": 10020}),
+            )
+        ) + "\n",
+        encoding="utf-8",
+    )
+    laboratory = Laboratory(
+        tmp_path, run_root=tmp_path / "runs", control_enabled=True
+    )
+    monkeypatch.setattr(
+        laboratory, "_gpu_snapshot", lambda: ([{"uuid": "GPU-example"}], [])
+    )
+    launched: dict[str, object] = {}
+
+    def fake_start(
+        run_id: str, gpu_uuid: str, command: list[str], directory: Path
+    ) -> SimpleNamespace:
+        launched.update(command=command, directory=directory)
+        return SimpleNamespace(pid=5678)
+
+    monkeypatch.setattr(laboratory, "_start_process", fake_start)
+    monkeypatch.setattr(laboratory, "_git_commit", lambda: "resume-commit")
+
+    result = laboratory.resume_run(ResumeSpec("persistent", "GPU-example"))
+
+    manifest = json.loads((run / "manifest.json").read_text(encoding="utf-8"))
+    records = [
+        json.loads(line)
+        for line in (run / "metrics.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    command = launched["command"]
+    assert isinstance(command, list)
+    assert command[command.index("--updates") + 1] == "11750"
+    assert command[command.index("--phase-index") + 1] == "14"
+    assert command[command.index("--phase-name") + 1] == "phase-complete breadth"
+    assert command[command.index("--organism-id") + 1] == "organism-persistent"
+    assert "--resume" in command and "--resume-plasticity" in command
+    assert "--evaluate-only" not in command
+    assert "--training-shard-tokens" not in command
+    assert "--state-lanes" not in command
+    assert manifest["phaseHistory"] == phase_history
+    assert manifest["command"] == command
+    assert manifest["resumeCount"] == 1
+    assert (run / "latest.pt").read_bytes() == checkpoint
+    assert result["phaseIndex"] == 14
+    assert result["targetUpdate"] == 11750
+    assert result["checkpointSha256"] == hashlib.sha256(checkpoint).hexdigest()
+    assert records[-1]["type"] == "resume"
+    assert records[-1]["phaseIndex"] == 14
 
 
 def test_spec_preserves_single_column_geometry(tmp_path: Path) -> None:

@@ -54,6 +54,8 @@ explicitly enabled trainer processes.
   a mixed-domain organism was measured through whichever lane happened to be next.
 - **Does**: Advertises exact checkpoint forking explicitly so the frontend cannot
   present paired counterfactual controls against an older copy-only backend.
+- **Does**: Advertises same-phase resume separately from failed-phase retry so a
+  deliberate audit stop can restart without inventing a curriculum boundary.
 - **Interacts with**: `/api/lab` in `server.py` and `lab.ts`.
 
 ### `Laboratory.metrics`
@@ -146,6 +148,16 @@ explicitly enabled trainer processes.
 - **Rationale**: A Python worker may restart; the cells, graph, electrical lanes,
   optimizer, sampler, RNG, curriculum, and phase remain checkpoint-owned organism
   state.
+
+### `ResumeSpec` / `Laboratory.resume_run`
+- **Does**: Restarts a deliberately stopped phase from its fingerprinted checkpoint
+  and recorded remaining target without appending or modifying a phase.
+- **Does**: Reconstructs the training command from immutable lineage and phase
+  metadata even when a read-only audit was the most recent process command.
+- **Does**: Rejects completed phases, active workers, missing lineage/checkpoints,
+  unknown GPUs, and unrecovered failures; failures remain restricted to retry.
+- **Rationale**: Interim causal audits must pause only the worker, never transform
+  one persistent organism experiment into a nominally new phase.
 
 ### `EvaluateSpec` / `Laboratory.evaluate_run`
 - **Does**: Starts read-only held-out evaluation from a stopped checkpoint, optionally
