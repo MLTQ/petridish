@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import copy
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -523,6 +524,22 @@ def test_token_routing_control_is_balanced_and_has_no_position_shortcut() -> Non
     assert batch.tokens[:, 0].tolist() == list(range(8))
     assert batch.targets[:, 0].tolist() == list(range(8, 16))
     assert bool(batch.loss_mask.all())
+
+
+def test_zero_broadcast_gain_is_a_hard_workspace_ablation() -> None:
+    config = small_config()
+    config = replace(
+        config, broadcast_gain=0.0, lifecycle_enabled=0,
+        structural_warmup_trials=10_000,
+    )
+    experiment = SequenceExperiment("tiny_language", config, seed=19, device="cpu")
+
+    experiment.train_updates(1)
+
+    assert experiment.model.broadcast_gain.grad is None
+    assert experiment.model.broadcast_key.weight.grad is None
+    assert experiment.model.broadcast_query.weight.grad is None
+    assert experiment.model.broadcast_value.weight.grad is None
 
 
 def test_greedy_generation_diagnostic_preserves_training_state() -> None:

@@ -40,6 +40,8 @@ explicitly enabled trainer processes.
   experiments without synthesizing values for baseline artifacts.
 - **Does**: Preserves message-microtick, output-count, and chance-baseline metadata
   for one-token physical-routing controls.
+- **Does**: Preserves the declared broadcast gain so global-workspace and purely
+  dendritic routing controls remain distinguishable.
 - **Does**: Preserves the deterministic-execution flag from benchmark artifacts.
 - **Does**: Preserves an explicit process-global branch-RNG match flag; deterministic
   kernels alone do not prove stochastic lifecycle branches received the same stream.

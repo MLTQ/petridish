@@ -128,6 +128,7 @@ interface BenchmarkSnapshot {
   minimumOutputHops: number | null;
   temporallyReachableOutputs: number | null;
   messageSteps: number | null;
+  broadcastGain: number | null;
   outputCount: number | null;
   chanceAccuracy: number | null;
   checkpoints: BenchmarkCheckpoint[];

@@ -79,6 +79,7 @@ def run_benchmark(
     architecture: str = "gru",
     fixed_recall_pairs: int | None = None,
     message_steps: int | None = None,
+    broadcast_gain: float | None = None,
     output_path: Path | None = None,
     deterministic: bool = False,
 ) -> dict[str, Any]:
@@ -90,12 +91,18 @@ def run_benchmark(
         raise ValueError("token_routing requires the token_route68 profile exclusively")
     if message_steps is not None and task != "token_routing":
         raise ValueError("message-step overrides apply only to token_routing")
+    if broadcast_gain is not None and task != "token_routing":
+        raise ValueError("broadcast-gain overrides apply only to token_routing")
+    if broadcast_gain is not None and broadcast_gain < 0:
+        raise ValueError("broadcast gain cannot be negative")
     if deterministic:
         os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
         torch.use_deterministic_algorithms(True)
     overrides = dict(PROFILES[profile])
     if message_steps is not None:
         overrides["message_steps"] = message_steps
+    if broadcast_gain is not None:
+        overrides["broadcast_gain"] = broadcast_gain
     config = sequence_config(
         "tiny_stories" if task == "token_routing" else None,
         cell_architecture=architecture,
@@ -130,10 +137,12 @@ def run_benchmark(
         return {
             "task": task, "profile": profile, "architecture": architecture,
             "intervention": (
-                f"{config.message_steps} microticks/token"
+                f"{config.message_steps} ticks · "
+                f"broadcast {'on' if config.broadcast_gain > 0 else 'off'}"
                 if task == "token_routing" else None
             ),
             "messageSteps": config.message_steps,
+            "broadcastGain": config.broadcast_gain,
             "outputCount": experiment.model.substrate.output_count,
             "chanceAccuracy": (
                 1 / 8 if task == "token_routing" else None
@@ -238,6 +247,7 @@ def main() -> None:
     parser.add_argument("--architecture", choices=CELL_ARCHITECTURES, default="gru")
     parser.add_argument("--fixed-recall-pairs", type=int, choices=(1, 2, 3))
     parser.add_argument("--message-steps", type=int, choices=range(1, 17))
+    parser.add_argument("--broadcast-gain", type=float)
     parser.add_argument("--output", type=Path)
     parser.add_argument("--deterministic", action="store_true")
     args = parser.parse_args()
@@ -246,6 +256,7 @@ def main() -> None:
         device=args.device, architecture=args.architecture,
         fixed_recall_pairs=args.fixed_recall_pairs,
         message_steps=args.message_steps,
+        broadcast_gain=args.broadcast_gain,
         output_path=args.output,
         deterministic=args.deterministic,
     )

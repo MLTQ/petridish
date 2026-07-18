@@ -45,6 +45,8 @@ configured threshold.
 The direct-routing fixture supplies eight different tokens at the same single position
 with eight equally frequent targets, preventing position embeddings or class bias from
 masquerading as sensory-to-output learning.
+The zero-broadcast regression requires a hard workspace bypass with no gradients into
+its gain or projections, preventing a nominal ablation from learning to reactivate.
 Headless diagnostics separately verify physical/conducting edges, one-token/context/
 graph reachability ordering, and exact pruning counts. Fixed-prompt greedy generation
 must be repeatable without consuming the training sampler or mutating interactive state.

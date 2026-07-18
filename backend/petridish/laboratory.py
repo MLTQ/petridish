@@ -327,6 +327,7 @@ class Laboratory:
                         "temporallyReachableOutputs"
                     ),
                     "messageSteps": payload.get("messageSteps"),
+                    "broadcastGain": payload.get("broadcastGain"),
                     "outputCount": payload.get("outputCount"),
                     "chanceAccuracy": payload.get("chanceAccuracy"),
                     "checkpoints": valid_checkpoints,

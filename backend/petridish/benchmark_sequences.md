@@ -67,9 +67,13 @@ intervention, allowing four-microtick and route-covering controls to share initi
 weights, topology, optimizer, seed, and target distribution. Checkpoints retain
 gradient norms for the token input, input projection, cell rule, physical synapses,
 broadcast path, and output readout.
+`--broadcast-gain 0` is the matched hard ablation: workspace writes, reads, and
+gradients are bypassed, so four ticks test an under-length physical graph while
+twelve ticks test the same graph after every output becomes temporally reachable.
 
 ```bash
 python -m petridish.benchmark_sequences --task token_routing \
   --profile token_route68 --message-steps 12 --steps 200 \
+  --broadcast-gain 0 \
   --output benchmarks/lab/token-route-12.json
 ```

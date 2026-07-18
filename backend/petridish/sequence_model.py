@@ -263,6 +263,7 @@ class CellularSequenceModel(nn.Module):
         entropy_normalizer = indegree[entropy_valid].log()
         slot_keys = F.normalize(self.broadcast_slot_keys, dim=1)
         message_scale = F.softplus(self.message_gain_raw)
+        use_broadcast = cfg.broadcast_gain > 0
         broadcast_gain = self.broadcast_gain.clamp_min(0)
         fast_weight_gain = self.fast_weight_gain.clamp_min(0)
         hidden_scale = math.sqrt(cfg.hidden_channels)
@@ -390,25 +391,28 @@ class CellularSequenceModel(nn.Module):
                 key = self.message_key(normalized)
                 value = self.message_value(normalized)
                 emit = torch.sigmoid(self.emit_gate(normalized)) * responsive.view(1, -1, 1)
-                write_score = torch.einsum(
-                    "bnh,sh->bns", self.broadcast_key(normalized), slot_keys
-                ) / hidden_scale
-                write_attention = torch.softmax(write_score, dim=1)
-                proposed_workspace = torch.einsum(
-                    "bns,bnh->bsh", write_attention,
-                    self.broadcast_value(normalized) * responsive.view(1, -1, 1)
-                )
-                workspace_state = (
-                    cfg.broadcast_decay * workspace_state
-                    + (1 - cfg.broadcast_decay) * proposed_workspace
-                )
-                read_score = torch.einsum(
-                    "bnh,sh->bns", self.broadcast_query(normalized), slot_keys
-                ) / hidden_scale
-                read_attention = torch.softmax(read_score, dim=2)
-                broadcast_message = torch.einsum(
-                    "bns,bsh->bnh", read_attention, workspace_state
-                ) * broadcast_gain
+                if use_broadcast:
+                    write_score = torch.einsum(
+                        "bnh,sh->bns", self.broadcast_key(normalized), slot_keys
+                    ) / hidden_scale
+                    write_attention = torch.softmax(write_score, dim=1)
+                    proposed_workspace = torch.einsum(
+                        "bns,bnh->bsh", write_attention,
+                        self.broadcast_value(normalized) * responsive.view(1, -1, 1)
+                    )
+                    workspace_state = (
+                        cfg.broadcast_decay * workspace_state
+                        + (1 - cfg.broadcast_decay) * proposed_workspace
+                    )
+                    read_score = torch.einsum(
+                        "bnh,sh->bns", self.broadcast_query(normalized), slot_keys
+                    ) / hidden_scale
+                    read_attention = torch.softmax(read_score, dim=2)
+                    broadcast_message = torch.einsum(
+                        "bns,bsh->bnh", read_attention, workspace_state
+                    ) * broadcast_gain
+                else:
+                    broadcast_message = 0.0
                 if use_fast_weights:
                     assert fast_memory is not None
                     fast_key = F.normalize(self.fast_key(normalized), dim=2)

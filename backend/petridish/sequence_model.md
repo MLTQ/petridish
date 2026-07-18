@@ -33,6 +33,8 @@ slots and selectively read them during the recurrent update. This path is epheme
 at the edge level but its slots persist within a sequence using configurable decay.
 It does not pretend to be an axon; persistent weighted dendrites still own the
 structural graph. `broadcast_gain = 0` is the controlled no-workspace ablation.
+That zero configuration hard-bypasses workspace writes, reads, and gradients; the
+trainable gain cannot silently reactivate an experiment labeled broadcast-off.
 
 In parallel, neuron-advertised keys and values update a persistent fast-weight matrix;
 neuron queries read it as recurrent linear attention. This explicitly tests
