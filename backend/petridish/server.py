@@ -48,7 +48,7 @@ class LabLaunchRequest(BaseModel):
     tokenizerProfile: str = "wordpiece"
     streamMode: str = "continuous"
     stateRetention: float = Field(default=0.9, ge=0, le=1)
-    stateLanes: int = Field(default=1, ge=1, le=16)
+    stateLanes: int = Field(default=1, ge=1, le=32)
     messageSteps: int = Field(default=2, ge=1, le=16)
     broadcastGain: float = Field(default=0.3, ge=0, le=2)
     updates: int = Field(default=100_000, ge=1)
@@ -72,7 +72,7 @@ class LabContinueRequest(BaseModel):
     topologyProfile: str | None = None
     phaseName: str | None = Field(default=None, max_length=120)
     trainingShardTokens: int | None = Field(default=None, ge=0)
-    stateLanes: int | None = Field(default=None, ge=1, le=16)
+    stateLanes: int | None = Field(default=None, ge=1, le=32)
 
 
 class LabForkRequest(BaseModel):

@@ -67,20 +67,36 @@ class SequenceTask:
         return torch.randint(0, source.numel(), (batch_size,), generator=generator)
 
     def stream_batch(
-        self, positions: torch.Tensor, *, evaluation: bool = False
+        self,
+        positions: torch.Tensor,
+        *,
+        evaluation: bool = False,
+        stream_lengths: torch.Tensor | None = None,
     ) -> tuple[SequenceBatch, torch.Tensor]:
-        """Read one contiguous window per lane and return each lane's next position."""
+        """Read one contiguous window per lane inside its checkpoint-owned domain."""
 
         source = self._stream(evaluation)
         starts = positions.detach().to(device="cpu", dtype=torch.long)
+        if stream_lengths is None:
+            lengths = torch.full_like(starts, source.numel())
+        else:
+            lengths = stream_lengths.detach().to(device="cpu", dtype=torch.long)
+            if lengths.shape != starts.shape:
+                raise ValueError("stream lengths must match the lane-position shape")
+            if bool((lengths <= self.sequence_length).any()):
+                raise ValueError("lane stream is shorter than one context window")
+            if bool((lengths > source.numel()).any()):
+                raise ValueError("lane stream exceeds the available token stream")
         offsets = torch.arange(self.sequence_length + 1)
-        indices = (starts.unsqueeze(1) + offsets.unsqueeze(0)) % source.numel()
+        indices = (
+            starts.unsqueeze(1) + offsets.unsqueeze(0)
+        ) % lengths.unsqueeze(1)
         rows = source[indices]
         batch = SequenceBatch(
             rows[:, :-1], rows[:, 1:],
             torch.ones(rows.shape[0], self.sequence_length, dtype=torch.bool),
         )
-        return batch, (starts + self.sequence_length) % source.numel()
+        return batch, (starts + self.sequence_length) % lengths
 
     def _stream(self, evaluation: bool) -> torch.Tensor:
         source = self.evaluation_stream if evaluation else self.training_stream

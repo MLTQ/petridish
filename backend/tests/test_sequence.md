@@ -113,7 +113,11 @@ must preserve every old cursor and runtime state, consume rather than reseed the
 saved training RNG for new positions, co-locate new cursors with a CUDA-restored
 checkpoint, reject shrinking, and survive a checkpoint round trip with added lanes
 still cold. Diagnostics must separately measure active/cold lanes, tensor trajectory
-count, and unique cursor phases. Pre-update process
+count, unique cursor phases, and per-domain lane counts. Per-row stream tests require
+independent wrap lengths, and legacy checkpoint expansion must infer the old shard,
+retain every old cursor/state/domain exactly, assign the broader domain only to cold
+new lanes, train across the mixed domains, and reject a curriculum smaller than any
+preserved domain. Pre-update process
 failures must persist a newline-free, bounded record. The
 excitotoxicity regression verifies stun, seeded recovery without
 edge deletion, and lethal classification only after accumulated damage crosses the

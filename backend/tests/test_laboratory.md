@@ -64,7 +64,7 @@ control-enable contracts without requiring NVIDIA hardware or launching trainers
   experience mode and rejects values above one.
 - **Does**: Preserves fixed, adaptive, and prune-only topology profiles in commands,
   manifests, and continuation phase records while rejecting unknown policies.
-- **Does**: Preserves one to sixteen round-robin persistent state lanes independently
+- **Does**: Preserves one to thirty-two round-robin persistent state lanes independently
   from tensor batch and rejects larger banks.
 - **Does**: Reports a persisted pre-checkpoint trainer failure and its bounded detail
   as failed rather than stopped.
@@ -75,6 +75,8 @@ control-enable contracts without requiring NVIDIA hardware or launching trainers
   command, manifest, phase boundary, and append-only metric.
 - **Does**: Proves append-only lane expansion reaches the command, manifest, phase
   boundary, and metric while shrink requests remain invalid.
+- **Does**: Requires every corpus-breadth increase to append lanes in the same phase
+  and rejects bounded or full-stream domain shrinkage before launching a trainer.
 - **Does**: Proves continuation repairs a lagging manifest from the latest checkpoint
   metric's phase, repeated-shard size, and lane count rather than relabeling the
   preserved organism with stale orchestration metadata.

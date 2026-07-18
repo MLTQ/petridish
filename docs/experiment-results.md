@@ -859,3 +859,49 @@ while the other expands to 4,096 bytes. Both retain the emerged cells, pruned gr
 sixteen lanes, optimizer, RNG, and electrical histories with fixed topology and no
 lifecycle. This asks whether incremental corpus breadth transfers conditional
 computation before reintroducing gentler homeostasis.
+
+### A hard breadth switch remapped trajectories instead of preserving replay
+
+Two exact descendants of the no-lifecycle update-6,750 checkpoint began from SHA-256
+`8dc60e3e4521c22295a4c03626761c91d6e385f289c1853745e453476604bedc`, organism ID
+`organism-b2505376398a491e8cf4150a5daf3fab`, 2,224 cells, 13,737 fixed directed edges,
+and sixteen active recurrent lanes. The control retained the 2,048-byte stream; the
+treatment doubled it to 4,096 bytes. No topology or lifecycle mutation occurred.
+
+The retained curriculum remained competent throughout and finished its final 160
+updates at 81.75% / 0.75305. The doubled stream initially tracked it, then crossed a
+large novelty band: phase rolling accuracy moved from 64.6% at update 6,906 through
+58.4%, 55.8%, 44.0%, and 31.4%, before recovering to 46.83% / 1.92284 at update
+7,750. The final individual window reached 87.5%, showing active learning rather than
+optimizer failure, but consolidation was incomplete after 1,000 updates.
+
+Causal audits separated retained knowledge from phase alignment. The control reached
+80.47% on its exact next trajectory and 72.85% at random active-shard offsets. The
+expanded organism reached 54.98% on its exact trajectory but only 20.41% at random
+offsets, below its fitted 31.01% bigram ceiling. Cold-state trajectory accuracy was
+58.50% control and 43.75% expanded, so accumulated electrical state contributed 21.97
+and 11.23 points respectively.
+
+Both computations still depended on the unchanged physical graph. Exact-trajectory
+graph silence reduced control from 80.47% to 6.25% and expanded from 54.98% to 4.88%;
+endpoint rotation produced 6.54% and 6.15%, while within-target source/weight
+reassignment produced 4.59% and 5.57%. Broadcast silence left 24.22% and 20.31%.
+The treatment therefore did not bypass the connectome; it learned a narrower physical
+trajectory through it.
+
+Validation improved modestly but remained below trivial language statistics. Control
+measured 9.28% / 4.77879 and expanded measured 11.13% / 4.20356, versus the shared
+19.09% unigram baseline. Their fixed-prompt generations remained unreadable:
+` bom  ewnm  nnee` and `o  T heenom  nd `. All audits were non-mutating. Control
+checkpoint SHA-256 stayed
+`d853dccf9cd81e3827f12fd3bad43fe8f5a8d8e33d0d9db476d7a69d9d902d33`; expanded
+stayed `619aac02e8692a3fc9722f2ba2432a326f93ab7196942f0f5e0dbee9a0fd4c86`.
+
+The failure mode is now concrete: changing the task's single stream length changes
+the modulo interpretation of every saved absolute cursor. Existing electrical lanes
+are preserved as tensors, but they no longer receive the old continuation they had
+learned. The next implementation makes stream domain checkpoint-owned per lane.
+Existing lanes will retain their exact 2,048-byte domain and cursor interpretation;
+newly appended cold lanes alone will receive the 4,096-byte domain. This produces
+interleaved replay and novelty inside one persistent organism rather than a hard
+global remapping.

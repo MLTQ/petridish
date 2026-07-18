@@ -68,6 +68,7 @@ def _experiment_state(experiment: SequenceExperiment) -> dict[str, Any]:
             "state_lanes": experiment.state_lanes,
             "topology_profile": experiment.topology_profile,
             "_training_stream_positions": experiment._training_stream_positions,
+            "_training_stream_lengths": experiment._training_stream_lengths,
             "_training_runtime_state": experiment._training_runtime_state,
             "_training_runtime_bank": experiment._training_runtime_bank,
         }
@@ -126,6 +127,8 @@ def save_checkpoint(
             "state_lanes": experiment.state_lanes,
             "topology_profile": experiment.topology_profile,
             "tokenizer_profile": experiment.task.tokenizer_profile,
+            "training_stream_tokens": experiment.task.training_stream_tokens,
+            "full_training_stream_tokens": experiment.task.full_training_stream_tokens,
             "training_shard_tokens": experiment.task.training_shard_tokens,
         },
         "model": experiment.model.state_dict(),
@@ -164,7 +167,48 @@ def restore_checkpoint(
     if unexpected:
         raise ValueError(f"checkpoint has unexpected model keys: {unexpected[:3]}")
     experiment.optimizer.load_state_dict(payload["optimizer"])
-    _restore_experiment_state(experiment, dict(payload["experiment"]))
+    experiment_state = dict(payload["experiment"])
+    if (
+        experiment_state.get("_training_stream_positions") is not None
+        and experiment_state.get("_training_stream_lengths") is None
+    ):
+        positions = experiment_state["_training_stream_positions"]
+        saved_task = payload.get("task", {})
+        saved_shard = saved_task.get("training_shard_tokens")
+        saved_stream_tokens = saved_task.get("training_stream_tokens")
+        if (
+            saved_stream_tokens is None
+            and saved_shard is None
+            and experiment.task.training_shard_tokens is not None
+        ):
+            raise ValueError(
+                "legacy full-stream checkpoint cannot shrink to a bounded domain"
+            )
+        saved_stream_tokens = int(
+            saved_stream_tokens
+            or saved_shard
+            or experiment.task.training_stream_tokens
+        )
+        experiment_state["_training_stream_lengths"] = torch.full_like(
+            positions, saved_stream_tokens
+        )
+    _restore_experiment_state(experiment, experiment_state)
+    if experiment._training_stream_lengths is not None:
+        if (
+            experiment._training_stream_positions is None
+            or experiment._training_stream_lengths.shape
+            != experiment._training_stream_positions.shape
+        ):
+            raise ValueError("checkpoint stream domains do not match lane positions")
+        if bool(
+            (
+                experiment._training_stream_lengths
+                > experiment.task.training_stream_tokens
+            ).any()
+        ):
+            raise ValueError(
+                "curriculum cannot shrink below a preserved lane stream domain"
+            )
     rng = payload["random"]
     experiment.generator.set_state(rng["training_generator"].cpu())
     experiment.eval_generator.set_state(rng["evaluation_generator"].cpu())
@@ -181,6 +225,8 @@ def expand_persistent_state_lanes(
     """Add cold experience lanes without replacing any checkpoint-owned lane."""
 
     current_lanes = experiment.state_lanes
+    if target_lanes > 32:
+        raise ValueError("state lanes must be between one and thirty-two")
     if target_lanes < current_lanes:
         raise ValueError("state-lane continuation cannot discard existing lanes")
     if target_lanes == current_lanes:
@@ -190,6 +236,9 @@ def expand_persistent_state_lanes(
     positions = experiment._training_stream_positions
     if positions is None:
         raise RuntimeError("continuous stream positions were not restored")
+    stream_lengths = experiment._training_stream_lengths
+    if stream_lengths is None:
+        raise RuntimeError("continuous stream domains were not restored")
     preserved_positions = positions.unsqueeze(0) if current_lanes == 1 else positions
     added = target_lanes - current_lanes
     added_positions = experiment.task.initial_stream_positions(
@@ -197,6 +246,18 @@ def expand_persistent_state_lanes(
     ).reshape(added, experiment.config.batch_size).to(device=positions.device)
     experiment._training_stream_positions = torch.cat(
         (preserved_positions, added_positions), dim=0
+    )
+    preserved_lengths = (
+        stream_lengths.unsqueeze(0) if current_lanes == 1 else stream_lengths
+    )
+    added_lengths = torch.full(
+        (added, experiment.config.batch_size),
+        experiment.task.training_stream_tokens,
+        dtype=stream_lengths.dtype,
+        device=stream_lengths.device,
+    )
+    experiment._training_stream_lengths = torch.cat(
+        (preserved_lengths, added_lengths), dim=0
     )
     preserved_bank = list(experiment._training_runtime_bank)
     if len(preserved_bank) != current_lanes:
@@ -300,6 +361,22 @@ def _scientific_metrics(experiment: SequenceExperiment) -> dict[str, Any]:
     active_state_lanes = sum(state is not None for state in lane_states)
     stream_positions = experiment._training_stream_positions
     experience_trajectories = 0 if stream_positions is None else stream_positions.numel()
+    stream_lengths = experiment._training_stream_lengths
+    lane_stream_domains: list[dict[str, int]] = []
+    if stream_lengths is not None:
+        shaped_lengths = (
+            stream_lengths.unsqueeze(0)
+            if experiment.state_lanes == 1 else stream_lengths
+        )
+        if not bool((shaped_lengths == shaped_lengths[:, :1]).all()):
+            raise RuntimeError("one experience lane spans multiple stream domains")
+        domains, counts = torch.unique(
+            shaped_lengths[:, 0].detach().cpu(), return_counts=True
+        )
+        lane_stream_domains = [
+            {"tokens": int(tokens), "lanes": int(count)}
+            for tokens, count in zip(domains.tolist(), counts.tolist(), strict=True)
+        ]
     unique_cursor_phases = (
         0
         if stream_positions is None
@@ -320,6 +397,13 @@ def _scientific_metrics(experiment: SequenceExperiment) -> dict[str, Any]:
         "activeStateLanes": active_state_lanes,
         "coldStateLanes": experiment.state_lanes - active_state_lanes,
         "experienceTrajectoryCount": experience_trajectories,
+        "laneStreamDomains": lane_stream_domains,
+        "minimumLaneStreamTokens": min(
+            (domain["tokens"] for domain in lane_stream_domains), default=0
+        ),
+        "maximumLaneStreamTokens": max(
+            (domain["tokens"] for domain in lane_stream_domains), default=0
+        ),
         "uniqueCursorPhases": unique_cursor_phases,
         "cursorPhaseCoverage": (
             unique_cursor_phases / experiment.task.sequence_length
@@ -673,8 +757,8 @@ def main() -> None:
         parser.error("--broadcast-gain must be between 0 and 2")
     if not 0 <= args.state_retention <= 1:
         parser.error("--state-retention must be between 0 and 1")
-    if args.state_lanes is not None and not 1 <= args.state_lanes <= 16:
-        parser.error("--state-lanes must be between 1 and 16")
+    if args.state_lanes is not None and not 1 <= args.state_lanes <= 32:
+        parser.error("--state-lanes must be between 1 and 32")
     if args.phase_index is not None and args.phase_index < 0:
         parser.error("--phase-index must be non-negative")
 
@@ -882,6 +966,12 @@ def main() -> None:
             "stateRetention": experiment.state_retention,
             "stateLanes": experiment.state_lanes,
             "stateLane": (experiment.training_step - 1) % experiment.state_lanes,
+            "stateLaneStreamTokens": int(
+                experiment._training_stream_lengths[
+                    0 if experiment.state_lanes == 1
+                    else (experiment.training_step - 1) % experiment.state_lanes
+                ].flatten()[0]
+            ) if experiment._training_stream_lengths is not None else None,
             "topologyProfile": experiment.topology_profile,
             "trainingStreamTokens": experiment.task.training_stream_tokens,
             "fullTrainingStreamTokens": experiment.task.full_training_stream_tokens,

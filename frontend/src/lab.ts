@@ -101,9 +101,13 @@ interface MetricRecord {
   }>;
   stateLanes?: number;
   stateLane?: number;
+  stateLaneStreamTokens?: number;
   activeStateLanes?: number;
   coldStateLanes?: number;
   experienceTrajectoryCount?: number;
+  laneStreamDomains?: Array<{ tokens: number; lanes: number }>;
+  minimumLaneStreamTokens?: number;
+  maximumLaneStreamTokens?: number;
   uniqueCursorPhases?: number;
   cursorPhaseCoverage?: number;
   minimumElectricalStateTokens?: number;
@@ -126,6 +130,7 @@ interface MetricRecord {
   gradientClipScale?: number;
   evaluationSplit?: "validation" | "training" | "trajectory";
   trajectoryLane?: number | null;
+  trajectoryStreamTokens?: number | null;
 }
 
 interface OrganismPhase {
@@ -179,6 +184,7 @@ interface LaboratorySnapshot {
     trainingShardAudit?: boolean;
     trainingShardCurriculum?: boolean;
     stateLaneExpansion?: boolean;
+    stateLaneDomains?: boolean;
     checkpointFork?: boolean;
     sameLineageRetry?: boolean;
   };
@@ -804,6 +810,9 @@ export class LaboratoryView {
       const phaseCoverage = diagnostic?.uniqueCursorPhases === undefined
         ? ""
         : ` · ${diagnostic.activeStateLanes ?? 0}/${diagnostic.stateLanes ?? run.configuration.stateLanes ?? 1} active lanes · ${diagnostic.uniqueCursorPhases}/${run.configuration.contextLength ?? 64} cursor phases`;
+      const streamDomains = diagnostic?.laneStreamDomains?.length
+        ? ` · domains ${diagnostic.laneStreamDomains.map((domain) => `${domain.lanes}×${domain.tokens.toLocaleString()}`).join(" + ")}`
+        : "";
       const laneAccuracy = this.laneAccuracySpread(run);
       const gradientSummary = run.latestTrain?.classBiasGradientNorm === undefined
         ? ""
@@ -813,9 +822,9 @@ export class LaboratoryView {
         : ` · shard causal ref ${this.percent(shardAudit.graphReferenceAccuracy)} · silence Δacc ${this.signedPercent(shardAudit.graphSilencedAccuracyDelta)} / Δloss ${this.signedNumber(shardAudit.graphSilencedLossDelta)} · rotate Δacc ${this.signedPercent(shardAudit.sourceRotatedAccuracyDelta)} / Δloss ${this.signedNumber(shardAudit.sourceRotatedLossDelta)} · reassign Δacc ${this.signedPercent(shardAudit.weightReassignedAccuracyDelta)} / Δloss ${this.signedNumber(shardAudit.weightReassignedLossDelta)}`;
       const trajectoryCausality = trajectoryAudit?.graphReferenceAccuracy === undefined
         ? ""
-        : ` · trajectory lane ${trajectoryAudit.trajectoryLane ?? "—"} ref ${this.percent(trajectoryAudit.graphReferenceAccuracy)} · silence Δacc ${this.signedPercent(trajectoryAudit.graphSilencedAccuracyDelta)} / Δloss ${this.signedNumber(trajectoryAudit.graphSilencedLossDelta)} · rotate Δacc ${this.signedPercent(trajectoryAudit.sourceRotatedAccuracyDelta)} / Δloss ${this.signedNumber(trajectoryAudit.sourceRotatedLossDelta)} · reassign Δacc ${this.signedPercent(trajectoryAudit.weightReassignedAccuracyDelta)} / Δloss ${this.signedNumber(trajectoryAudit.weightReassignedLossDelta)}`;
+        : ` · trajectory lane ${trajectoryAudit.trajectoryLane ?? "—"}${trajectoryAudit.trajectoryStreamTokens == null ? "" : ` @ ${trajectoryAudit.trajectoryStreamTokens.toLocaleString()} tokens`} ref ${this.percent(trajectoryAudit.graphReferenceAccuracy)} · silence Δacc ${this.signedPercent(trajectoryAudit.graphSilencedAccuracyDelta)} / Δloss ${this.signedNumber(trajectoryAudit.graphSilencedLossDelta)} · rotate Δacc ${this.signedPercent(trajectoryAudit.sourceRotatedAccuracyDelta)} / Δloss ${this.signedNumber(trajectoryAudit.sourceRotatedLossDelta)} · reassign Δacc ${this.signedPercent(trajectoryAudit.weightReassignedAccuracyDelta)} / Δloss ${this.signedNumber(trajectoryAudit.weightReassignedLossDelta)}`;
       const routing = diagnostic
-        ? `${String(run.configuration.tokenizerProfile ?? "legacy tokenizer")} · ${String(run.configuration.streamMode ?? "windowed")} · retention ${String(run.configuration.stateRetention ?? "1 legacy")} · ${String(run.configuration.stateLanes ?? 1)} state lane${Number(run.configuration.stateLanes ?? 1) === 1 ? "" : "s"} · ${stateAge}${phaseCoverage}${laneAccuracy} · ${diagnostic.minimumOutputHops ?? "—"}/${diagnostic.medianOutputHops ?? "—"} hops · ${diagnostic.tokenReachableOutputs ?? 0}/${diagnostic.contextReachableOutputs ?? 0}/${diagnostic.reachableOutputs ?? 0} token/context/graph · broadcast ${String(run.configuration.broadcastGain ?? "legacy")}${(diagnostic.tokenReachableOutputs ?? 0) === 0 && Number(run.configuration.messageSteps ?? 0) < Number(diagnostic.minimumOutputHops ?? 0) ? ` · insufficient ${run.configuration.messageSteps ?? "—"} < ${diagnostic.minimumOutputHops ?? "—"}` : ""}${gradientSummary}${heldOut?.graphReferenceAccuracy === undefined ? "" : ` · validation causal ref ${this.percent(heldOut.graphReferenceAccuracy)} · silence Δacc ${this.signedPercent(heldOut.graphSilencedAccuracyDelta)} / Δloss ${this.signedNumber(heldOut.graphSilencedLossDelta)} · rotate topology Δacc ${this.signedPercent(heldOut.sourceRotatedAccuracyDelta)} / Δloss ${this.signedNumber(heldOut.sourceRotatedLossDelta)}${heldOut.weightReassignedLossDelta === undefined ? "" : ` · reassign weights Δacc ${this.signedPercent(heldOut.weightReassignedAccuracyDelta)} / Δloss ${this.signedNumber(heldOut.weightReassignedLossDelta)}`}${heldOut.broadcastAblationApplicable ? ` · silence broadcast Δacc ${this.signedPercent(heldOut.broadcastSilencedAccuracyDelta)} / Δloss ${this.signedNumber(heldOut.broadcastSilencedLossDelta)}` : ""}`}${shardCausality}${trajectoryCausality}`
+        ? `${String(run.configuration.tokenizerProfile ?? "legacy tokenizer")} · ${String(run.configuration.streamMode ?? "windowed")} · retention ${String(run.configuration.stateRetention ?? "1 legacy")} · ${String(run.configuration.stateLanes ?? 1)} state lane${Number(run.configuration.stateLanes ?? 1) === 1 ? "" : "s"} · ${stateAge}${phaseCoverage}${streamDomains}${laneAccuracy} · ${diagnostic.minimumOutputHops ?? "—"}/${diagnostic.medianOutputHops ?? "—"} hops · ${diagnostic.tokenReachableOutputs ?? 0}/${diagnostic.contextReachableOutputs ?? 0}/${diagnostic.reachableOutputs ?? 0} token/context/graph · broadcast ${String(run.configuration.broadcastGain ?? "legacy")}${(diagnostic.tokenReachableOutputs ?? 0) === 0 && Number(run.configuration.messageSteps ?? 0) < Number(diagnostic.minimumOutputHops ?? 0) ? ` · insufficient ${run.configuration.messageSteps ?? "—"} < ${diagnostic.minimumOutputHops ?? "—"}` : ""}${gradientSummary}${heldOut?.graphReferenceAccuracy === undefined ? "" : ` · validation causal ref ${this.percent(heldOut.graphReferenceAccuracy)} · silence Δacc ${this.signedPercent(heldOut.graphSilencedAccuracyDelta)} / Δloss ${this.signedNumber(heldOut.graphSilencedLossDelta)} · rotate topology Δacc ${this.signedPercent(heldOut.sourceRotatedAccuracyDelta)} / Δloss ${this.signedNumber(heldOut.sourceRotatedLossDelta)}${heldOut.weightReassignedLossDelta === undefined ? "" : ` · reassign weights Δacc ${this.signedPercent(heldOut.weightReassignedAccuracyDelta)} / Δloss ${this.signedNumber(heldOut.weightReassignedLossDelta)}`}${heldOut.broadcastAblationApplicable ? ` · silence broadcast Δacc ${this.signedPercent(heldOut.broadcastSilencedAccuracyDelta)} / Δloss ${this.signedNumber(heldOut.broadcastSilencedLossDelta)}` : ""}`}${shardCausality}${trajectoryCausality}`
         : "—";
       const lifecycle = diagnostic
         ? `${String(run.configuration.lifecycleProfile ?? (run.configuration.lifecycle ? "baseline" : "off"))} · ${diagnostic.lifecycleReason ?? (diagnostic.lifecycleActive ? "active" : "inactive")}${(diagnostic.lifecycleWarmupRemaining ?? 0) > 0 ? ` · ${diagnostic.lifecycleWarmupRemaining} warm-up updates` : ""} · ${diagnostic.stunnedCells ?? 0} stunned · +${diagnostic.cumulativeBirths ?? 0}/−${diagnostic.cumulativeDeaths ?? 0} cells · ${diagnostic.cumulativeStuns ?? 0}/${diagnostic.cumulativeRecoveries ?? 0} stun/recover`
@@ -902,16 +911,34 @@ export class LaboratoryView {
       ))
       .slice(-(laneCount * 4));
     const lanes = Array.from({ length: laneCount }, () => [] as number[]);
+    const domainByLane = new Array<number | undefined>(laneCount);
     for (const record of records) {
       const lane = record.stateLane ?? ((record.update - 1) % laneCount);
-      if (lane >= 0 && lane < laneCount) lanes[lane]?.push(record.accuracy as number);
+      if (lane >= 0 && lane < laneCount) {
+        lanes[lane]?.push(record.accuracy as number);
+        if (record.stateLaneStreamTokens !== undefined) {
+          domainByLane[lane] = record.stateLaneStreamTokens;
+        }
+      }
     }
     if (lanes.some((values) => values.length === 0)) return "";
     const accuracies = lanes.map((values) => (
       values.reduce((sum, value) => sum + value, 0) / values.length
     ));
     const mean = accuracies.reduce((sum, value) => sum + value, 0) / accuracies.length;
-    return ` · lane acc ${this.percent(mean)} mean / ${this.percent(Math.min(...accuracies))}–${this.percent(Math.max(...accuracies))}`;
+    const domainAccuracies = new Map<number, number[]>();
+    domainByLane.forEach((domain, lane) => {
+      if (domain === undefined) return;
+      const values = domainAccuracies.get(domain) ?? [];
+      values.push(accuracies[lane] as number);
+      domainAccuracies.set(domain, values);
+    });
+    const domains = domainAccuracies.size <= 1
+      ? ""
+      : ` · domain acc ${[...domainAccuracies.entries()].sort((a, b) => a[0] - b[0]).map(([domain, values]) => (
+        `${domain.toLocaleString()} ${this.percent(values.reduce((sum, value) => sum + value, 0) / values.length)}`
+      )).join(" / ")}`;
+    return ` · lane acc ${this.percent(mean)} mean / ${this.percent(Math.min(...accuracies))}–${this.percent(Math.max(...accuracies))}${domains}`;
   }
 
   private drawChart(): void {

@@ -59,8 +59,8 @@ class SequenceExperiment:
             raise ValueError(f"task {self.task.key} has no contiguous training stream")
         if not 0 <= state_retention <= 1:
             raise ValueError("state retention must be between zero and one")
-        if not 1 <= state_lanes <= 16:
-            raise ValueError("state lanes must be between one and sixteen")
+        if not 1 <= state_lanes <= 32:
+            raise ValueError("state lanes must be between one and thirty-two")
         self.stream_mode = stream_mode
         self.state_retention = state_retention
         self.state_lanes = state_lanes
@@ -85,6 +85,13 @@ class SequenceExperiment:
         self._training_stream_positions = (
             stream_positions[0] if stream_positions is not None and state_lanes == 1
             else stream_positions
+        )
+        self._training_stream_lengths = (
+            torch.full_like(
+                self._training_stream_positions,
+                self.task.training_stream_tokens,
+            )
+            if self._training_stream_positions is not None else None
         )
         self._training_runtime_state: SequenceRuntimeState | None = None
         self._training_runtime_bank: list[SequenceRuntimeState | None] = [
@@ -221,7 +228,15 @@ class SequenceExperiment:
             self._training_stream_positions
             if self.state_lanes == 1 else self._training_stream_positions[lane]
         )
-        batch, next_positions = self.task.stream_batch(positions)
+        if self._training_stream_lengths is None:
+            raise RuntimeError("continuous stream domains were not initialized")
+        stream_lengths = (
+            self._training_stream_lengths
+            if self.state_lanes == 1 else self._training_stream_lengths[lane]
+        )
+        batch, next_positions = self.task.stream_batch(
+            positions, stream_lengths=stream_lengths
+        )
         runtime_state = (
             self._training_runtime_state
             if self.state_lanes == 1 else self._training_runtime_bank[lane]
@@ -849,14 +864,22 @@ class SequenceExperiment:
         absent_value_predictions = 0
         batch_count = max(1, min(50, batches))
         trajectory_lane: int | None = None
+        trajectory_stream_lengths: torch.Tensor | None = None
         if self.stream_mode == "continuous" and evaluation_split == "trajectory":
             if self._training_stream_positions is None:
                 raise RuntimeError("continuous stream positions were not initialized")
+            if self._training_stream_lengths is None:
+                raise RuntimeError("continuous stream domains were not initialized")
             trajectory_lane = self.training_step % self.state_lanes
             stream_positions = (
                 self._training_stream_positions
                 if self.state_lanes == 1
                 else self._training_stream_positions[trajectory_lane]
+            ).detach().clone()
+            trajectory_stream_lengths = (
+                self._training_stream_lengths
+                if self.state_lanes == 1
+                else self._training_stream_lengths[trajectory_lane]
             ).detach().clone()
         else:
             stream_positions = (
@@ -878,7 +901,9 @@ class SequenceExperiment:
                 )
             else:
                 cpu_batch, stream_positions = self.task.stream_batch(
-                    stream_positions, evaluation=use_validation_stream
+                    stream_positions,
+                    evaluation=use_validation_stream,
+                    stream_lengths=trajectory_stream_lengths,
                 )
                 batch = SequenceBatch(
                     cpu_batch.tokens.to(self.device),
@@ -962,6 +987,10 @@ class SequenceExperiment:
             "stateHorizonWindows": state_horizon_windows,
             "evaluationSplit": evaluation_split,
             "trajectoryLane": trajectory_lane,
+            "trajectoryStreamTokens": (
+                int(trajectory_stream_lengths.flatten()[0])
+                if trajectory_stream_lengths is not None else None
+            ),
             "positionIndices": [
                 position
                 for position, count in enumerate(position_total)

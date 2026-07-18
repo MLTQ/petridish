@@ -213,6 +213,7 @@ def test_snapshot_advertises_checkpoint_evaluation_route(
     assert capabilities["trainingShardAudit"] is True
     assert capabilities["trainingShardCurriculum"] is True
     assert capabilities["stateLaneExpansion"] is True
+    assert capabilities["stateLaneDomains"] is True
     assert capabilities["checkpointFork"] is True
     assert capabilities["sameLineageRetry"] is True
     assert capabilities["tokenizerProfiles"] == ["wordpiece", "byte"]
@@ -386,7 +387,7 @@ def test_checkpoint_continuation_preserves_run_lineage_and_changes_only_phase(
                 "architecture": "esn",
                 "configuration": {
                     "structure": False, "lifecycleProfile": "off", "updates": 500,
-                    "stateLanes": 1,
+                    "stateLanes": 1, "trainingShardTokens": 2_048,
                 },
             }
         ),
@@ -472,6 +473,58 @@ def test_checkpoint_continuation_preserves_run_lineage_and_changes_only_phase(
     assert records[-1]["stateLanes"] == 16
     assert records[-1]["startGrownEdges"] == 320
     assert records[-1]["startPrunedEdges"] == 448
+
+
+def test_curriculum_breadth_requires_append_only_lanes_and_never_shrinks(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    run = tmp_path / "runs" / "trial"
+    run.mkdir(parents=True)
+    (run / "latest.pt").touch()
+    (run / "manifest.json").write_text(
+        json.dumps(
+            {
+                "runId": "trial", "organismId": "organism-preserved",
+                "task": "tiny_stories", "pid": 0,
+                "configuration": {
+                    "contextLength": 64, "trainingShardTokens": 2_048,
+                    "stateLanes": 16, "streamMode": "continuous",
+                },
+                "phaseHistory": [{"index": 3, "name": "2k"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run / "metrics.jsonl").write_text(
+        json.dumps(
+            {
+                "type": "train", "update": 100, "phaseIndex": 3,
+                "trainingShardTokens": 2_048, "stateLanes": 16,
+            }
+        ) + "\n",
+        encoding="utf-8",
+    )
+    laboratory = Laboratory(
+        tmp_path, run_root=tmp_path / "runs", control_enabled=True
+    )
+    monkeypatch.setattr(
+        laboratory, "_gpu_snapshot", lambda: ([{"uuid": "GPU-example"}], [])
+    )
+
+    with pytest.raises(ValueError, match="requires appending"):
+        laboratory.continue_run(
+            ContinueSpec(
+                "trial", "GPU-example", training_shard_tokens=4_096,
+                state_lanes=16, structure=False, topology_profile="fixed",
+            )
+        )
+    with pytest.raises(ValueError, match="cannot shrink"):
+        laboratory.continue_run(
+            ContinueSpec(
+                "trial", "GPU-example", training_shard_tokens=1_024,
+                state_lanes=32, structure=False, topology_profile="fixed",
+            )
+        )
 
 
 def test_continuation_recovers_phase_and_curriculum_from_latest_checkpoint_metric(
@@ -704,8 +757,11 @@ def test_laboratory_records_continuous_experience_or_cold_control(tmp_path: Path
         )
     with pytest.raises(ValueError, match="state lanes"):
         laboratory._validate_spec(
-            LaunchSpec("invalid", "GPU-example", state_lanes=17)
+            LaunchSpec("invalid", "GPU-example", state_lanes=33)
         )
+    laboratory._validate_spec(
+        LaunchSpec("valid", "GPU-example", state_lanes=32)
+    )
 
 
 def test_laboratory_records_prune_only_without_disabling_structure(tmp_path: Path) -> None:

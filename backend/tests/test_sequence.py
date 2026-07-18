@@ -669,6 +669,31 @@ def test_corpus_stream_windows_are_contiguous_across_training_updates() -> None:
     assert torch.equal(next_positions, positions + task.sequence_length)
 
 
+def test_corpus_stream_windows_wrap_inside_independent_lane_domains() -> None:
+    text = "One fox ran. Two birds flew. Three cats slept. " * 100
+    task = build_token_task(text, context_length=8, vocabulary_size=32)
+    assert task.training_stream is not None
+    positions = torch.tensor([124, 252])
+    domains = torch.tensor([128, 256])
+
+    batch, next_positions = task.stream_batch(
+        positions, stream_lengths=domains
+    )
+
+    offsets = torch.arange(8)
+    assert torch.equal(
+        batch.tokens[0], task.training_stream[(positions[0] + offsets) % 128]
+    )
+    assert torch.equal(
+        batch.tokens[1], task.training_stream[(positions[1] + offsets) % 256]
+    )
+    assert torch.equal(next_positions, torch.tensor([4, 4]))
+    with pytest.raises(ValueError, match="match"):
+        task.stream_batch(positions, stream_lengths=torch.tensor([128]))
+    with pytest.raises(ValueError, match="exceeds"):
+        task.stream_batch(positions, stream_lengths=torch.tensor([128, 99_999]))
+
+
 def test_repeated_training_shard_preserves_cursor_and_full_validation() -> None:
     text = "One fox ran. Two birds flew. Three cats slept. " * 100
     full = build_token_task(text, context_length=8, vocabulary_size=32)
@@ -764,6 +789,7 @@ def test_state_lane_expansion_preserves_every_existing_trajectory(
     )
     experiment.train_updates(starting_lanes)
     original_positions = experiment._training_stream_positions.clone()
+    original_lengths = experiment._training_stream_lengths.clone()
     original_states = list(experiment._training_runtime_bank)
     original_rng = experiment.generator.get_state().clone()
     original_model = {
@@ -782,6 +808,12 @@ def test_state_lane_expansion_preserves_every_existing_trajectory(
     )
     assert torch.equal(
         experiment._training_stream_positions[:starting_lanes], expected_positions
+    )
+    expected_lengths = (
+        original_lengths.unsqueeze(0) if starting_lanes == 1 else original_lengths
+    )
+    assert torch.equal(
+        experiment._training_stream_lengths[:starting_lanes], expected_lengths
     )
     for index, original_state in enumerate(original_states):
         assert experiment._training_runtime_bank[index] is original_state
@@ -807,6 +839,9 @@ def test_state_lane_expansion_preserves_every_existing_trajectory(
     assert metrics["activeStateLanes"] == starting_lanes
     assert metrics["coldStateLanes"] == 4 - starting_lanes
     assert metrics["experienceTrajectoryCount"] == 4
+    assert metrics["laneStreamDomains"] == [
+        {"tokens": task.training_stream_tokens, "lanes": 4}
+    ]
     assert metrics["uniqueCursorPhases"] == len(
         set(experiment._training_stream_positions.flatten().remainder(8).tolist())
     )
@@ -828,6 +863,7 @@ def test_state_lane_expansion_preserves_every_existing_trajectory(
     assert torch.equal(
         restored._training_stream_positions[:starting_lanes], expected_positions
     )
+    assert torch.equal(restored._training_stream_lengths, experiment._training_stream_lengths)
     for index, original_state in enumerate(original_states):
         assert original_state is not None
         assert restored._training_runtime_bank[index] is not None
@@ -839,6 +875,67 @@ def test_state_lane_expansion_preserves_every_existing_trajectory(
     )
     with pytest.raises(ValueError, match="cannot discard"):
         expand_persistent_state_lanes(experiment, 2)
+
+
+def test_lane_expansion_preserves_old_domain_and_assigns_new_domain_only_to_new_lanes(
+    tmp_path: Path,
+) -> None:
+    text = "One fox ran. Two birds flew. Three cats slept. " * 100
+    old_task = build_token_task(
+        text, context_length=8, vocabulary_size=32, training_shard_tokens=128
+    )
+    expanded_task = build_token_task(
+        text, context_length=8, vocabulary_size=32, training_shard_tokens=256
+    )
+    config = replace(corpus_config(), batch_size=1)
+    original = SequenceExperiment(
+        old_task, config, seed=61, device="cpu", stream_mode="continuous",
+        state_lanes=2,
+    )
+    original.train_updates(2)
+    old_positions = original._training_stream_positions.clone()
+    old_states = [state.cloned_detached() for state in original._training_runtime_bank]
+    checkpoint = tmp_path / "old-domain.pt"
+    save_checkpoint(
+        checkpoint, original, context_length=8, amp_mode="off",
+        organism_id="organism-domains", phase_index=4, phase_name="128 tokens",
+    )
+    payload = load_checkpoint(checkpoint, torch.device("cpu"))
+    del payload["experiment"]["_training_stream_lengths"]
+
+    restored = SequenceExperiment(
+        expanded_task, config, seed=61, device="cpu", stream_mode="continuous",
+        state_lanes=4,
+    )
+    restore_checkpoint(restored, payload)
+    expand_persistent_state_lanes(restored, 4)
+    metrics = _scientific_metrics(restored)
+
+    assert restored.state_lanes == 4
+    assert torch.equal(restored._training_stream_positions[:2], old_positions)
+    assert torch.equal(
+        restored._training_stream_lengths[:, 0],
+        torch.tensor([128, 128, 256, 256]),
+    )
+    assert restored._training_runtime_bank[2:] == [None, None]
+    for index, state in enumerate(old_states):
+        assert torch.equal(restored._training_runtime_bank[index].hidden, state.hidden)
+        assert restored._training_runtime_bank[index].position == state.position
+    assert metrics["laneStreamDomains"] == [
+        {"tokens": 128, "lanes": 2}, {"tokens": 256, "lanes": 2}
+    ]
+    restored.train_updates(4)
+    assert [state.position for state in restored._training_runtime_bank] == [16, 16, 8, 8]
+
+    shrunken_task = build_token_task(
+        text, context_length=8, vocabulary_size=32, training_shard_tokens=64
+    )
+    shrunken = SequenceExperiment(
+        shrunken_task, config, seed=61, device="cpu", stream_mode="continuous",
+        state_lanes=2,
+    )
+    with pytest.raises(ValueError, match="cannot shrink"):
+        restore_checkpoint(shrunken, payload)
 
 
 def test_state_lane_expansion_places_new_cursors_on_checkpoint_device() -> None:
@@ -1164,6 +1261,7 @@ def test_fixed_seed_checkpoint_audit_is_repeatable_and_sampler_read_only() -> No
     )
     assert trajectory["evaluationSplit"] == "trajectory"
     assert trajectory["trajectoryLane"] == 0
+    assert trajectory["trajectoryStreamTokens"] == task.training_stream_tokens
     assert trajectory["initialStateTokens"] == experiment._training_runtime_state.position
     assert torch.equal(before, experiment.eval_generator.get_state())
 

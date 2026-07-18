@@ -21,8 +21,10 @@ prefix of its existing training corpus while leaving validation complete. The
 checkpoint records the selected shard; omission preserves it on resume and zero
 returns a continuation phase to the full stream. A phase transition keeps cells,
 positions, dendrites, weights, optimizer moments, RNG streams, and every electrical
-channel. Existing corpus cursors are interpreted modulo the selected shard rather
-than randomized, so this is a change in experience distribution, not an organism reset.
+channel. Each saved lane keeps its checkpointed modulo/domain. A broader phase affects
+only newly appended lanes, so old trajectories continue receiving their original
+tokens instead of being globally reinterpreted. A smaller domain is rejected because
+it would discard or remap saved experience.
 `--stream-mode continuous` is the corpus default: adjacent windows carry the full
 detached cellular runtime state across optimizer steps. `windowed` retains the old
 random-context/cold-electrical-state behavior as a recorded control. Checkpoints save
@@ -113,7 +115,7 @@ showed harmful accumulated state.
 `--evaluate-only --state-horizon-eval` appends the five-point identical-token state
 horizon curve without training. Scheduled validation remains bounded to the cheaper
 carried-versus-cold pair.
-`--state-lanes 1..16` alternates independent persistent corpus trajectories at the
+`--state-lanes 1..32` alternates independent persistent corpus trajectories at the
 same tensor batch size and records their minimum/maximum electrical ages. It is the
 memory-constant alternative to increasing CUDA batch size.
 During `--resume-plasticity`, a larger explicit lane count appends cold independently
@@ -121,6 +123,12 @@ phased trajectories while retaining every saved position and recurrent state in 
 original lane. Lane counts may never decrease because doing so would discard
 organism-owned electrical histories. Added lane positions advance the preserved RNG
 normally; the generator is never reseeded.
+Every lane also checkpoints its stream-domain length. When continuation both expands
+the corpus shard and appends lanes, existing lanes retain their old modulo/domain and
+token continuation; only new lanes receive the larger domain. Legacy checkpoints
+infer every saved lane's domain from their saved shard before any expansion. Training
+records name the active lane's domain, and diagnostics publish the number of lanes in
+each distinct domain.
 Scientific diagnostics report active versus still-cold lanes, the total number of
 tensor trajectories, and unique corpus-cursor phases modulo context length. This
 distinguishes nominal lane allocation from measured phase diversity.

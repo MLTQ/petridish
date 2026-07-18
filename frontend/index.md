@@ -53,8 +53,11 @@ experiment laboratory above the live organism.
   breadth can double without forcing a fourfold curriculum jump. Selecting one still
   changes only the experience stream of the checkpointed organism.
 - **Does**: Lets continuation append persistent experience lanes through powers of
-  two up to sixteen while disabling every option below the organism's current lane
+  two up to thirty-two while disabling every option below the organism's current lane
   count. Preserve remains the default.
+- **Does**: Labels the 32-lane expansion as an append-only new-shard intervention:
+  existing lane domains/cursors stay fixed while new cold lanes receive the selected
+  broader corpus domain.
 - **Does**: Calls held-out zero-state comparisons disposable ablation copies so the
   interface never implies that the live organism was reset.
 - **Does**: Shows lineage and phase beside run status so a continuation cannot be

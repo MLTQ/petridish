@@ -40,6 +40,10 @@ the tensor batch. Every lane advances through its own contiguous corpus position
 retains its own complete runtime state; all lanes share one physical substrate,
 parameters, synapses, genotype, optimizer, and lifecycle. This tests trajectory
 diversity on memory-limited GPUs without creating an ensemble or resetting a lane.
+Each continuous lane also owns a checkpointed stream-domain length. A lane wraps its
+absolute cursor inside that preserved corpus prefix even if a later curriculum exposes
+more tokens to newly appended lanes. The exact-trajectory audit clones the selected
+lane's position, electrical state, and stream domain together and reports that domain.
 Topology policy is phase-local and checkpointed: fixed continues routing through the
 existing graph, adaptive permits pruning plus growth, and prune-only permits signed-
 utility pruning while forbidding replacement growth. None of these policies reset

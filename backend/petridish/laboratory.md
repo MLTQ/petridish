@@ -31,7 +31,7 @@ explicitly enabled trainer processes.
 - **Does**: Records and bounds electrical retention independently from structure;
   the default 0.9 is a homeostatic-relaxation intervention, while 1.0 is the exact
   indefinite-state control.
-- **Does**: Records one to sixteen round-robin persistent state lanes independently
+- **Does**: Records one to thirty-two round-robin persistent state lanes independently
   from tensor batch size.
 - **Does**: Records fixed, adaptive, or prune-only topology independently from
   lifecycle. Prune-only retains the lineage and forbids replacement growth.
@@ -46,6 +46,8 @@ explicitly enabled trainer processes.
   version mismatch cannot silently discard a curriculum request.
 - **Does**: Advertises append-only state-lane expansion explicitly so an older
   backend can never misinterpret phase-diversity controls as ordinary continuation.
+- **Does**: Advertises checkpointed state-lane domains separately so mixed replay/new
+  curricula are shown only when the server preserves their sampler semantics.
 - **Does**: Advertises exact checkpoint forking explicitly so the frontend cannot
   present paired counterfactual controls against an older copy-only backend.
 - **Interacts with**: `/api/lab` in `server.py` and `lab.ts`.
@@ -100,9 +102,15 @@ explicitly enabled trainer processes.
 - **Does**: Optionally changes only the TinyStories experience distribution to a
   deterministic repeated token shard. The checkpoint organism, graph, optimizer,
   corpus cursor, RNG state, and electrical memory remain the same lineage.
-- **Does**: Optionally appends up to sixteen independently phased persistent
+- **Does**: Optionally appends up to thirty-two independently phased persistent
   experience lanes. Existing lane positions and electrical states may not shrink or
   move; only new cold lanes are allocated by the checkpoint's continuing RNG stream.
+- **Does**: When shard breadth and lane count grow together, preserves each old
+  lane's checkpointed stream domain and gives only appended lanes the new domain.
+  Shrinking below any preserved domain is rejected.
+- **Does**: Rejects a broader shard unless the same continuation appends lanes; a
+  global shard change without new lanes would silently remap or fail to expose every
+  saved trajectory. Full-stream domains likewise cannot contract to a prefix.
 - **Does**: Recovers the authoritative phase index, repeated-shard size, and current
   lane count from the latest training metric when an older manifest lags a valid
   checkpoint, preventing stale orchestration metadata from relabeling continuation.

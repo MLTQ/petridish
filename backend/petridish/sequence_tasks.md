@@ -22,6 +22,11 @@ path from spatial classification to language modeling.
   hidden by text decoding.
 - **Does**: Optionally exposes raw training/validation token streams and slices
   contiguous, wrapping windows from explicit per-lane positions.
+- **Does**: Accepts an optional per-lane stream length and wraps each row inside that
+  checkpoint-owned prefix domain. Shapes must match positions, every domain must hold
+  a complete context, and no domain may exceed the available stream.
+- **Rationale**: A curriculum may append new experience lanes without reinterpreting
+  the absolute cursors or token continuation of older electrical trajectories.
 - **Does**: Records active and full training-stream sizes plus the optional repeated
   shard size so a curriculum phase is measurable rather than inferred.
 - **Rationale**: Persistent organisms must receive adjacent experience without
@@ -50,4 +55,4 @@ path from spatial classification to language modeling.
 | `sequence_experiment.py` | Masked targets use `-100` outside supervision | Mask semantics |
 | Frontend | Vocabulary indices remain stable within a run | Token reordering |
 | Benchmarks | Generators are deterministic for a supplied torch generator | RNG source |
-| Continuous trainer | Returned next position begins at the previous window's target token | Stream stride or wrapping |
+| Continuous trainer | Returned next position begins at the previous window's target token and wraps inside that lane's domain | Stream stride or wrapping |

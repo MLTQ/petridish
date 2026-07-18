@@ -113,10 +113,16 @@ validated launch or stop requests.
   electrical-memory horizon evaluation.
 - **Does**: Launches and displays persistent state-lane count and their measured age
   range independently from tensor batch size.
+- **Does**: Displays checkpointed lane stream domains as `lanes×tokens`, making
+  replay-preserving mixed curricula visible rather than inferring them from one global
+  shard label.
 - **Does**: Displays measured active/cold lane count and unique corpus-cursor phases,
   so allocating sixteen lanes cannot masquerade as sixteen distinct experiences.
 - **Does**: Summarizes the newest four visits to every lane as mean and min–max
   accuracy, distinguishing broad consolidation from one inherited trajectory.
+- **Does**: When lanes occupy multiple stream domains, groups those same per-lane
+  accuracies by domain so old-prefix replay and new-corpus learning are measured
+  separately inside the one organism.
 - **Does**: Shows bounded explicit trainer failures in the authoritative run-status
   cell instead of labeling pre-checkpoint OOM as an ordinary stop.
 - **Does**: Offers `Retry same organism` only for a failed stopped run with an atomic
@@ -140,6 +146,9 @@ validated launch or stop requests.
 - **Does**: Can expand a continued organism's persistent experience lanes without
   exposing a shrink operation; existing lane positions and electrical histories stay
   organism-owned while newly allocated lanes begin cold at independent phases.
+- **Does**: Supports up to thirty-two lanes so a sixteen-lane organism can retain all
+  old trajectories while appending sixteen new-domain trajectories. The UI explicitly
+  labels that new lanes—not old lanes—take the selected larger shard.
 - **Does**: Enables that control only when the serving backend advertises support,
   preventing an older API from silently ignoring the requested curriculum.
 - **Does**: States the continuation invariant directly in the controls: cells,
@@ -170,7 +179,7 @@ validated launch or stop requests.
   action.
 - **Does**: Offers and displays an exact next-trajectory audit separately from the
   random-offset shard audit, including the matched recurrent lane and graph
-  counterfactuals.
+  counterfactuals plus that lane's checkpointed stream domain.
 - **Does**: Displays fixed audit seed/sample size plus generation special/unknown
   rates and the validation unknown rate, so modal collapse cannot masquerade as
   readable token prediction.

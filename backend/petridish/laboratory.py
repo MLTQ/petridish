@@ -143,6 +143,7 @@ class Laboratory:
                 "trainingShardAudit": True,
                 "trainingShardCurriculum": True,
                 "stateLaneExpansion": True,
+                "stateLaneDomains": True,
                 "checkpointFork": True,
                 "sameLineageRetry": True,
             },
@@ -255,8 +256,8 @@ class Laboratory:
             raise PermissionError("laboratory process control is disabled")
         if spec.additional_updates < 1:
             raise ValueError("additional updates must be positive")
-        if spec.state_lanes is not None and not 1 <= spec.state_lanes <= 16:
-            raise ValueError("state lanes must be between one and sixteen")
+        if spec.state_lanes is not None and not 1 <= spec.state_lanes <= 32:
+            raise ValueError("state lanes must be between one and thirty-two")
         if spec.lifecycle_profile not in LIFECYCLE_PROFILES:
             raise ValueError("unknown lifecycle profile")
         topology_profile = resolve_topology_profile(
@@ -354,6 +355,30 @@ class Laboratory:
             if spec.training_shard_tokens is None
             else spec.training_shard_tokens
         )
+        if spec.training_shard_tokens is not None:
+            if previous_shard_tokens == 0 and training_shard_tokens != 0:
+                raise ValueError(
+                    "curriculum cannot shrink a full-stream lane domain"
+                )
+            if (
+                previous_shard_tokens > 0
+                and training_shard_tokens > 0
+                and training_shard_tokens < previous_shard_tokens
+            ):
+                raise ValueError(
+                    "curriculum cannot shrink a preserved lane stream domain"
+                )
+            breadth_expands = (
+                previous_shard_tokens > 0
+                and (
+                    training_shard_tokens == 0
+                    or training_shard_tokens > previous_shard_tokens
+                )
+            )
+            if breadth_expands and state_lanes == previous_state_lanes:
+                raise ValueError(
+                    "curriculum breadth expansion requires appending state lanes"
+                )
         phase_name = spec.phase_name or self._phase_name(topology_profile, profile)
         if spec.training_shard_tokens is not None and spec.phase_name is None:
             curriculum = (
@@ -719,8 +744,8 @@ class Laboratory:
             raise ValueError("unknown corpus stream mode")
         if not 0 <= spec.state_retention <= 1:
             raise ValueError("state retention must be between zero and one")
-        if not 1 <= spec.state_lanes <= 16:
-            raise ValueError("state lanes must be between one and sixteen")
+        if not 1 <= spec.state_lanes <= 32:
+            raise ValueError("state lanes must be between one and thirty-two")
         if spec.batch_size < 1 or spec.batch_size > 256:
             raise ValueError("batch size must be between 1 and 256")
         if spec.message_steps < 1 or spec.message_steps > 16:
