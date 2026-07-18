@@ -1,7 +1,8 @@
 # benchmark_sequences.py
 
 This command runs reproducible, hardware-bounded learning sweeps for associative
-recall, tiny language, direct physical routing, and distributed context composition.
+recall, tiny language, direct physical routing, delayed-copy memory, and distributed
+context composition.
 Profiles vary field size and recurrent microsteps while
 holding the task, seed, optimizer, and lifecycle state constant. Lifecycle and
 structural mutation are disabled so a run measures the differentiable substrate
@@ -89,4 +90,14 @@ microtick override, and hard broadcast ablation as the routing control.
 python -m petridish.benchmark_sequences --task token_context \
   --profile token_context68 --message-steps 12 --broadcast-gain 0 \
   --steps 1000 --output benchmarks/lab/token-context-local.json
+```
+
+`token_memory` with `token_memory68` is the intervening delayed-copy control. Both
+rows receive the same second-position recall token, while the balanced target repeats
+the first context bit. It tests persistent state without requiring XOR composition.
+
+```bash
+python -m petridish.benchmark_sequences --task token_memory \
+  --profile token_memory68 --message-steps 12 --broadcast-gain 0 \
+  --steps 800 --output benchmarks/lab/token-memory-local.json
 ```

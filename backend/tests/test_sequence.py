@@ -32,6 +32,7 @@ from petridish.sequence_tasks import (
 )
 from petridish.token_corpus_task import build_token_task
 from petridish.token_context_task import token_context_task
+from petridish.token_memory_task import token_memory_task
 from petridish.token_routing_task import token_routing_task
 from petridish.train_shakespeare import (
     _fresh_config,
@@ -553,6 +554,17 @@ def test_token_context_control_requires_both_distributed_tokens() -> None:
     for query in (2, 3):
         selected = batch.targets[batch.tokens[:, 1] == query, 1]
         assert sorted(selected.unique().tolist()) == [4, 5]
+
+
+def test_token_memory_control_requires_delayed_context() -> None:
+    task = token_memory_task()
+    batch = task.batch(8, torch.Generator().manual_seed(7))
+
+    assert task.key == "tiny_stories"
+    assert batch.tokens[:, 1].unique().tolist() == [2]
+    assert batch.targets[:, 1].tolist() == [3, 4, 3, 4, 3, 4, 3, 4]
+    assert not bool(batch.loss_mask[:, 0].any())
+    assert bool(batch.loss_mask[:, 1].all())
 
 
 def test_zero_broadcast_gain_is_a_hard_workspace_ablation() -> None:

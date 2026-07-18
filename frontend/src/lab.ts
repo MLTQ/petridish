@@ -252,7 +252,7 @@ export class LaboratoryView {
       const peak = benchmark.checkpoints.length
         ? Math.max(...benchmark.checkpoints.map((checkpoint) => checkpoint.heldOutAccuracy))
         : undefined;
-      const tokenControl = benchmark.task === "token_routing" || benchmark.task === "token_context";
+      const tokenControl = ["token_routing", "token_memory", "token_context"].includes(benchmark.task);
       const topology = tokenControl
         ? `min ${benchmark.minimumOutputHops ?? "—"} hops · ${benchmark.temporallyReachableOutputs ?? 0}/${benchmark.contextReachableOutputs ?? 0}/${benchmark.outputCount ?? "—"} token/context/graph · ${benchmark.messageSteps ?? "—"}×${benchmark.sequenceLength ?? "—"} ticks`
         : final?.livingCells === undefined

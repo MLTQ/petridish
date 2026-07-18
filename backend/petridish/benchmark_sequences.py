@@ -16,6 +16,7 @@ from .sequence_config import sequence_config
 from .sequence_cells import CELL_ARCHITECTURES
 from .sequence_experiment import SequenceExperiment
 from .token_context_task import token_context_task
+from .token_memory_task import token_memory_task
 from .token_routing_task import token_routing_task
 
 
@@ -63,12 +64,14 @@ PROFILES: dict[str, dict[str, Any]] = {
     },
     "token_route68": {},
     "token_context68": {},
+    "token_memory68": {},
 }
 
 
 TOKEN_CONTROL_PROFILES = {
     "token_routing": "token_route68",
     "token_context": "token_context68",
+    "token_memory": "token_memory68",
 }
 
 
@@ -126,6 +129,7 @@ def run_benchmark(
     task_definition = (
         token_routing_task() if task == "token_routing"
         else token_context_task() if task == "token_context"
+        else token_memory_task() if task == "token_memory"
         else task
     )
     experiment = SequenceExperiment(
@@ -160,13 +164,14 @@ def run_benchmark(
             "broadcastGain": config.broadcast_gain,
             "outputCount": experiment.model.substrate.output_count,
             "sequenceLength": experiment.task.sequence_length,
-            "dependencyTokens": 1 if task == "token_context" else 0,
+            "dependencyTokens": 1 if task in {"token_context", "token_memory"} else 0,
             "chanceAccuracy": (
                 1 / 8 if task == "token_routing"
-                else 0.5 if task == "token_context" else None
+                else 0.5 if task in {"token_context", "token_memory"} else None
             ),
             "recallMode": (
                 "direct_mapping" if task == "token_routing" else
+                "delayed_copy" if task == "token_memory" else
                 "context_xor" if task == "token_context" else
                 f"fixed_{fixed_recall_pairs}"
                 if fixed_recall_pairs is not None else "adaptive"
@@ -261,7 +266,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--task", choices=(
-            "associative_recall", "tiny_language", "token_routing", "token_context",
+            "associative_recall", "tiny_language", "token_routing", "token_memory",
+            "token_context",
         ),
         required=True,
     )

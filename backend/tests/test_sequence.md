@@ -51,6 +51,8 @@ with eight equally frequent targets, preventing position embeddings or class bia
 masquerading as sensory-to-output learning.
 The context fixture enumerates every two-token XOR pair, masks the first position,
 and verifies that holding either context or query constant still produces both targets.
+The delayed-copy fixture holds the recall token and position constant while alternating
+balanced targets, isolating persistence before contextual composition.
 The zero-broadcast regression requires a hard workspace bypass with no gradients into
 its gain or projections, preventing a nominal ablation from learning to reactivate.
 Headless diagnostics separately verify physical/conducting edges, one-token/context/

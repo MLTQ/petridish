@@ -73,6 +73,8 @@ validated launch or stop requests.
   chance baseline drawn directly on the accuracy plot.
 - **Does**: Renders distributed context controls with sequence length, dependency
   horizon, and token/context/graph reach on the same measured accuracy surface.
+- **Does**: Places delayed-copy memory between direct routing and XOR composition
+  without changing the chart or topology semantics.
 - **Does**: Keeps broadcast-on/off identity in the persisted intervention label so
   global-workspace shortcuts are not conflated with physical dendritic routing.
 
