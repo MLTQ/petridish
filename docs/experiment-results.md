@@ -390,3 +390,42 @@ ablation effect. The next same-lineage intervention is prune-only topology: allo
 signed-utility pruning of the 4090 organism's 5,327 eligible edges while forbidding
 replacement growth, then remeasure state and graph causality before enabling cell
 death or renewed axon growth.
+
+## Same-organism prune-only consolidation — 2026-07-18
+
+Each live organism continued for exactly 100 updates with its identity, cells,
+positions, weights, optimizer, RNG, corpus position, and electrical state intact.
+Topology used the `prune_only` profile: signed-utility pruning remained active while
+all replacement growth and lifecycle events were disabled. The post-phase evaluations
+were read-only counterfactuals cloned from the resulting checkpoint state.
+
+| Lineage | Updates | State age | Edges before → after | Grown | Pruned before → after | Reachable outputs |
+|---------|--------:|----------:|---------------------:|------:|----------------------:|------------------:|
+| 2070, broadcast | 2,500 → 2,600 | 83,200 | 16,676 → 14,884 | 7,764 → 7,764 | 8,192 → 9,984 | 64 / 64 |
+| 4090, local | 1,500 → 1,600 | 102,400 | 16,977 → 15,441 | 3,201 → 3,201 | 3,328 → 4,864 | 64 / 64 |
+
+The continuity counters are important: state age increased monotonically, organism IDs
+did not change, cumulative growth was exactly constant, and no cells were born, died,
+stunned, or recovered. This was consolidation of an existing organism, not a reset or
+reinitialization.
+
+| Lineage | Checkpoint | Cold | State delta | Graph ref | Silence accuracy delta | Silence loss delta before → after | Rotate accuracy delta before → after |
+|---------|-----------:|-----:|------------:|----------:|-----------------------:|----------------------------------:|-------------------------------------:|
+| 2070, broadcast | 36.33% | 36.33% | 0.00 pp | 29.69% | 0.00 pp | +0.00470 → +0.00502 | 0.00 → 0.00 pp |
+| 4090, local | 28.71% | 21.88% | +6.84 pp | 41.80% | 0.00 pp | −0.06099 → +0.01696 | −1.37 → 0.00 pp |
+
+The 2070 broadcast organism remains graph-independent: pruning removed 1,792 edges
+without making endpoint identity affect accuracy. Its surviving graph has only a tiny
+positive loss contribution, consistent with computation continuing to bypass it
+through the broadcast workspace.
+
+The 4090 local organism improved in the intended direction. Before pruning, silencing
+the graph *improved* loss by 0.06099; afterward, silencing it *worsened* loss by
+0.01696. The 1,536 removed edges therefore changed weighted graph traffic from mildly
+harmful to mildly useful while preserving full output reachability. Its accumulated
+electrical state also retained a +6.84-point held-out advantage over the same-token
+cold branch. Accuracy is still low and graph ablations do not yet flip enough argmaxes
+to change discrete accuracy, so this is evidence for selective consolidation rather
+than a solved routing mechanism. The next intervention should preserve this lineage
+and test whether a fixed-topology learning phase strengthens the small loss-level
+causal effect before any cell lifecycle or renewed growth is enabled.
