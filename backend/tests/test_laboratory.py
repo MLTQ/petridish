@@ -1244,6 +1244,9 @@ def test_snapshot_discovers_bounded_benchmark_artifacts(
                 "messageSteps": 12,
                 "broadcastGain": 0.0,
                 "learningRateScale": 0.25,
+                "batchSize": 4,
+                "ampMode": "bfloat16",
+                "cudaAllocatorConfig": "expandable_segments:True",
                 "outputCount": 64,
                 "sequenceLength": 2,
                 "dependencyTokens": 1,
@@ -1270,6 +1273,9 @@ def test_snapshot_discovers_bounded_benchmark_artifacts(
     assert benchmark["messageSteps"] == 12
     assert benchmark["broadcastGain"] == 0.0
     assert benchmark["learningRateScale"] == 0.25
+    assert benchmark["batchSize"] == 4
+    assert benchmark["ampMode"] == "bfloat16"
+    assert benchmark["cudaAllocatorConfig"] == "expandable_segments:True"
     assert benchmark["outputCount"] == 64
     assert benchmark["sequenceLength"] == 2
     assert benchmark["dependencyTokens"] == 1

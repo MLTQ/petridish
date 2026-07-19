@@ -49,6 +49,18 @@ bitwise reproductions cannot be confused with ordinary seeded CUDA executions.
 synapse optimizer groups together. The exact scale is embedded in both the artifact
 and intervention label so a stability retry cannot be mistaken for a matched default-rate run.
 
+`--batch-size 1..64` is an explicit memory-bound override. Artifacts always record
+the effective batch, so reduced-memory replications cannot be mistaken for the
+eight-example production control. `--amp bfloat16` uses the same autocast path as
+the corpus trainer and records the precision mode alongside peak CUDA allocation.
+These controls make seed replications possible on smaller GPUs while keeping every
+other organism and task parameter declared; comparisons across batch or precision
+remain hardware controls rather than exact optimizer replications.
+The artifact also records `PYTORCH_ALLOC_CONF` or its legacy
+`PYTORCH_CUDA_ALLOC_CONF` spelling when present. This makes the expandable-segment
+allocator needed at the 2070 memory limit reproducible without treating it as a
+learning intervention.
+
 `compact24_no_broadcast` removes slot broadcasting, while
 `compact24_no_global_memory` removes both slot and fast-weight memory.
 `compact24_fast_weights` enables recurrent linear-attention memory at gain 0.5.
@@ -172,3 +184,7 @@ python -m petridish.benchmark_sequences --task token_grammar \
   --broadcast-gain 0 --learning-rate-scale 0.25 --steps 1200 \
   --output benchmarks/lab/token-grammar-esn-local.json
 ```
+
+For an 8 GiB replication, add `--batch-size 4 --amp bfloat16` and encode both
+interventions in the artifact filename. First reproduce the known seed under that
+same regime before comparing independent seeds.

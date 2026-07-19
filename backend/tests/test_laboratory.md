@@ -17,6 +17,8 @@ control-enable contracts without requiring NVIDIA hardware or launching trainers
 - **Does**: Preserves sequence length, dependency horizon, and full-context route reach.
 - **Does**: Preserves a zero broadcast gain rather than treating it as missing data.
 - **Does**: Preserves the benchmark optimizer scale used by stability retries.
+- **Does**: Preserves batch size, precision mode, and CUDA allocator provenance for
+  memory-bounded benchmark cohorts.
 - **Does**: Keeps a failed benchmark visible before its first checkpoint and
   preserves its bounded exception type/message.
 

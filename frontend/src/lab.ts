@@ -310,6 +310,9 @@ interface BenchmarkSnapshot {
   messageSteps: number | null;
   broadcastGain: number | null;
   learningRateScale: number;
+  batchSize: number | null;
+  ampMode: "off" | "bfloat16";
+  cudaAllocatorConfig: string | null;
   outputCount: number | null;
   sequenceLength: number | null;
   dependencyTokens: number | null;
@@ -581,9 +584,10 @@ export class LaboratoryView {
           ? "—"
           : `${final.livingCells} cells · ${final.edgeCount ?? "—"} edges · +${final.cumulativeBirths ?? 0}/−${final.cumulativeDeaths ?? 0}`;
       const row = document.createElement("tr");
+      const execution = `batch ${benchmark.batchSize ?? "legacy"} · ${benchmark.ampMode === "bfloat16" ? "BF16" : "FP32"}`;
       const values = [
         benchmark.id,
-        benchmark.intervention ?? "—",
+        `${benchmark.intervention ?? "—"} · ${execution}`,
         benchmark.architecture.toUpperCase(),
         benchmark.seed?.toString() ?? "—",
         `${benchmark.completedSteps.toLocaleString()} / ${benchmark.steps?.toLocaleString() ?? "—"}`,
@@ -638,12 +642,17 @@ export class LaboratoryView {
       && benchmark.profile === newest.profile
       && benchmark.recallMode === newest.recallMode
       && benchmark.steps === newest.steps
+      && benchmark.messageSteps === newest.messageSteps
+      && benchmark.broadcastGain === newest.broadcastGain
+      && benchmark.learningRateScale === newest.learningRateScale
+      && benchmark.batchSize === newest.batchSize
+      && benchmark.ampMode === newest.ampMode
     ));
     const rngStatus = newest.globalRngMatched ? " · branch RNG matched" : "";
     const chance = newest.chanceAccuracy === null
       ? ""
       : ` · chance ${this.percent(newest.chanceAccuracy)}`;
-    this.benchmarkSummary.value = `${newest.profile} · ${newest.recallMode.replace("_", " ")} · seed ${newest.seed ?? "—"} · ${newest.deterministic ? "deterministic" : "seeded"}${rngStatus}${chance} · ${newest.steps ?? "—"} updates`;
+    this.benchmarkSummary.value = `${newest.profile} · ${newest.recallMode.replace("_", " ")} · batch ${newest.batchSize ?? "legacy"} · ${newest.ampMode === "bfloat16" ? "BF16" : "FP32"} · seed ${newest.seed ?? "—"} · ${newest.deterministic ? "deterministic" : "seeded"}${rngStatus}${chance} · ${newest.steps ?? "—"} updates`;
     const visibleCohort = cohort.slice(0, SERIES_CLASSES.length);
     this.drawBenchmarkChart(visibleCohort);
     this.drawBenchmarkTopologyChart(visibleCohort);

@@ -62,6 +62,9 @@ validated launch or stop requests.
   peak CUDA allocation when the benchmark publisher provides them.
 - **Does**: Keeps the persisted benchmark learning-rate scale in its intervention
   identity rather than merging stability retries into a default-rate cohort.
+- **Does**: Shows effective batch and precision, and matches benchmark curves on
+  microticks, broadcast, learning-rate scale, batch, and precision so reduced-memory
+  replications never merge with the original full-precision cohort.
 - **Does**: Shows failed runs with their persisted exception type/message and keeps
   an empty pre-evaluation failure from producing invalid chart axes.
 - **Does**: Shows final held-out accuracy for each queried binding slot so a

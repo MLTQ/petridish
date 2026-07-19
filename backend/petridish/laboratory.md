@@ -96,6 +96,9 @@ explicitly enabled trainer processes.
   dendritic routing controls remain distinguishable.
 - **Does**: Preserves a benchmark's common learning-rate scale so non-finite
   stability retries remain visibly distinct from default-rate controls.
+- **Does**: Preserves effective batch size, autocast precision, and allocator
+  configuration so memory-bounded replications cannot merge with full-precision
+  optimizer cohorts.
 - **Does**: Preserves the deterministic-execution flag from benchmark artifacts.
 - **Does**: Preserves an explicit process-global branch-RNG match flag; deterministic
   kernels alone do not prove stochastic lifecycle branches received the same stream.

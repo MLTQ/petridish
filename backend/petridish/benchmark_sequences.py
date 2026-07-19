@@ -114,6 +114,16 @@ def _scale_learning_rates(config: Any, scale: float) -> Any:
     )
 
 
+def _override_batch_size(config: Any, batch_size: int | None) -> Any:
+    """Apply an explicit memory-bounded batch without changing other controls."""
+
+    if batch_size is None:
+        return config
+    if not 1 <= batch_size <= 64:
+        raise ValueError("batch size must be between 1 and 64")
+    return replace(config, batch_size=batch_size)
+
+
 def run_benchmark(
     task: str, profile: str, *, steps: int, seed: int, device: str,
     architecture: str = "gru",
@@ -121,6 +131,8 @@ def run_benchmark(
     message_steps: int | None = None,
     broadcast_gain: float | None = None,
     learning_rate_scale: float = 1.0,
+    batch_size: int | None = None,
+    amp_mode: str = "off",
     output_path: Path | None = None,
     deterministic: bool = False,
 ) -> dict[str, Any]:
@@ -155,6 +167,7 @@ def run_benchmark(
         **overrides,
     )
     config = _scale_learning_rates(config, learning_rate_scale)
+    config = _override_batch_size(config, batch_size)
     if fixed_recall_pairs is not None and task != "associative_recall":
         raise ValueError("fixed recall pairs apply only to associative recall")
     task_definition = (
@@ -170,6 +183,7 @@ def run_benchmark(
     )
     experiment = SequenceExperiment(
         task_definition, config, seed=seed, device=device,
+        amp_mode=amp_mode,
         recall_pair_count=fixed_recall_pairs,
         recall_pair_max=fixed_recall_pairs or 3,
     )
@@ -200,6 +214,12 @@ def run_benchmark(
             "messageSteps": config.message_steps,
             "broadcastGain": config.broadcast_gain,
             "learningRateScale": learning_rate_scale,
+            "batchSize": config.batch_size,
+            "ampMode": experiment.amp_mode,
+            "cudaAllocatorConfig": (
+                os.environ.get("PYTORCH_ALLOC_CONF")
+                or os.environ.get("PYTORCH_CUDA_ALLOC_CONF")
+            ),
             "outputCount": experiment.model.substrate.output_count,
             "sequenceLength": experiment.task.sequence_length,
             "dependencyTokens": (
@@ -364,6 +384,8 @@ def main() -> None:
     parser.add_argument("--message-steps", type=int, choices=range(1, 17))
     parser.add_argument("--broadcast-gain", type=float)
     parser.add_argument("--learning-rate-scale", type=float, default=1.0)
+    parser.add_argument("--batch-size", type=int)
+    parser.add_argument("--amp", choices=("off", "bfloat16"), default="off")
     parser.add_argument("--output", type=Path)
     parser.add_argument("--deterministic", action="store_true")
     args = parser.parse_args()
@@ -374,6 +396,8 @@ def main() -> None:
         message_steps=args.message_steps,
         broadcast_gain=args.broadcast_gain,
         learning_rate_scale=args.learning_rate_scale,
+        batch_size=args.batch_size,
+        amp_mode=args.amp,
         output_path=args.output,
         deterministic=args.deterministic,
     )

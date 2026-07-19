@@ -12,7 +12,11 @@ from pathlib import Path
 import pytest
 import torch
 
-from petridish.benchmark_sequences import _scale_learning_rates, _write_result
+from petridish.benchmark_sequences import (
+    _override_batch_size,
+    _scale_learning_rates,
+    _write_result,
+)
 from petridish.benchmark_recovery import (
     _apply_branch_config,
     _capture_global_rng,
@@ -284,6 +288,16 @@ def test_headless_launch_scales_all_optimizer_rates_together() -> None:
     )
     with pytest.raises(ValueError, match="learning-rate scale"):
         _scale_learning_rates(defaults, 0.0)
+
+
+def test_benchmark_batch_override_is_explicit_and_bounded() -> None:
+    defaults = sequence_config("tiny_stories")
+
+    assert _override_batch_size(defaults, None) is defaults
+    assert _override_batch_size(defaults, 4).batch_size == 4
+    assert defaults.batch_size == 8
+    with pytest.raises(ValueError, match="batch size"):
+        _override_batch_size(defaults, 0)
 
 
 def test_balanced_lifecycle_retains_biomimicry_without_death_budget_collapse() -> None:
