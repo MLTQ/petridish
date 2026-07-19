@@ -313,6 +313,16 @@ def test_balanced_lifecycle_retains_biomimicry_without_death_budget_collapse() -
     assert replacement_profile.births_per_generation == 16
     assert replacement_profile.max_deaths_per_generation == 16
 
+    recovery = apply_lifecycle_profile(baseline, "recovery_only")
+    assert recovery.lifecycle_enabled == 1
+    assert recovery.max_deaths_per_generation == 0
+    assert recovery.births_per_generation == 0
+    assert recovery.births_replace_deaths == 1
+    assert recovery.starvation_cost == 0
+    assert recovery.maintenance_cost == 0
+    assert recovery.stun_enabled == 1
+    assert recovery.stun_recovery_probability > 0
+
     fixed = _fresh_config(
         "tiny_stories", field_size=68, batch_size=1, message_steps=4,
         architecture="gru", lifecycle=False, structure=False,

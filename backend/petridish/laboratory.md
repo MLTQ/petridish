@@ -16,7 +16,8 @@ explicitly enabled trainer processes.
   input column and one linear output column.
 - **Rationale**: Process commands are assembled from typed fields rather than shell text.
 - **Does**: Records `off`, original `baseline`, empirically `balanced`, or
-  population-stable `replacement` lifecycle policy in the immutable run manifest.
+  population-stable `replacement`, or non-turnover `recovery_only` lifecycle policy
+  in the immutable run manifest.
 - **Does**: Records adaptive versus fixed topology independently from lifecycle.
 - **Does**: Records and bounds one common learning-rate scale for rule, readout,
   and synapse optimizer groups.

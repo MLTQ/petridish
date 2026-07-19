@@ -32,7 +32,7 @@ and exact-phase resume after a deliberate stop.
 ### `LabLaunchRequest`
 - **Does**: Bounds the selected corpus task and every process argument accepted from the browser.
 - **Does**: Carries a named lifecycle intervention separately from the compatibility
-  enable flag.
+  enable flag, including recovery-only stun/repair with no turnover.
 - **Does**: Carries adaptive/fixed topology independently from lifecycle.
 - **Does**: Bounds a common learning-rate scale from 0.01 through 1.0 for stability
   controls.

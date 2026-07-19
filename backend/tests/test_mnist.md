@@ -39,6 +39,8 @@ giving all 49 vectorized patch features one ordered physical boundary column.
 ### Replacement birth test
 - **Does**: Proves a healthy replacement-only population cannot grow and any later
   births are capped by deaths in that exact lifecycle cycle.
+- **Does**: Proves recovery-only can restore a depleted stunned neuron while cell
+  occupancy and every dendrite endpoint remain bit-identical.
 
 ### Lifecycle staging test
 - **Does**: Activates metabolic pressure and a turnover generation while

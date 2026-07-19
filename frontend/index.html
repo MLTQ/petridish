@@ -108,7 +108,7 @@
         <label>Seed <input id="lab-seed" name="seed" type="number" value="1" required></label>
         <label>Learning-rate scale <input id="lab-learning-rate-scale" name="learningRateScale" type="number" min="0.01" max="1" step="0.05" value="1" required></label>
         <label>AMP <select id="lab-amp" name="amp"><option value="bfloat16">bfloat16</option><option value="off">off</option></select></label>
-        <label>Lifecycle <select id="lab-lifecycle-profile" name="lifecycleProfile"><option value="off">off</option><option value="baseline">baseline</option><option value="balanced">balanced</option><option value="replacement">replacement</option></select></label>
+        <label>Lifecycle <select id="lab-lifecycle-profile" name="lifecycleProfile"><option value="off">off</option><option value="recovery_only">recovery only</option><option value="baseline">baseline</option><option value="balanced">balanced</option><option value="replacement">replacement</option></select></label>
         <label>Topology <select id="lab-structure" name="topologyProfile"><option value="adaptive">adaptive prune + grow</option><option value="prune_only">prune only</option><option value="fixed">fixed</option></select></label>
         <button id="lab-launch" class="primary" type="submit">Launch</button>
         <output id="lab-launch-status" role="status"></output>
@@ -133,7 +133,7 @@
         <label>Disposable cold-gradient training <input id="lab-continue-random-offset-auxiliary" name="randomOffsetAuxiliaryWeight" type="number" min="0" max="0" value="0" disabled></label>
         <label>Cold-context domain <select id="lab-continue-random-offset-scope" name="randomOffsetAuxiliaryScope" disabled><option value="preserve" selected>read-only audits only</option></select></label>
         <label>Next topology phase <select id="lab-continue-structure" name="topologyProfile"><option value="prune_only" selected>prune only</option><option value="adaptive">adaptive prune + grow</option><option value="fixed">fixed control</option></select></label>
-        <label>Next lifecycle phase <select id="lab-continue-lifecycle-profile" name="lifecycleProfile"><option value="off" selected>off</option><option value="baseline">baseline</option><option value="balanced">balanced</option><option value="replacement">replacement</option></select></label>
+        <label>Next lifecycle phase <select id="lab-continue-lifecycle-profile" name="lifecycleProfile"><option value="off" selected>off</option><option value="recovery_only">recovery only · no turnover</option><option value="baseline">baseline</option><option value="balanced">balanced</option><option value="replacement">replacement</option></select></label>
         <label>Phase label <input name="phaseName" maxlength="120" placeholder="adaptive topology"></label>
         <button id="lab-continue" class="primary" type="submit">Continue same organism</button>
         <output id="lab-continue-status" role="status">Same organism: checkpoint state, connectome, weights, cells, optimizer, stream cursor, and electrical memory are retained. State-ablation measurements use disposable evaluation copies.</output>

@@ -24,7 +24,7 @@ experiment laboratory above the live organism.
 - **Interacts with**: `LaboratoryView` in `lab.ts` and `/api/lab`.
 - **Rationale**: Run-level monitoring changes on a slower cadence than organism
   frames and therefore remains independent from the WebSocket renderer.
-- **Does**: Launches named off/baseline/balanced/replacement lifecycle interventions without
+- **Does**: Launches named off/recovery-only/baseline/balanced/replacement lifecycle interventions without
   hiding their scientific identity behind a boolean checkbox.
 - **Does**: Exposes cellular microticks per token beside corpus launch controls so
   one-token routing budget is an explicit intervention.

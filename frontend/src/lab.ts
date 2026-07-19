@@ -454,7 +454,10 @@ export class LaboratoryView {
     );
     this.populateSelect(
       this.lifecycleProfileSelect,
-      snapshot.capabilities.lifecycleProfiles.map((name) => ({ value: name, label: name })),
+      snapshot.capabilities.lifecycleProfiles.map((name) => ({
+        value: name,
+        label: name === "recovery_only" ? "recovery only · no turnover" : name,
+      })),
     );
     this.populateSelect(
       this.continueGpuSelect,
@@ -472,7 +475,10 @@ export class LaboratoryView {
     );
     this.populateSelect(
       this.continueLifecycleSelect,
-      snapshot.capabilities.lifecycleProfiles.map((name) => ({ value: name, label: name })),
+      snapshot.capabilities.lifecycleProfiles.map((name) => ({
+        value: name,
+        label: name === "recovery_only" ? "recovery only · no turnover" : name,
+      })),
     );
     this.syncContinuationPhase();
     for (const control of this.form.elements) {

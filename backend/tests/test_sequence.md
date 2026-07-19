@@ -30,6 +30,8 @@ balanced intervention keeps stun, recovery, starvation, and eventual death but
 equalizes maximum births/deaths and lowers the empirically saturated pressures.
 The replacement profile additionally couples each cycle's birth cap to its measured
 deaths, preventing unused spatial capacity from causing unconditional population growth.
+The recovery-only profile preserves stun/recovery and repair while forcing both death
+and birth budgets to zero, so a reversible-state experiment cannot alter cell identity.
 The headless configuration regression independently disables adaptive topology while
 leaving lifecycle selection unchanged.
 The continuation CLI regression additionally requires `--resume-plasticity` to fail

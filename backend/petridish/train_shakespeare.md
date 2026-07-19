@@ -40,7 +40,9 @@ experience rather than beginning a new one.
 The token profile retains its task-specific 500-update lifecycle and 1,000-update
 pruning warm-ups; the Shakespeare profile retains its conservative 5,000-update
 warm-ups. CLI lifecycle selection changes activation, not those task definitions.
-`--lifecycle-profile off|baseline|balanced|replacement` records an explicit intervention.
+`--lifecycle-profile off|recovery_only|baseline|balanced|replacement` records an
+explicit intervention. Recovery-only retains stun/recovery and damage repair while
+forbidding both death and birth.
 The legacy `--lifecycle` flag maps to `baseline` when no profile is supplied.
 `--no-structure` independently fixes the connectome while leaving differentiable
 synaptic weights and cell rules trainable.

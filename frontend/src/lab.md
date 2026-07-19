@@ -88,6 +88,8 @@ validated launch or stop requests.
   remain one physical column per boundary.
 - **Does**: Selects and displays named lifecycle interventions so baseline and
   balanced/replacement ablations remain distinguishable in manifests and diagnostics.
+- **Does**: Labels recovery-only as non-turnover stun/repair so reversible overload
+  cannot be confused with death/replacement biology.
 - **Does**: Launches an explicit microtick budget and flags runs whose budget is
   shorter than the measured minimum sensory-to-output route.
 - **Does**: Launches, persists, and displays exact broadcast-workspace gain so

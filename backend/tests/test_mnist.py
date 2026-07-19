@@ -5,6 +5,7 @@ import torch
 from torch.utils.data import TensorDataset
 
 from petridish.mnist_experiment import MnistExperiment
+from petridish.lifecycle_profiles import apply_lifecycle_profile
 from petridish.mnist_curriculum import build_curriculum
 from petridish.mnist_model import CellularGraphClassifier, MnistModelConfig
 from petridish.mnist_hyperparameters import (
@@ -452,6 +453,35 @@ def test_replacement_birth_policy_cannot_inflate_a_healthy_population() -> None:
     assert replacement.deaths == 1
     assert replacement.births <= replacement.deaths
     assert int(substrate.occupied.sum()) <= initial_population
+
+
+def test_recovery_only_restores_stun_without_cell_or_graph_turnover() -> None:
+    config = replace(
+        apply_lifecycle_profile(tiny_config(), "recovery_only"),
+        stun_recovery_probability=1,
+    )
+    substrate = CellularGraphClassifier(config, seed=35).substrate
+    victim = int(
+        (substrate.occupied & ~substrate.anchor_mask).nonzero(as_tuple=False)[0]
+    )
+    substrate.stunned[victim] = True
+    substrate.stun_generations[victim] = 0
+    substrate.neuron_age[victim] = config.juvenile_trials
+    substrate.energy[victim] = 0
+    before_population = substrate.occupied.clone()
+    before_graph = substrate.dendrite_source.clone()
+
+    update = substrate.structural_step(
+        apply_lifecycle=True, apply_topology=False
+    )
+
+    assert update.recoveries == 1
+    assert update.deaths == 0
+    assert update.births == 0
+    assert substrate.occupied[victim]
+    assert not substrate.stunned[victim]
+    assert torch.equal(substrate.occupied, before_population)
+    assert torch.equal(substrate.dendrite_source, before_graph)
 
 
 def test_lifecycle_pressure_activates_before_topology_plasticity() -> None:
