@@ -317,6 +317,18 @@ interface BenchmarkSnapshot {
   sequenceLength: number | null;
   dependencyTokens: number | null;
   chanceAccuracy: number | null;
+  finalGraphAudit: {
+    referenceAccuracy: number;
+    referenceLoss: number;
+    silencedAccuracyDelta: number;
+    silencedLossDelta: number;
+    sourceRotatedAccuracyDelta: number;
+    sourceRotatedLossDelta: number;
+    weightReassignedAccuracyDelta: number;
+    weightReassignedLossDelta: number;
+    broadcastSilencedAccuracyDelta: number;
+    broadcastSilencedLossDelta: number;
+  } | null;
   checkpoints: BenchmarkCheckpoint[];
   artifactMtime: number;
 }
@@ -579,7 +591,7 @@ export class LaboratoryView {
         "token_grammar",
       ].includes(benchmark.task);
       const topology = tokenControl
-        ? `min ${benchmark.minimumOutputHops ?? "—"} hops · dependency ${benchmark.dependencyTokens ?? 0} tokens · ${benchmark.temporallyReachableOutputs ?? 0}/${benchmark.contextReachableOutputs ?? 0}/${benchmark.outputCount ?? "—"} token/context/graph · ${benchmark.messageSteps ?? "—"}×${benchmark.sequenceLength ?? "—"} ticks`
+        ? `min ${benchmark.minimumOutputHops ?? "—"} hops · dependency ${benchmark.dependencyTokens ?? 0} tokens · ${benchmark.temporallyReachableOutputs ?? 0}/${benchmark.contextReachableOutputs ?? 0}/${benchmark.outputCount ?? "—"} token/context/graph · ${benchmark.messageSteps ?? "—"}×${benchmark.sequenceLength ?? "—"} ticks${benchmark.finalGraphAudit ? ` · causal ref ${this.percent(benchmark.finalGraphAudit.referenceAccuracy)} · silence ${this.signedPercent(-benchmark.finalGraphAudit.silencedAccuracyDelta)} / +${benchmark.finalGraphAudit.silencedLossDelta.toFixed(3)} loss · rotate ${this.signedPercent(-benchmark.finalGraphAudit.sourceRotatedAccuracyDelta)} · reassign ${this.signedPercent(-benchmark.finalGraphAudit.weightReassignedAccuracyDelta)}` : " · causal audit pending"}`
         : final?.livingCells === undefined
           ? "—"
           : `${final.livingCells} cells · ${final.edgeCount ?? "—"} edges · +${final.cumulativeBirths ?? 0}/−${final.cumulativeDeaths ?? 0}`;

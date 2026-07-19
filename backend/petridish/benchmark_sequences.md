@@ -15,7 +15,11 @@ cell-rule effects before testing heterogeneous mixtures.
 Checkpoints report held-out accuracy on freshly generated sequences, rolling loss,
 recall curriculum size, graph reachability, living cells, edge count, device, and
 wall time. Artifacts also record parameter counts, initial CUDA allocation, and peak
-training allocation. Language accuracy is the context-dependent verb/object metric;
+training allocation. Completed distributed-token artifacts additionally run a
+matched read-only graph audit on identical held-out rows. They report the accuracy
+lost and loss added by silencing all learned synapses, rotating source endpoints,
+reassigning weights within each receiving neuron, and silencing broadcast. This
+distinguishes physical causal routing from mere reachability. Language accuracy is the context-dependent verb/object metric;
 recall's chance baseline is 25%. Run it with:
 
 Associative-recall checkpoints include held-out accuracy for each queried binding

@@ -1252,6 +1252,11 @@ def test_snapshot_discovers_bounded_benchmark_artifacts(
                 "dependencyTokens": 1,
                 "contextReachableOutputs": 64,
                 "chanceAccuracy": 0.125,
+                "finalGraphAudit": {
+                    "referenceAccuracy": 0.75,
+                    "silencedAccuracyDelta": 0.50,
+                    "sourceRotatedAccuracyDelta": 0.45,
+                },
                 "checkpoints": [
                     {"update": 20, "heldOutAccuracy": 0.75, "recallPairs": 1},
                     {"update": 40, "heldOutAccuracy": 0.5, "recallPairs": 2},
@@ -1281,6 +1286,7 @@ def test_snapshot_discovers_bounded_benchmark_artifacts(
     assert benchmark["dependencyTokens"] == 1
     assert benchmark["contextReachableOutputs"] == 64
     assert benchmark["chanceAccuracy"] == 0.125
+    assert benchmark["finalGraphAudit"]["silencedAccuracyDelta"] == 0.50
     assert benchmark["checkpoints"][-1]["recallPairs"] == 2
 
 

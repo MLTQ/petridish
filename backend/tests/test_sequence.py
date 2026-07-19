@@ -13,6 +13,7 @@ import pytest
 import torch
 
 from petridish.benchmark_sequences import (
+    _graph_ablation_summary,
     _override_batch_size,
     _scale_learning_rates,
     _write_result,
@@ -298,6 +299,22 @@ def test_benchmark_batch_override_is_explicit_and_bounded() -> None:
     assert defaults.batch_size == 8
     with pytest.raises(ValueError, match="batch size"):
         _override_batch_size(defaults, 0)
+
+
+def test_benchmark_graph_audit_reports_directional_causal_costs() -> None:
+    summary = _graph_ablation_summary((
+        {"accuracy": 0.75, "loss": 0.4},
+        {"accuracy": 0.25, "loss": 1.4},
+        {"accuracy": 0.30, "loss": 1.1},
+        {"accuracy": 0.35, "loss": 0.9},
+        {"accuracy": 0.75, "loss": 0.4},
+    ))
+
+    assert summary["silencedAccuracyDelta"] == pytest.approx(0.50)
+    assert summary["silencedLossDelta"] == pytest.approx(1.00)
+    assert summary["sourceRotatedAccuracyDelta"] == pytest.approx(0.45)
+    assert summary["weightReassignedAccuracyDelta"] == pytest.approx(0.40)
+    assert summary["broadcastSilencedAccuracyDelta"] == pytest.approx(0.0)
 
 
 def test_balanced_lifecycle_retains_biomimicry_without_death_budget_collapse() -> None:

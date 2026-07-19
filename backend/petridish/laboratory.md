@@ -92,6 +92,8 @@ explicitly enabled trainer processes.
   for physical-routing and context-memory controls.
 - **Does**: Preserves sequence length, dependency horizon, and token/context route
   coverage so temporal-memory results retain their physical communication budget.
+- **Does**: Preserves final matched graph-ablation deltas so reachability and actual
+  causal use of learned synapses remain distinct.
 - **Does**: Preserves the declared broadcast gain so global-workspace and purely
   dendritic routing controls remain distinguishable.
 - **Does**: Preserves a benchmark's common learning-rate scale so non-finite

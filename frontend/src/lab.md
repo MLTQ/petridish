@@ -71,6 +71,9 @@ validated launch or stop requests.
   one-memory solution is visible without inferring it from the aggregate curve.
 - **Does**: Shows final accuracy at each supervised stream position so persistent
   context decay is visible instead of averaged away.
+- **Does**: Shows final matched graph-silence, endpoint-rotation, and within-neuron
+  weight-reassignment costs beside route reachability; an artifact without the
+  audit is labeled pending rather than assumed causal.
 - **Does**: Shows presented-value coverage and distractor errors when available,
   separating value storage from correct key/value association.
 - **Does**: Shows owner-address distinctness, entropy, and overlap only for artifacts

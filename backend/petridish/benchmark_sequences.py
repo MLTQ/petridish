@@ -124,6 +124,34 @@ def _override_batch_size(config: Any, batch_size: int | None) -> Any:
     return replace(config, batch_size=batch_size)
 
 
+def _graph_ablation_summary(
+    measurements: tuple[dict[str, Any], dict[str, Any], dict[str, Any],
+                        dict[str, Any], dict[str, Any]],
+) -> dict[str, float]:
+    """Compress a matched graph audit into directional causal deltas."""
+
+    reference, silenced, rotated, reassigned, broadcast_silenced = measurements
+    summary = {
+        "referenceAccuracy": float(reference["accuracy"]),
+        "referenceLoss": float(reference["loss"]),
+    }
+    for prefix, condition in (
+        ("silenced", silenced),
+        ("sourceRotated", rotated),
+        ("weightReassigned", reassigned),
+        ("broadcastSilenced", broadcast_silenced),
+    ):
+        summary[f"{prefix}Accuracy"] = float(condition["accuracy"])
+        summary[f"{prefix}Loss"] = float(condition["loss"])
+        summary[f"{prefix}AccuracyDelta"] = (
+            float(reference["accuracy"]) - float(condition["accuracy"])
+        )
+        summary[f"{prefix}LossDelta"] = (
+            float(condition["loss"]) - float(reference["loss"])
+        )
+    return summary
+
+
 def run_benchmark(
     task: str, profile: str, *, steps: int, seed: int, device: str,
     architecture: str = "gru",
@@ -189,6 +217,7 @@ def run_benchmark(
     )
     started = time.perf_counter()
     checkpoints: list[dict[str, Any]] = []
+    final_graph_audit: dict[str, float] | None = None
     parameter_count = sum(parameter.numel() for parameter in experiment.model.parameters())
     trainable_parameter_count = sum(
         parameter.numel() for parameter in experiment.model.parameters()
@@ -241,6 +270,7 @@ def run_benchmark(
                 }
                 else None
             ),
+            "finalGraphAudit": final_graph_audit,
             "recallMode": (
                 "direct_mapping" if task == "token_routing" else
                 "delayed_copy" if task == "token_memory" else
@@ -350,6 +380,10 @@ def run_benchmark(
         if output_path is not None:
             _write_result(output_path, failed)
         raise
+    if expected_profile is not None:
+        final_graph_audit = _graph_ablation_summary(
+            experiment.evaluate_graph_ablation(4)
+        )
     final = result("complete", steps)
     if output_path is not None:
         _write_result(output_path, final)

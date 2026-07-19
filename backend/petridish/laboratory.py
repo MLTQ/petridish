@@ -1640,6 +1640,7 @@ class Laboratory:
                     "sequenceLength": payload.get("sequenceLength"),
                     "dependencyTokens": payload.get("dependencyTokens"),
                     "chanceAccuracy": payload.get("chanceAccuracy"),
+                    "finalGraphAudit": payload.get("finalGraphAudit"),
                     "checkpoints": valid_checkpoints,
                     "artifactMtime": path.stat().st_mtime,
                 }

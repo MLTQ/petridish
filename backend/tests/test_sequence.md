@@ -28,6 +28,9 @@ receive the same bounded multiplier.
 The benchmark batch helper preserves the profile default when omitted, applies an
 explicit bounded memory override without mutating the source configuration, and
 therefore keeps reduced-memory artifacts scientifically distinguishable.
+The benchmark graph-summary regression fixes delta direction: causal accuracy is
+reference minus intervention, while causal loss is intervention minus reference;
+a disabled broadcast in a local-only control must remain a measured zero delta.
 Named lifecycle-profile tests preserve the original baseline while proving the
 balanced intervention keeps stun, recovery, starvation, and eventual death but
 equalizes maximum births/deaths and lowers the empirically saturated pressures.
