@@ -109,6 +109,8 @@ for several progress intervals.
 Adaptive topology and lifecycle are independently gated. A fixed-connectome control
 continues optimizing synaptic weights and neuron rules but can never unlock edge
 growth or pruning, even after a learning plateau.
+Entering an off or still-warming lifecycle phase also clears the prior phase's
+display-only active flag; persisted cells and homeostatic tensors are untouched.
 
 Reward measures improvement over the uniform-loss baseline for the active vocabulary,
 so a 66-character corpus and a ten-token synthetic task use comparable signed credit.

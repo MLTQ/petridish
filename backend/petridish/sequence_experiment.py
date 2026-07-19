@@ -807,9 +807,11 @@ class SequenceExperiment:
 
     def _should_activate_lifecycle(self, completed: int) -> bool:
         if not self.config.lifecycle_enabled:
+            self.lifecycle_active = False
             self.lifecycle_reason = "disabled by configuration"
             return False
         if completed < self.config.lifecycle_warmup_trials:
+            self.lifecycle_active = False
             self.lifecycle_reason = "waiting for lifecycle warm-up"
             return False
         self.lifecycle_active = True

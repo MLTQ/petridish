@@ -1664,3 +1664,61 @@ probationary axons, and reports energy-, capacity-, and cap-blocked proposals. T
 canonical organism must recover linearly from its actual update-19,750 state with
 topology and turnover frozen; exact forks remain read-only counterfactual evidence
 and are never merged into it.
+
+## Phase 26 — Axon economy selects structure without an accuracy shock
+
+The completed lifecycle-off checkpoint at exact SHA
+`f1ad04267ddb669cd5d944c5a9df9ac8c2a28ca89b87fe1b45fc4bf4c7b3187d`
+was forked twice without loading or reconstructing the organism. Both counterfactuals
+continued for 256 updates with lifecycle off, adaptive topology, and a hard cap of
+64 accepted axons per structural generation. The control retained free construction
+and the historical 0.04 starting utility. The treatment charged 0.08 energy to each
+endpoint, required 0.35 energy after construction, and started every new axon at zero
+utility so it had to earn protection during the existing grace interval.
+
+Both branches accepted exactly 1,024 axons and retained all 64 outputs at an 11-hop
+median. The control reached 61.48% / 1.45542 overall and 59.82% / 1.54344 over its
+final 160 windows. The economy reached 61.15% / 1.45321 overall and 59.50% /
+1.54270 final-160. Its final measured structural cycle rejected 76 mature proposals
+for insufficient endpoint reserve, versus zero in control, while still filling the
+64-edge cap from alternatives. It spent 163.84 cumulative construction energy and
+ended at mean energy 0.927. Zero-start probation pruned 105 additional edges, leaving
+15,370 versus 15,475, with no meaningful task-performance penalty.
+
+Validation remained equally nonlinguistic: 10.74% / 5.20807 economy and 10.55% /
+5.18906 control. Fixed samples were `. le   aay  ad  ` and ` cle melad  ad  `.
+On exact warm 8K lane 105, economy measured 72.36% / 0.99079 and control 71.97% /
+0.98799. Silencing their graphs cost 64.06 and 62.79 accuracy points; rotating
+endpoints or reassigning source/weight pairs was similarly destructive. Thus the
+economy genuinely selected a somewhat sparser conducting graph; it neither created
+general language behavior nor bypassed the organism. Read-only audits left terminal
+SHAs unchanged at
+`3dafa93af9d082787186fe30226e73bf49401ac123a0a3ca252e182beb051630`
+economy and
+`0ddcdff86852174bccb21aa8042a42727519e07ad7fe39caae1c210517a65ed3`
+control.
+
+The canonical organism then continued linearly from its actual damaged update-19,750
+checkpoint `c836f6f2...`; no counterfactual state was merged. Phase 26 froze but kept
+conducting its surviving 11,593-edge graph and disabled further lifecycle mutation for
+500 recovery updates. Cells, stunned state, graph, weights, optimizer, 169 recurrent
+lanes, cursors, and RNG all remained checkpoint-owned. Births, deaths, growth, and
+pruning stayed exactly constant. Final-160 training accuracy recovered from 28.50%
+to 37.14% and loss from 2.49427 to 2.22583. The recovery checkpoint SHA is
+`d937707cfed872e6b770bfb8ace7e24d9f6dca655dc7e5df7ea65bb034f07139`.
+
+The read-only recovery audit measured 12.89% / 3.49148 validation, improved from
+11.13% / 4.53025 before lifecycle and far better calibrated than the immediate shock,
+but still below the 19.09% / 3.11355 unigram and 31.42% / 2.91118 bigram baselines.
+Graph silence worsened loss by 0.875 despite a 0.39-point top-one fluctuation;
+endpoint rotation cost 8.59 points and source/weight reassignment cost 10.35. The
+sample `  nee  aae  eaed` remains fragmentary. Turnover damage is therefore partly
+learnable but not free: replacement homeostasis discarded specialization that a
+fixed surviving organism can only gradually rebuild.
+
+Exact warm 8K lane 105 recovered only to 35.16% / 2.25253, versus 75.88% before
+lifecycle. Its disposable cold-state copy reached 29.39%. Graph silence cost 23.14
+accuracy points, endpoint rotation 30.27, and source/weight reassignment 31.74.
+The recovered organism therefore still depends on its surviving physical circuit,
+but 500 fixed updates did not recreate the private cell/edge specialization erased
+by turnover.

@@ -120,7 +120,8 @@ endpoint reserve, and probation utility while every organism-owned tensor remain
 checkpoint-identical. The
 state-lane regression must alternate two independent persistent trajectories at
 batch one, retain both states, report their exact age range, and expose authoritative
-structure/lifecycle gate reasons. Append-only expansion from both one and two lanes
+structure/lifecycle gate reasons. A phase that disables lifecycle must clear a stale
+active status from the prior phase without changing biology. Append-only expansion from both one and two lanes
 must preserve every old cursor and runtime state, consume rather than reseed the
 saved training RNG for new positions, co-locate new cursors with a CUDA-restored
 checkpoint, reject shrinking, and survive a checkpoint round trip with added lanes

@@ -875,6 +875,21 @@ def test_round_robin_state_lanes_add_trajectory_diversity_at_batch_one() -> None
     assert metrics["lifecycleReason"] == "disabled by configuration"
 
 
+def test_disabling_lifecycle_clears_prior_phase_active_status() -> None:
+    experiment = SequenceExperiment(
+        resolve_sequence_task("associative_recall"),
+        replace(corpus_config(), lifecycle_enabled=0),
+        seed=91, device="cpu",
+    )
+    experiment.lifecycle_active = True
+
+    active = experiment._should_activate_lifecycle(experiment.training_step)
+
+    assert active is False
+    assert experiment.lifecycle_active is False
+    assert experiment.lifecycle_reason == "disabled by configuration"
+
+
 @pytest.mark.parametrize("starting_lanes", (1, 2))
 def test_state_lane_expansion_preserves_every_existing_trajectory(
     tmp_path: Path, starting_lanes: int
