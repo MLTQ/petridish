@@ -815,7 +815,13 @@ class SequenceExperiment:
             self.lifecycle_reason = "waiting for lifecycle warm-up"
             return False
         self.lifecycle_active = True
-        self.lifecycle_reason = "energy pressure and turnover active"
+        if (
+            self.config.max_deaths_per_generation == 0
+            and self.config.births_per_generation == 0
+        ):
+            self.lifecycle_reason = "reversible stun and repair active; turnover disabled"
+        else:
+            self.lifecycle_reason = "energy pressure and turnover active"
         return True
 
     def _should_unlock_structure(self, completed: int, accuracy: float) -> bool:

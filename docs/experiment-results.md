@@ -1722,3 +1722,49 @@ accuracy points, endpoint rotation 30.27, and source/weight reassignment 31.74.
 The recovered organism therefore still depends on its surviving physical circuit,
 but 500 fixed updates did not recreate the private cell/edge specialization erased
 by turnover.
+
+## Phase 27 — Reversible stun is structurally safe but still computationally costly
+
+The canonical organism continued linearly from its exact update-20,250 recovery
+checkpoint `d937707cfed872e6b770bfb8ace7e24d9f6dca655dc7e5df7ea65bb034f07139`.
+No state was reconstructed or merged from a fork. Its learned 11,593-edge topology
+remained fixed and conducting while the new recovery-only lifecycle enabled energy
+repair, excitotoxic stun, and probabilistic recovery but set both death and birth
+budgets to zero. An exact counterfactual fork ran the same 256 updates with lifecycle
+off. The two endpoints retained organism ID
+`organism-b2505376398a491e8cf4150a5daf3fab`, all 2,224 cells, all 11,593 edges, all
+64 reachable outputs, optimizer/RNG state, and 169 persistent recurrent trajectories.
+
+The recovery-only mechanism passed its structural invariant. Cumulative deaths and
+births stayed exactly 198/198, and cumulative grown/pruned edges stayed exactly
+11,313/13,411. It added 37 reversible stuns and exactly 37 recoveries, taking the
+canonical totals from 54/49 to 91/86, while restoring mean energy from the control's
+0.556 to 1.000. Both endpoints had two cells stunned at measurement. Thus the profile
+cycles temporary biological unavailability without replacing neuron identity or
+rewiring the organism.
+
+That cycling was not free. Across the 256-update phase, recovery-only reached 38.18%
+/ 2.17659 versus 40.21% / 2.11278 for the lifecycle-off control. Over the final 160
+updates it reached 37.63% / 2.21140 versus 39.73% / 2.14544. On exact warm 8K lane
+105 it measured 45.41% / 1.83093 versus 49.80% / 1.72854. Persistent electricity
+remained beneficial in both branches, but the recovery-only branch lost 4.39 accuracy
+points on the matched trajectory. Graph silence still cost 40.53 points in treatment
+and 45.61 in control, while endpoint rotation and source/weight reassignment were
+similarly destructive. Temporary stun therefore perturbs genuinely causal learned
+routes rather than acting as harmless display state.
+
+Validation remained below elementary corpus baselines. Recovery-only measured 8.11%
+/ 4.37146 versus 9.38% / 4.45258 control, compared with 19.09% unigram and 31.42%
+bigram accuracy. Its slightly lower loss did not improve top-one prediction, and
+fixed samples remained fragmentary: `  aee caar  aadd` treatment and
+`n aee  aad  aadd` control. Disposable cold-state copies reached 9.38% / 4.25413
+and 10.55% / 4.28954 respectively.
+
+All validation and trajectory audits were read-only on the 2070. Checkpoint hashes
+remained byte-identical before and after at
+`f78790cc04f17e36b2c3b550ffcd0af99d9e13bf60dd7cc744b06e886615c41a`
+canonical and
+`d8d1c2c002315befe325b80e4ce308741bda7a0b7d0c6c8ac4fd24a02bb9e1c0`
+control. Recovery-only biology is therefore safe enough to retain as an optional
+experimental pressure, but its present stun threshold is too disruptive to enable
+during language optimization by default.

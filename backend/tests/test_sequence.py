@@ -900,6 +900,24 @@ def test_disabling_lifecycle_clears_prior_phase_active_status() -> None:
     assert experiment.lifecycle_reason == "disabled by configuration"
 
 
+def test_recovery_only_reports_reversible_biology_without_turnover() -> None:
+    experiment = SequenceExperiment(
+        resolve_sequence_task("associative_recall"),
+        apply_lifecycle_profile(corpus_config(), "recovery_only"),
+        seed=92, device="cpu",
+    )
+
+    active = experiment._should_activate_lifecycle(
+        experiment.config.lifecycle_warmup_trials
+    )
+
+    assert active is True
+    assert experiment.lifecycle_active is True
+    assert experiment.lifecycle_reason == (
+        "reversible stun and repair active; turnover disabled"
+    )
+
+
 @pytest.mark.parametrize("starting_lanes", (1, 2))
 def test_state_lane_expansion_preserves_every_existing_trajectory(
     tmp_path: Path, starting_lanes: int
