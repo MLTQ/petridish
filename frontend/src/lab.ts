@@ -329,6 +329,27 @@ interface BenchmarkSnapshot {
     broadcastSilencedAccuracyDelta: number;
     broadcastSilencedLossDelta: number;
   } | null;
+  freeRunningAudit: {
+    split: string;
+    cases: number;
+    generatedTokens: number;
+    tokenAccuracy: number;
+    sequenceAccuracy: number;
+    invalidTokenRate: number;
+    positionAccuracy: number[];
+    positionIndices: number[];
+    examplePrompt: string[];
+    exampleExpected: string[];
+    exampleGenerated: string[];
+  } | null;
+  splitProvenance: {
+    kind: string;
+    trainingRulePairs: string[];
+    heldOutRulePairs: string[];
+    trainingStateCount: number;
+    heldOutStateCount: number;
+    stateOverlap: number;
+  } | null;
   checkpoints: BenchmarkCheckpoint[];
   artifactMtime: number;
 }
@@ -589,6 +610,7 @@ export class LaboratoryView {
         "token_settling",
         "token_settled_pipeline",
         "token_grammar",
+        "token_compositional_grammar",
       ].includes(benchmark.task);
       const topology = tokenControl
         ? `min ${benchmark.minimumOutputHops ?? "—"} hops · dependency ${benchmark.dependencyTokens ?? 0} tokens · ${benchmark.temporallyReachableOutputs ?? 0}/${benchmark.contextReachableOutputs ?? 0}/${benchmark.outputCount ?? "—"} token/context/graph · ${benchmark.messageSteps ?? "—"}×${benchmark.sequenceLength ?? "—"} ticks${benchmark.finalGraphAudit ? ` · causal ref ${this.percent(benchmark.finalGraphAudit.referenceAccuracy)} · silence ${this.signedPercent(-benchmark.finalGraphAudit.silencedAccuracyDelta)} / +${benchmark.finalGraphAudit.silencedLossDelta.toFixed(3)} loss · rotate ${this.signedPercent(-benchmark.finalGraphAudit.sourceRotatedAccuracyDelta)} · reassign ${this.signedPercent(-benchmark.finalGraphAudit.weightReassignedAccuracyDelta)}` : " · causal audit pending"}`
@@ -597,6 +619,13 @@ export class LaboratoryView {
           : `${final.livingCells} cells · ${final.edgeCount ?? "—"} edges · +${final.cumulativeBirths ?? 0}/−${final.cumulativeDeaths ?? 0}`;
       const row = document.createElement("tr");
       const execution = `batch ${benchmark.batchSize ?? "legacy"} · ${benchmark.ampMode === "bfloat16" ? "BF16" : "FP32"}`;
+      const compositionalEvidence = benchmark.task !== "token_compositional_grammar"
+        ? null
+        : benchmark.freeRunningAudit && benchmark.splitProvenance
+          ? `held out ${benchmark.splitProvenance.heldOutRulePairs.join(" / ")} · overlap ${benchmark.splitProvenance.stateOverlap} · free-run ${this.percent(benchmark.freeRunningAudit.tokenAccuracy)} tokens / ${this.percent(benchmark.freeRunningAudit.sequenceAccuracy)} exact sequences · ${this.percent(benchmark.freeRunningAudit.invalidTokenRate)} invalid`
+          : benchmark.status === "complete"
+            ? "held-out composition audit missing"
+            : "held-out composition audit pending";
       const values = [
         benchmark.id,
         `${benchmark.intervention ?? "—"} · ${execution}`,
@@ -615,9 +644,11 @@ export class LaboratoryView {
                 `t${(final.heldOutPositionIndices?.[index] ?? index) + 1} ${this.percent(accuracy)}`
               )).join(" / ")
             : "—",
-        benchmark.task !== "associative_recall" || final?.heldOutPresentedValueRate === undefined
-          ? "—"
-          : `${this.percent(final.heldOutPresentedValueRate)} (${this.percent(final.heldOutDistractorRate)} distractor)`,
+        compositionalEvidence ?? (
+          benchmark.task !== "associative_recall" || final?.heldOutPresentedValueRate === undefined
+            ? "—"
+            : `${this.percent(final.heldOutPresentedValueRate)} (${this.percent(final.heldOutDistractorRate)} distractor)`
+        ),
         topology,
         benchmark.bindingDiagnostics
           ? `${benchmark.bindingDiagnostics.distinctOwners}/${benchmark.bindingDiagnostics.vocabularySize} · H ${benchmark.bindingDiagnostics.meanAddressEntropy.toFixed(2)} · overlap ${benchmark.bindingDiagnostics.meanAddressOverlap.toFixed(2)}`

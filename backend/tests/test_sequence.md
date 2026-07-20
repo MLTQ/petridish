@@ -177,6 +177,11 @@ control.
 The autoregressive-grammar fixture enumerates all rule/seed states, aligns seven
 targets to the actual next stream symbol, and proves that rule-only, current-only,
 previous-only, position, and class-frequency baselines remain at 25%.
+The compositional-grammar fixture proves the training and evaluation rule/seed sets
+are disjoint while every individual operator and offset remains familiar. Both
+splits keep operator-only, offset-only, current-only, previous-only, position, and
+frequency baselines at 25%; a black-box free-running audit must distinguish an exact
+recurrence predictor from invalid non-symbol generation across all 32 held-out prompts.
 The zero-broadcast regression requires a hard workspace bypass with no gradients into
 its gain or projections, preventing a nominal ablation from learning to reactivate.
 Headless diagnostics separately verify physical/conducting edges, one-token/context/

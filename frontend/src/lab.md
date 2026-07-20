@@ -74,6 +74,9 @@ validated launch or stop requests.
 - **Does**: Shows final matched graph-silence, endpoint-rotation, and within-neuron
   weight-reassignment costs beside route reachability; an artifact without the
   audit is labeled pending rather than assumed causal.
+- **Does**: Shows zero-overlap held-out rule pairs beside free-running token accuracy,
+  exact-sequence accuracy, and invalid-token rate; incomplete runs are labeled audit
+  pending and cannot masquerade as compositional success.
 - **Does**: Shows presented-value coverage and distractor errors when available,
   separating value storage from correct key/value association.
 - **Does**: Shows owner-address distinctness, entropy, and overlap only for artifacts
@@ -271,6 +274,8 @@ validated launch or stop requests.
   preserving its longer dependency horizon and delayed position metrics.
 - **Does**: Treats the balanced second-order grammar as an autoregressive token
   control with a measured 25% baseline and seven true next-token positions.
+- **Does**: Treats the disjoint-rule-pair grammar as a separate compositional cohort
+  and surfaces its free-running audit independently from teacher-forced accuracy.
 - **Does**: Keeps broadcast-on/off identity in the persisted intervention label so
   global-workspace shortcuts are not conflated with physical dendritic routing.
 

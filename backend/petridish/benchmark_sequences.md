@@ -2,7 +2,8 @@
 
 This command runs reproducible, hardware-bounded learning sweeps for associative
 recall, tiny language, direct physical routing, delayed-copy memory, distributed
-context composition, persistent contextual streams, and exact next-token grammar.
+context composition, persistent contextual streams, exact next-token grammar, and
+held-out rule composition.
 Profiles vary field size and recurrent microsteps while
 holding the task, seed, optimizer, and lifecycle state constant. Lifecycle and
 structural mutation are disabled so a run measures the differentiable substrate
@@ -192,3 +193,23 @@ python -m petridish.benchmark_sequences --task token_grammar \
 For an 8 GiB replication, add `--batch-size 4 --amp bfloat16` and encode both
 interventions in the artifact filename. First reproduce the known seed under that
 same regime before comparing independent seeds.
+
+`token_compositional_grammar` with `token_compositional_grammar68` is the first
+anti-memorization gate. Two separately encoded rule tokens select an operator and
+offset for a second-order four-symbol recurrence. Six operator/offset pairs and all
+their seeds are training-only; `sum+offset-1` and `difference+offset-2` are
+evaluation-only. Every operator and offset token occurs during training, every
+supervised target remains uniformly distributed when conditioned on either rule,
+the current token, or the previous token, and train/evaluation state overlap is zero.
+
+Completed artifacts persist the exact split and free-run all 32 withheld prompts for
+nine generated tokens. Token accuracy, exact-sequence accuracy, invalid-token rate,
+per-position decay, one readable example, and the matched physical-graph audit must
+all be considered together. Teacher-forced held-out accuracy alone is not success.
+
+```bash
+python -m petridish.benchmark_sequences --task token_compositional_grammar \
+  --profile token_compositional_grammar68 --architecture esn --message-steps 16 \
+  --broadcast-gain 0 --learning-rate-scale 0.25 --batch-size 4 --amp bfloat16 \
+  --steps 1200 --output benchmarks/lab/token-composition-esn-local.json
+```

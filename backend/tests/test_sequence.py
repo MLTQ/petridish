@@ -38,6 +38,13 @@ from petridish.sequence_tasks import (
     resolve_sequence_task,
 )
 from petridish.token_corpus_task import build_token_task
+from petridish.token_compositional_grammar_task import (
+    DIGIT_OFFSET as COMPOSITIONAL_DIGIT_OFFSET,
+    compositional_generation_audit,
+    compositional_grammar_cases,
+    compositional_grammar_provenance,
+    token_compositional_grammar_task,
+)
 from petridish.token_context_task import token_context_task
 from petridish.token_grammar_task import token_grammar_task
 from petridish.token_memory_task import token_memory_task
@@ -2001,6 +2008,78 @@ def test_autoregressive_grammar_requires_rule_and_two_symbol_context() -> None:
     previous = batch.tokens[:, 7] - 2
     current = batch.tokens[:, 8] - 2
     assert torch.equal(batch.targets[:, 8], 2 + (previous + current + rule) % 4)
+
+
+def test_compositional_grammar_holds_out_rule_pairs_without_token_novelty() -> None:
+    task = token_compositional_grammar_task()
+    training_prompts, training_continuations = compositional_grammar_cases(
+        evaluation=False
+    )
+    held_out_prompts, held_out_continuations = compositional_grammar_cases(
+        evaluation=True
+    )
+    training = task.batch(96, torch.Generator().manual_seed(29))
+    held_out = task.batch(32, torch.Generator().manual_seed(31), evaluation=True)
+
+    assert task.key == "tiny_stories"
+    assert training.tokens.shape == training.targets.shape == (96, 12)
+    assert held_out.tokens.shape == held_out.targets.shape == (32, 12)
+    assert not bool(training.loss_mask[:, :3].any())
+    assert bool(training.loss_mask[:, 3:].all())
+    assert not ({tuple(row) for row in training_prompts.tolist()} & {
+        tuple(row) for row in held_out_prompts.tolist()
+    })
+    assert set(held_out_prompts[:, 0].tolist()) <= set(
+        training_prompts[:, 0].tolist()
+    )
+    assert set(held_out_prompts[:, 1].tolist()) <= set(
+        training_prompts[:, 1].tolist()
+    )
+    assert torch.equal(training.targets[:, 3:11], training.tokens[:, 4:12])
+    assert torch.equal(held_out.targets[:, 3:11], held_out.tokens[:, 4:12])
+    assert training_continuations.shape == (96, 9)
+    assert held_out_continuations.shape == (32, 9)
+    for batch in (training, held_out):
+        for position in range(3, 12):
+            assert sorted(batch.targets[:, position].unique().tolist()) == [6, 7, 8, 9]
+            for context in (
+                batch.tokens[:, 0], batch.tokens[:, 1],
+                batch.tokens[:, position], batch.tokens[:, position - 1],
+            ):
+                for value in context.unique():
+                    selected = batch.targets[context == value, position]
+                    assert sorted(selected.unique().tolist()) == [6, 7, 8, 9]
+    provenance = compositional_grammar_provenance()
+    assert provenance["trainingStateCount"] == 96
+    assert provenance["heldOutStateCount"] == 32
+    assert provenance["stateOverlap"] == 0
+
+
+def test_compositional_free_running_audit_detects_exact_and_invalid_generation() -> None:
+    def recurrence(prefix: torch.Tensor) -> torch.Tensor:
+        operator = prefix[:, 0]
+        offset = prefix[:, 1] - 2
+        previous = prefix[:, -2] - COMPOSITIONAL_DIGIT_OFFSET
+        current = prefix[:, -1] - COMPOSITIONAL_DIGIT_OFFSET
+        sign = torch.where(operator == 0, 1, -1)
+        return COMPOSITIONAL_DIGIT_OFFSET + (
+            previous + sign * current + offset
+        ) % 4
+
+    perfect = compositional_generation_audit(recurrence, batch_size=4)
+    invalid = compositional_generation_audit(
+        lambda prefix: torch.zeros(prefix.shape[0], dtype=torch.long), batch_size=7,
+    )
+
+    assert perfect["cases"] == 32
+    assert perfect["generatedTokens"] == 32 * 9
+    assert perfect["tokenAccuracy"] == pytest.approx(1.0)
+    assert perfect["sequenceAccuracy"] == pytest.approx(1.0)
+    assert perfect["invalidTokenRate"] == pytest.approx(0.0)
+    assert perfect["positionAccuracy"] == pytest.approx([1.0] * 9)
+    assert invalid["tokenAccuracy"] == pytest.approx(0.0)
+    assert invalid["sequenceAccuracy"] == pytest.approx(0.0)
+    assert invalid["invalidTokenRate"] == pytest.approx(1.0)
 
 
 def test_zero_broadcast_gain_is_a_hard_workspace_ablation() -> None:

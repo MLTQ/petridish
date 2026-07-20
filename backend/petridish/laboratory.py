@@ -1641,6 +1641,8 @@ class Laboratory:
                     "dependencyTokens": payload.get("dependencyTokens"),
                     "chanceAccuracy": payload.get("chanceAccuracy"),
                     "finalGraphAudit": payload.get("finalGraphAudit"),
+                    "freeRunningAudit": payload.get("freeRunningAudit"),
+                    "splitProvenance": payload.get("splitProvenance"),
                     "checkpoints": valid_checkpoints,
                     "artifactMtime": path.stat().st_mtime,
                 }

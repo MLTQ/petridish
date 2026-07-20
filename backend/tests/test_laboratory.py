@@ -1257,6 +1257,19 @@ def test_snapshot_discovers_bounded_benchmark_artifacts(
                     "silencedAccuracyDelta": 0.50,
                     "sourceRotatedAccuracyDelta": 0.45,
                 },
+                "freeRunningAudit": {
+                    "split": "held_out_rule_pairs",
+                    "cases": 32,
+                    "tokenAccuracy": 0.625,
+                    "sequenceAccuracy": 0.25,
+                    "invalidTokenRate": 0.0,
+                },
+                "splitProvenance": {
+                    "kind": "held_out_rule_pair_composition",
+                    "trainingStateCount": 96,
+                    "heldOutStateCount": 32,
+                    "stateOverlap": 0,
+                },
                 "checkpoints": [
                     {"update": 20, "heldOutAccuracy": 0.75, "recallPairs": 1},
                     {"update": 40, "heldOutAccuracy": 0.5, "recallPairs": 2},
@@ -1287,6 +1300,8 @@ def test_snapshot_discovers_bounded_benchmark_artifacts(
     assert benchmark["contextReachableOutputs"] == 64
     assert benchmark["chanceAccuracy"] == 0.125
     assert benchmark["finalGraphAudit"]["silencedAccuracyDelta"] == 0.50
+    assert benchmark["freeRunningAudit"]["tokenAccuracy"] == 0.625
+    assert benchmark["splitProvenance"]["stateOverlap"] == 0
     assert benchmark["checkpoints"][-1]["recallPairs"] == 2
 
 
