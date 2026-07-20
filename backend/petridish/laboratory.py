@@ -1634,6 +1634,12 @@ class Laboratory:
                     "broadcastGain": payload.get("broadcastGain"),
                     "learningRateScale": payload.get("learningRateScale", 1.0),
                     "positionSignal": payload.get("positionSignal", "learned"),
+                    "autoregressiveFeedbackProbability": payload.get(
+                        "autoregressiveFeedbackProbability", 0.0
+                    ),
+                    "autoregressiveFeedbackWarmup": payload.get(
+                        "autoregressiveFeedbackWarmup", 0
+                    ),
                     "batchSize": payload.get("batchSize"),
                     "ampMode": payload.get("ampMode", "off"),
                     "cudaAllocatorConfig": payload.get("cudaAllocatorConfig"),

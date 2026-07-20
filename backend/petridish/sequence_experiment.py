@@ -35,6 +35,23 @@ MAX_STATE_LANES = 512
 RANDOM_OFFSET_AUXILIARY_SCOPES = ("active_shard", "full_corpus")
 
 
+def autoregressive_feedback_mask(
+    batch: SequenceBatch,
+    probability: float,
+    generator: torch.Generator,
+) -> torch.Tensor:
+    """Select inputs whose preceding supervised prediction replaces the teacher."""
+
+    if not 0 <= probability <= 1:
+        raise ValueError("autoregressive feedback probability must be between zero and one")
+    eligible = torch.zeros_like(batch.loss_mask)
+    eligible[:, 1:] = batch.loss_mask[:, :-1]
+    draws = torch.rand(batch.loss_mask.shape, generator=generator).to(
+        batch.loss_mask.device
+    )
+    return eligible & (draws < probability)
+
+
 class SequenceExperiment:
     """Learn a synthetic sequence distribution in one persistent organism."""
 
@@ -164,6 +181,7 @@ class SequenceExperiment:
         self.last_batch_accuracy = 0.0
         self.last_random_offset_auxiliary_loss: float | None = None
         self.last_random_offset_auxiliary_accuracy: float | None = None
+        self.last_autoregressive_feedback_fraction = 0.0
         self.last_novel_stream_token_fraction = 0.0
         self.last_novel_stream_rows = 0
         self.test_accuracy: float | None = None
@@ -368,6 +386,8 @@ class SequenceExperiment:
         capture_trace: bool = True,
         auto_evaluate: bool = True,
         progress_callback: Callable[[str, int, int], None] | None = None,
+        autoregressive_feedback_probability: float = 0.0,
+        feedback_generator: torch.Generator | None = None,
     ) -> None:
         self._require_persistent_gradient_contexts()
         self.model.train()
@@ -385,6 +405,19 @@ class SequenceExperiment:
             next_stream_positions = None
             state_lane = 0
             runtime_state = None
+        feedback_mask = None
+        self.last_autoregressive_feedback_fraction = 0.0
+        if autoregressive_feedback_probability > 0:
+            if feedback_generator is None:
+                raise ValueError("autoregressive feedback requires a dedicated generator")
+            feedback_mask = autoregressive_feedback_mask(
+                batch, autoregressive_feedback_probability, feedback_generator
+            )
+            eligible = torch.zeros_like(batch.loss_mask)
+            eligible[:, 1:] = batch.loss_mask[:, :-1]
+            self.last_autoregressive_feedback_fraction = float(
+                feedback_mask.sum() / eligible.sum().clamp_min(1)
+            )
         if progress_callback is not None:
             self._begin_visible_trial(batch)
 
@@ -409,6 +442,7 @@ class SequenceExperiment:
                 capture_trace=capture_trace,
                 frame_callback=observe_frame if progress_callback is not None else None,
                 runtime_state=runtime_state,
+                feedback_mask=feedback_mask,
             )
         task_loss, accuracy = self._masked_loss_accuracy(result.logits, batch)
         loss = task_loss + self.model.regularization()
@@ -652,13 +686,32 @@ class SequenceExperiment:
         self.tick += 1
         self._train_trial(progress_callback=progress_callback)
 
-    def train_updates(self, count: int = 1) -> None:
-        """Run optimizer updates directly without constructing viewer traces."""
+    def train_updates(
+        self,
+        count: int = 1,
+        *,
+        autoregressive_feedback_probability: float = 0.0,
+        feedback_generator: torch.Generator | None = None,
+    ) -> None:
+        """Run trace-free updates with optional predicted-token context exposure."""
 
         self._require_persistent_gradient_contexts()
+        if not 0 <= autoregressive_feedback_probability <= 1:
+            raise ValueError(
+                "autoregressive feedback probability must be between zero and one"
+            )
+        if autoregressive_feedback_probability > 0 and feedback_generator is None:
+            raise ValueError("autoregressive feedback requires a dedicated generator")
         for _ in range(max(1, count)):
             self.tick += 1
-            self._train_trial(capture_trace=False, auto_evaluate=False)
+            self._train_trial(
+                capture_trace=False,
+                auto_evaluate=False,
+                autoregressive_feedback_probability=(
+                    autoregressive_feedback_probability
+                ),
+                feedback_generator=feedback_generator,
+            )
 
     def _begin_visible_trial(self, batch: SequenceBatch) -> None:
         """Align visible tokens before streamed forward frames arrive."""
@@ -1422,4 +1475,4 @@ class SequenceExperiment:
         return "structure" if self.structure_unlocked else "joint gradient learning"
 
 
-__all__ = ["SequenceExperiment"]
+__all__ = ["SequenceExperiment", "autoregressive_feedback_mask"]

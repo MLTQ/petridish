@@ -30,6 +30,9 @@ explicit bounded memory override without mutating the source configuration, and
 therefore keeps reduced-memory artifacts scientifically distinguishable.
 The benchmark position helper proves that the baseline clock remains learned while
 the recurrent-order intervention is exactly zero and non-trainable from update zero.
+The scheduled-feedback regression allows only inputs after supervised predictions,
+executes the mixed-context model path, and rejects invalid probability, shape, and
+first-token feedback rather than silently changing the prompt.
 The benchmark graph-summary regression fixes delta direction: causal accuracy is
 reference minus intervention, while causal loss is intervention minus reference;
 a disabled broadcast in a local-only control must remain a measured zero delta.

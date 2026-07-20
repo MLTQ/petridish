@@ -183,6 +183,8 @@ def run_benchmark(
     batch_size: int | None = None,
     amp_mode: str = "off",
     position_signal: str = "learned",
+    autoregressive_feedback_probability: float = 0.0,
+    autoregressive_feedback_warmup: int = 0,
     output_path: Path | None = None,
     deterministic: bool = False,
 ) -> dict[str, Any]:
@@ -201,6 +203,15 @@ def run_benchmark(
         raise ValueError("broadcast-gain overrides apply only to token controls")
     if broadcast_gain is not None and broadcast_gain < 0:
         raise ValueError("broadcast gain cannot be negative")
+    if not 0 <= autoregressive_feedback_probability <= 1:
+        raise ValueError("autoregressive feedback probability must be between zero and one")
+    if autoregressive_feedback_warmup < 0:
+        raise ValueError("autoregressive feedback warm-up cannot be negative")
+    if (
+        autoregressive_feedback_probability > 0
+        and task != "token_compositional_grammar"
+    ):
+        raise ValueError("autoregressive feedback is limited to compositional grammar")
     if deterministic:
         os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
         torch.use_deterministic_algorithms(True)
@@ -248,6 +259,7 @@ def run_benchmark(
         compositional_grammar_provenance()
         if task == "token_compositional_grammar" else None
     )
+    feedback_generator = torch.Generator().manual_seed(seed + 20_000)
     parameter_count = sum(parameter.numel() for parameter in experiment.model.parameters())
     trainable_parameter_count = sum(
         parameter.numel() for parameter in experiment.model.parameters()
@@ -267,13 +279,20 @@ def run_benchmark(
             "intervention": (
                 f"{config.message_steps} ticks · "
                 f"broadcast {'on' if config.broadcast_gain > 0 else 'off'} · "
-                f"position {position_signal} · lr×{learning_rate_scale:g}"
+                f"position {position_signal} · feedback≤"
+                f"{autoregressive_feedback_probability:g}"
+                f"/{autoregressive_feedback_warmup} warm-up · "
+                f"lr×{learning_rate_scale:g}"
                 if expected_profile is not None else None
             ),
             "messageSteps": config.message_steps,
             "broadcastGain": config.broadcast_gain,
             "learningRateScale": learning_rate_scale,
             "positionSignal": position_signal,
+            "autoregressiveFeedbackProbability": (
+                autoregressive_feedback_probability
+            ),
+            "autoregressiveFeedbackWarmup": autoregressive_feedback_warmup,
             "batchSize": config.batch_size,
             "ampMode": experiment.amp_mode,
             "cudaAllocatorConfig": (
@@ -349,7 +368,16 @@ def run_benchmark(
     completed_steps = 0
     try:
         for update in range(1, steps + 1):
-            experiment.train_updates(1)
+            feedback_probability = autoregressive_feedback_probability
+            if autoregressive_feedback_warmup > 0:
+                feedback_probability *= min(
+                    1.0, update / autoregressive_feedback_warmup
+                )
+            experiment.train_updates(
+                1,
+                autoregressive_feedback_probability=feedback_probability,
+                feedback_generator=feedback_generator,
+            )
             completed_steps = update
             if update % interval == 0 or update == steps:
                 held_out = experiment.evaluate_metrics(4)
@@ -381,6 +409,12 @@ def run_benchmark(
                         ),
                         "loss": round(experiment.rolling_loss, 5),
                         "recallPairs": experiment.recall_pair_count,
+                        "autoregressiveFeedbackProbability": round(
+                            feedback_probability, 6
+                        ),
+                        "autoregressiveFeedbackFraction": round(
+                            experiment.last_autoregressive_feedback_fraction, 6
+                        ),
                         "gradientNorms": {
                             "tokenIdentity": round(
                                 _gradient_norm([model.token_identity.weight]), 7
@@ -490,6 +524,10 @@ def main() -> None:
     parser.add_argument(
         "--position-signal", choices=POSITION_SIGNALS, default="learned"
     )
+    parser.add_argument(
+        "--autoregressive-feedback-probability", type=float, default=0.0
+    )
+    parser.add_argument("--autoregressive-feedback-warmup", type=int, default=0)
     parser.add_argument("--output", type=Path)
     parser.add_argument("--deterministic", action="store_true")
     args = parser.parse_args()
@@ -503,6 +541,10 @@ def main() -> None:
         batch_size=args.batch_size,
         amp_mode=args.amp,
         position_signal=args.position_signal,
+        autoregressive_feedback_probability=(
+            args.autoregressive_feedback_probability
+        ),
+        autoregressive_feedback_warmup=args.autoregressive_feedback_warmup,
         output_path=args.output,
         deterministic=args.deterministic,
     )

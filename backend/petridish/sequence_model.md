@@ -18,6 +18,12 @@ and local attention are identical in spirit to the classifier. Crucially, neuron
 is retained across token boundaries. The vocabulary-sized output bank is read after every token,
 which supports both a final delayed-recall target and autoregressive next-token loss.
 
+An optional boolean feedback mask supports scheduled self-context training. At a
+masked position, the preceding prediction replaces the supplied teacher token before
+the distributed sensory code is written. Selection is discrete and detached, while
+the resulting recurrent trajectory remains fully differentiable. The first token can
+never be replaced, and ordinary training/inference omits the mask entirely.
+
 `SequenceRuntimeState` carries hidden state, architecture-private memory, broadcast
 workspace, optional fast/binding memory, and absolute token position between calls.
 Interactive generation therefore consumes only the newly sampled token after the

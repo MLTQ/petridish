@@ -20,6 +20,7 @@ control-enable contracts without requiring NVIDIA hardware or launching trainers
 - **Does**: Preserves a zero broadcast gain rather than treating it as missing data.
 - **Does**: Preserves the benchmark optimizer scale used by stability retries.
 - **Does**: Preserves the benchmark's absolute-position signal intervention.
+- **Does**: Preserves autoregressive feedback probability and warm-up provenance.
 - **Does**: Preserves batch size, precision mode, and CUDA allocator provenance for
   memory-bounded benchmark cohorts.
 - **Does**: Keeps a failed benchmark visible before its first checkpoint and

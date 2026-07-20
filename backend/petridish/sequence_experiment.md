@@ -140,6 +140,12 @@ leaves viewer-only tokens, predictions, confidences, and next-token text untouch
 avoiding accelerator-to-CPU projection during optimizer updates. The last visible
 trace remains stable until `refresh_visual_trace` replays the most recent training
 sequence with current weights.
+The headless path may receive a dedicated scheduled-feedback probability and random
+generator for controlled autoregressive benchmarks. Only an input whose preceding
+position has a supervised next-token target is eligible. The task sampler keeps its
+own RNG, so self-context exposure never changes which clean training states the
+matched baseline receives. Interactive and persistent-corpus training default to
+zero feedback.
 
 `evaluate_metrics` reports held-out loss and accuracy together while retaining the
 historical accuracy-only `evaluate` API used by the live viewer. Both operate outside

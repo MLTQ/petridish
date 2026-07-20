@@ -1839,3 +1839,19 @@ clock tests whether position-indexed trajectory shortcuts are preventing the gra
 from learning one reusable local transition rule. If that fails, the next objective
 intervention is explicit self-generated-context training rather than another increase
 in cell count.
+
+The matched seed-two clock-free ablation completed the same 1,200 updates with the
+absolute-position embedding exactly zero and frozen from construction. It reached
+30.07% rolling train accuracy, 34.72% on the teacher-forced graph reference, and
+27.78% across all 288 free-running held-out tokens, with zero exact sequences. Graph
+silence cost 5.56 points, endpoint rotation 16.67, and source/weight reassignment
+12.50, so the weakened model still used its physical connectome. It did not discover
+the clocked seed's useful autoregressive attractor.
+
+This rejects complete clock removal as the next route. Absolute position is not only
+a memorization shortcut in the present substrate; it is also a coordination signal
+for thousands of recurrent cells. The next intervention retains it and instead uses
+scheduled self-context: during training, a bounded annealed fraction of later digit
+inputs is replaced by the organism's own preceding prediction. The same target
+trajectory then supplies credit for recovery from the contexts generation actually
+creates.

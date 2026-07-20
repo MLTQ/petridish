@@ -30,7 +30,9 @@ from petridish.mnist_hyperparameters import configured, hyperparameter_payload
 from petridish.mnist_substrate import SpatialSubstrate
 from petridish.protocol import build_snapshot
 from petridish.sequence_config import sequence_config
-from petridish.sequence_experiment import SequenceExperiment
+from petridish.sequence_experiment import (
+    SequenceExperiment, autoregressive_feedback_mask,
+)
 from petridish.sequence_model import CellularSequenceModel, SequenceRuntimeState
 from petridish.sequence_tasks import (
     SequenceBatch,
@@ -442,6 +444,31 @@ def test_sequence_model_retains_state_and_backpropagates() -> None:
     loss.backward()
     assert model.substrate.synapse_weight.grad is not None
     assert float(model.substrate.synapse_weight.grad.abs().sum()) > 0
+
+
+def test_autoregressive_feedback_uses_only_preceding_supervised_predictions() -> None:
+    task = resolve_sequence_task("tiny_language")
+    batch = task.batch(3, torch.Generator().manual_seed(4))
+    feedback = autoregressive_feedback_mask(
+        batch, 1.0, torch.Generator().manual_seed(5)
+    )
+    expected = torch.zeros_like(batch.loss_mask)
+    expected[:, 1:] = batch.loss_mask[:, :-1]
+
+    assert torch.equal(feedback, expected)
+    model = CellularSequenceModel(small_config(), layout=task.key, seed=4)
+    result = model(batch.tokens, capture_trace=False, feedback_mask=feedback)
+    assert result.logits.shape == (3, task.sequence_length, 10)
+    with pytest.raises(ValueError, match="feedback mask"):
+        model(batch.tokens, capture_trace=False, feedback_mask=feedback[:, :-1])
+    with pytest.raises(ValueError, match="first token"):
+        invalid = feedback.clone()
+        invalid[:, 0] = True
+        model(batch.tokens, capture_trace=False, feedback_mask=invalid)
+    with pytest.raises(ValueError, match="probability"):
+        autoregressive_feedback_mask(
+            batch, 1.1, torch.Generator().manual_seed(5)
+        )
 
 
 def test_nonfinite_loss_is_rejected_before_optimizer_mutation() -> None:

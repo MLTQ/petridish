@@ -332,11 +332,17 @@ class CellularSequenceModel(nn.Module):
         capture_trace: bool = True,
         frame_callback: SequenceFrameCallback | None = None,
         runtime_state: SequenceRuntimeState | None = None,
+        feedback_mask: torch.Tensor | None = None,
     ) -> SequenceForward:
         """Consume discrete tokens one at a time without clearing neuron state."""
 
         if frame_callback is not None and not capture_trace:
             raise ValueError("frame callbacks require trace capture")
+        if feedback_mask is not None:
+            if feedback_mask.shape != tokens.shape or feedback_mask.dtype != torch.bool:
+                raise ValueError("feedback mask must be boolean and match token shape")
+            if bool(feedback_mask[:, 0].any()):
+                raise ValueError("the first token cannot use autoregressive feedback")
 
         cfg = self.config
         substrate = self.substrate
@@ -446,7 +452,13 @@ class CellularSequenceModel(nn.Module):
 
         for position in range(length):
             external = torch.zeros_like(hidden)
-            token_embedding = self.token_identity(tokens[:, position])
+            position_tokens = tokens[:, position]
+            if feedback_mask is not None and position > 0:
+                predicted = logits[-1].detach().argmax(dim=1)
+                position_tokens = torch.where(
+                    feedback_mask[:, position], predicted, position_tokens
+                )
+            token_embedding = self.token_identity(position_tokens)
             absolute_position = start_position + position
             drive = token_embedding + self.position_identity.weight[
                 absolute_position % self.position_identity.num_embeddings
@@ -490,7 +502,7 @@ class CellularSequenceModel(nn.Module):
                 alive_batch = torch.ones(batch, device=tokens.device, dtype=torch.bool)
                 rows = batch_rows
             else:
-                token_compact = input_compact[tokens[:, position]]
+                token_compact = input_compact[position_tokens]
                 alive_batch = token_compact >= 0
                 rows = batch_rows[alive_batch]
                 external[rows, token_compact[alive_batch]] = drive[alive_batch].to(

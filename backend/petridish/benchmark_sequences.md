@@ -223,3 +223,13 @@ python -m petridish.benchmark_sequences --task token_compositional_grammar \
 The matched recurrent-order control adds `--position-signal none`. It does not remove
 token order: the same cells and graph still evolve across sequential token calls. It
 removes only the externally supplied absolute clock.
+
+`--autoregressive-feedback-probability 0.25` enables scheduled self-context only for
+the compositional grammar. An eligible later input is replaced by the organism's
+preceding prediction inside the same sequential forward pass. Targets retain the
+original rule-defined continuation, so errors receive credit for recovery rather than
+silently defining a new task. `--autoregressive-feedback-warmup 600` linearly anneals
+the replacement probability from zero through update 600. A dedicated RNG prevents
+the intervention from changing the clean task-sampling sequence. Both parameters and
+the effective probability plus realized eligible-input fraction at every checkpoint
+are persisted.

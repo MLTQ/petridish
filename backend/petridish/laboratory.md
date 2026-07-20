@@ -102,6 +102,8 @@ explicitly enabled trainer processes.
   stability retries remain visibly distinct from default-rate controls.
 - **Does**: Preserves the learned/absent absolute-position signal so recurrent-order
   ablations remain separate benchmark cohorts.
+- **Does**: Preserves scheduled self-context probability and warm-up so exposure-bias
+  interventions remain separate from teacher-forced baselines.
 - **Does**: Preserves effective batch size, autocast precision, and allocator
   configuration so memory-bounded replications cannot merge with full-precision
   optimizer cohorts.
