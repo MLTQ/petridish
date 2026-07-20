@@ -1855,3 +1855,39 @@ scheduled self-context: during training, a bounded annealed fraction of later di
 inputs is replaced by the organism's own preceding prediction. The same target
 trajectory then supplies credit for recovery from the contexts generation actually
 creates.
+
+The first scheduled self-context run retained the successful clocked seed-two
+initialization. Feedback probability increased linearly from zero to 0.25 through
+update 600, then remained fixed. Only inputs after supervised predictions were
+eligible; the clean task sampler used its unchanged independent RNG. The run completed
+1,200 updates in 1,031.74 seconds at the same 4.8046 GiB peak.
+
+It reached 67.74% mixed-context rolling train accuracy and 75.00% teacher-forced
+graph-reference accuracy. Free-running token accuracy was unchanged from the clean
+baseline at 53.47%, but exact nine-token continuations improved from 0/32 to 2/32
+(6.25%). Invalid-token rate remained zero. Graph silence, endpoint rotation, and
+source/weight reassignment cost 48.61, 50.00, and 54.17 accuracy points; broadcast
+silence remained exactly neutral.
+
+That raw exact-sequence count is confounded. Exhaustive inspection subsequently found
+that two of the 32 withheld targets are constant nine-token continuations. A collapsed
+constant-digit predictor can therefore score 1/32 exact while learning no recurrence.
+The historical seed-two artifact did not persist which prompts were exact, so its
+2/32 result cannot be credited as sequence-level composition. The audit now reports
+exact matches on the 30 nonconstant continuations separately; legacy artifacts are
+explicitly labeled as missing that nontrivial measure.
+
+The gain is narrow rather than a solved generator. Position accuracy was 25.00%,
+46.88%, 59.38%, 28.12%, 100.00%, 100.00%, 18.75%, 43.75%, and 59.38%. Scheduled
+feedback changed some free-running paths but did not teach the first novel transition
+or lift mean token accuracy.
+
+The identical seed-three intervention completed 1,200 updates in 1,014.12 seconds at
+a 4.6722 GiB peak. It reached 24.93% mixed-context rolling train accuracy, 16.67%
+teacher-forced graph-reference accuracy, and 24.65% free-running token accuracy. Its
+1/32 raw exact result came with an all-`digit-2` example and is exactly the score a
+constant-`digit-2` collapse receives from the confounded metric. Graph silence and
+weight reassignment each cost only 5.56 points, while endpoint rotation improved
+accuracy by 8.33 points despite increasing loss. Scheduled self-context therefore did
+not stabilize the capability across seeds. A corrected seed-two replication is needed
+before attributing any nonconstant exact continuation to this intervention.

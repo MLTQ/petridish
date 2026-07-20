@@ -24,7 +24,10 @@ held-out split.
 ### `compositional_generation_audit`
 - **Does**: Repeatedly invokes a black-box next-token predictor on all 32 withheld
   prompts and reports token, exact-sequence, invalid-token, and position accuracy.
-- **Rationale**: Teacher-forced accuracy alone can hide cascading generation failure.
+- **Does**: Separates the two constant target continuations from the 30 nonconstant
+  continuations and reports exact nonconstant sequences explicitly.
+- **Rationale**: Teacher-forced accuracy alone can hide cascading generation failure,
+  while overall exact-sequence accuracy can reward a collapsed constant-token predictor.
 
 ## Contracts
 

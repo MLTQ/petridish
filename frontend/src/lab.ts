@@ -338,6 +338,12 @@ interface BenchmarkSnapshot {
     generatedTokens: number;
     tokenAccuracy: number;
     sequenceAccuracy: number;
+    exactSequenceCount?: number;
+    constantCases?: number;
+    constantSequenceAccuracy?: number;
+    nonConstantCases?: number;
+    exactNonConstantSequences?: number;
+    nonConstantSequenceAccuracy?: number;
     invalidTokenRate: number;
     positionAccuracy: number[];
     positionIndices: number[];
@@ -625,7 +631,7 @@ export class LaboratoryView {
       const compositionalEvidence = benchmark.task !== "token_compositional_grammar"
         ? null
         : benchmark.freeRunningAudit && benchmark.splitProvenance
-          ? `held out ${benchmark.splitProvenance.heldOutRulePairs.join(" / ")} · overlap ${benchmark.splitProvenance.stateOverlap} · free-run ${this.percent(benchmark.freeRunningAudit.tokenAccuracy)} tokens / ${this.percent(benchmark.freeRunningAudit.sequenceAccuracy)} exact sequences · ${this.percent(benchmark.freeRunningAudit.invalidTokenRate)} invalid`
+          ? `held out ${benchmark.splitProvenance.heldOutRulePairs.join(" / ")} · overlap ${benchmark.splitProvenance.stateOverlap} · free-run ${this.percent(benchmark.freeRunningAudit.tokenAccuracy)} tokens / ${benchmark.freeRunningAudit.exactNonConstantSequences === undefined ? `${this.percent(benchmark.freeRunningAudit.sequenceAccuracy)} exact overall (nontrivial unavailable)` : `${benchmark.freeRunningAudit.exactNonConstantSequences}/${benchmark.freeRunningAudit.nonConstantCases} nonconstant exact`} · ${this.percent(benchmark.freeRunningAudit.invalidTokenRate)} invalid`
           : benchmark.status === "complete"
             ? "held-out composition audit missing"
             : "held-out composition audit pending";

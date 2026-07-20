@@ -122,6 +122,9 @@ def compositional_generation_audit(
         generated_batches.append(torch.stack(generated, dim=1))
     predicted = torch.cat(generated_batches, dim=0)
     correct = predicted == expected
+    exact = correct.all(dim=1)
+    constant = (expected == expected[:, :1]).all(dim=1)
+    non_constant = ~constant
     valid_digit = (predicted >= DIGIT_OFFSET) & (
         predicted < DIGIT_OFFSET + DIGIT_COUNT
     )
@@ -131,7 +134,15 @@ def compositional_generation_audit(
         "cases": int(expected.shape[0]),
         "generatedTokens": int(expected.numel()),
         "tokenAccuracy": float(correct.float().mean()),
-        "sequenceAccuracy": float(correct.all(dim=1).float().mean()),
+        "sequenceAccuracy": float(exact.float().mean()),
+        "exactSequenceCount": int(exact.sum()),
+        "constantCases": int(constant.sum()),
+        "constantSequenceAccuracy": float(exact[constant].float().mean()),
+        "nonConstantCases": int(non_constant.sum()),
+        "exactNonConstantSequences": int(exact[non_constant].sum()),
+        "nonConstantSequenceAccuracy": float(
+            exact[non_constant].float().mean()
+        ),
         "invalidTokenRate": float((~valid_digit).float().mean()),
         "positionAccuracy": [float(value) for value in correct.float().mean(dim=0)],
         "positionIndices": list(range(expected.shape[1])),

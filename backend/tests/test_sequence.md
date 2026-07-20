@@ -187,7 +187,9 @@ are disjoint while every individual operator and offset remains familiar. Both
 splits keep operator-only, offset-only, current-only, previous-only, position, and
 frequency baselines at 25%. The complete operator/offset pair is also insufficient at
 every position; a black-box free-running audit must distinguish an exact recurrence
-predictor from invalid non-symbol generation across all 32 held-out prompts.
+predictor from invalid non-symbol generation across all 32 held-out prompts. The audit
+also proves that a collapsed constant-digit predictor receives zero exact credit on
+the 30 nonconstant continuations even when it happens to solve one constant prompt.
 The zero-broadcast regression requires a hard workspace bypass with no gradients into
 its gain or projections, preventing a nominal ablation from learning to reactivate.
 Headless diagnostics separately verify physical/conducting edges, one-token/context/

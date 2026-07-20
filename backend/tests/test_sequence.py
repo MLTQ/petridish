@@ -2118,16 +2118,31 @@ def test_compositional_free_running_audit_detects_exact_and_invalid_generation()
     invalid = compositional_generation_audit(
         lambda prefix: torch.zeros(prefix.shape[0], dtype=torch.long), batch_size=7,
     )
+    collapsed = compositional_generation_audit(
+        lambda prefix: torch.full(
+            (prefix.shape[0],), COMPOSITIONAL_DIGIT_OFFSET + 2, dtype=torch.long
+        ),
+        batch_size=5,
+    )
 
     assert perfect["cases"] == 32
     assert perfect["generatedTokens"] == 32 * 9
     assert perfect["tokenAccuracy"] == pytest.approx(1.0)
     assert perfect["sequenceAccuracy"] == pytest.approx(1.0)
+    assert perfect["exactSequenceCount"] == 32
+    assert perfect["constantCases"] == 2
+    assert perfect["nonConstantCases"] == 30
+    assert perfect["exactNonConstantSequences"] == 30
+    assert perfect["nonConstantSequenceAccuracy"] == pytest.approx(1.0)
     assert perfect["invalidTokenRate"] == pytest.approx(0.0)
     assert perfect["positionAccuracy"] == pytest.approx([1.0] * 9)
     assert invalid["tokenAccuracy"] == pytest.approx(0.0)
     assert invalid["sequenceAccuracy"] == pytest.approx(0.0)
     assert invalid["invalidTokenRate"] == pytest.approx(1.0)
+    assert collapsed["sequenceAccuracy"] == pytest.approx(1 / 32)
+    assert collapsed["constantSequenceAccuracy"] == pytest.approx(0.5)
+    assert collapsed["exactNonConstantSequences"] == 0
+    assert collapsed["nonConstantSequenceAccuracy"] == pytest.approx(0.0)
 
 
 def test_zero_broadcast_gain_is_a_hard_workspace_ablation() -> None:

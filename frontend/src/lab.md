@@ -76,7 +76,8 @@ validated launch or stop requests.
   weight-reassignment costs beside route reachability; an artifact without the
   audit is labeled pending rather than assumed causal.
 - **Does**: Shows zero-overlap held-out rule pairs beside free-running token accuracy,
-  exact-sequence accuracy, and invalid-token rate; incomplete runs are labeled audit
+  exact nonconstant sequence count, and invalid-token rate; legacy artifacts say when
+  the nontrivial metric is unavailable, while incomplete runs are labeled audit
   pending and cannot masquerade as compositional success.
 - **Does**: Shows presented-value coverage and distractor errors when available,
   separating value storage from correct key/value association.

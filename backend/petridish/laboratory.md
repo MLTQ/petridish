@@ -94,8 +94,9 @@ explicitly enabled trainer processes.
   coverage so temporal-memory results retain their physical communication budget.
 - **Does**: Preserves final matched graph-ablation deltas so reachability and actual
   causal use of learned synapses remain distinct.
-- **Does**: Preserves disjoint split provenance and free-running token, sequence,
-  invalid-token, and position metrics for compositional grammar artifacts.
+- **Does**: Preserves disjoint split provenance and free-running token, overall and
+  nonconstant exact-sequence, invalid-token, and position metrics for compositional
+  grammar artifacts.
 - **Does**: Preserves the declared broadcast gain so global-workspace and purely
   dendritic routing controls remain distinguishable.
 - **Does**: Preserves a benchmark's common learning-rate scale so non-finite

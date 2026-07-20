@@ -209,9 +209,11 @@ supervised target remains uniformly distributed when conditioned on either rule,
 the current token, or the previous token, and train/evaluation state overlap is zero.
 
 Completed artifacts persist the exact split and free-run all 32 withheld prompts for
-nine generated tokens. Token accuracy, exact-sequence accuracy, invalid-token rate,
-per-position decay, one readable example, and the matched physical-graph audit must
-all be considered together. Teacher-forced held-out accuracy alone is not success.
+nine generated tokens. Token accuracy, exact nonconstant sequence count,
+invalid-token rate, per-position decay, one readable example, and the matched
+physical-graph audit must all be considered together. Two target continuations are
+constant, so overall exact-sequence accuracy alone can reward symbol collapse;
+teacher-forced held-out accuracy alone is likewise not success.
 
 ```bash
 python -m petridish.benchmark_sequences --task token_compositional_grammar \
