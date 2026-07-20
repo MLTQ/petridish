@@ -1921,3 +1921,12 @@ phase replication fails first at the initial generated token while later positio
 can reach 100%, the next intervention retains the clock and assigns four times the
 loss weight to that first transition. This tests targeted compositional credit before
 introducing a different recurrent cell or a more elaborate timing mechanism.
+
+The fourfold first-target run was stopped at the user's request after 1,140 of 1,200
+updates, before its final free-running and graph audits. It remained at 25.17% rolling
+train accuracy; the latest held-out minibatch was 12.50% overall and 12.50% on the
+emphasized first transition. Earlier first-position minibatches briefly reached
+50–62.5% but repeatedly returned to chance while aggregate training never improved.
+The partial artifact is marked `stopped`, not complete. This is sufficient to reject
+fourfold loss emphasis as a promising optimization path, but not to report a final
+generation score.
