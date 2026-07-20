@@ -24,6 +24,11 @@ the distributed sensory code is written. Selection is discrete and detached, whi
 the resulting recurrent trajectory remains fully differentiable. The first token can
 never be replaced, and ordinary training/inference omits the mask entirely.
 
+An optional per-sequence position-phase offset rotates the learned clock while leaving
+token order, recurrent state, cells, and graph unchanged. A batch may therefore retain
+a coordination clock without allowing one absolute phase to identify one target
+symbol. Ordinary training and every evaluation omit the offset.
+
 `SequenceRuntimeState` carries hidden state, architecture-private memory, broadcast
 workspace, optional fast/binding memory, and absolute token position between calls.
 Interactive generation therefore consumes only the newly sampled token after the

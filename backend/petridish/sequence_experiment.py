@@ -388,6 +388,8 @@ class SequenceExperiment:
         progress_callback: Callable[[str, int, int], None] | None = None,
         autoregressive_feedback_probability: float = 0.0,
         feedback_generator: torch.Generator | None = None,
+        position_phase_augmentation: bool = False,
+        position_generator: torch.Generator | None = None,
     ) -> None:
         self._require_persistent_gradient_contexts()
         self.model.train()
@@ -406,6 +408,7 @@ class SequenceExperiment:
             state_lane = 0
             runtime_state = None
         feedback_mask = None
+        position_phase_offsets = None
         self.last_autoregressive_feedback_fraction = 0.0
         if autoregressive_feedback_probability > 0:
             if feedback_generator is None:
@@ -418,6 +421,16 @@ class SequenceExperiment:
             self.last_autoregressive_feedback_fraction = float(
                 feedback_mask.sum() / eligible.sum().clamp_min(1)
             )
+        if position_phase_augmentation:
+            if position_generator is None:
+                raise ValueError(
+                    "position phase augmentation requires a dedicated generator"
+                )
+            position_phase_offsets = torch.randint(
+                self.model.position_identity.num_embeddings,
+                (batch.tokens.shape[0],),
+                generator=position_generator,
+            ).to(self.device)
         if progress_callback is not None:
             self._begin_visible_trial(batch)
 
@@ -443,6 +456,7 @@ class SequenceExperiment:
                 frame_callback=observe_frame if progress_callback is not None else None,
                 runtime_state=runtime_state,
                 feedback_mask=feedback_mask,
+                position_phase_offsets=position_phase_offsets,
             )
         task_loss, accuracy = self._masked_loss_accuracy(result.logits, batch)
         loss = task_loss + self.model.regularization()
@@ -692,8 +706,10 @@ class SequenceExperiment:
         *,
         autoregressive_feedback_probability: float = 0.0,
         feedback_generator: torch.Generator | None = None,
+        position_phase_augmentation: bool = False,
+        position_generator: torch.Generator | None = None,
     ) -> None:
-        """Run trace-free updates with optional predicted-token context exposure."""
+        """Run trace-free updates with optional context and clock augmentation."""
 
         self._require_persistent_gradient_contexts()
         if not 0 <= autoregressive_feedback_probability <= 1:
@@ -702,6 +718,10 @@ class SequenceExperiment:
             )
         if autoregressive_feedback_probability > 0 and feedback_generator is None:
             raise ValueError("autoregressive feedback requires a dedicated generator")
+        if position_phase_augmentation and position_generator is None:
+            raise ValueError(
+                "position phase augmentation requires a dedicated generator"
+            )
         for _ in range(max(1, count)):
             self.tick += 1
             self._train_trial(
@@ -711,6 +731,8 @@ class SequenceExperiment:
                     autoregressive_feedback_probability
                 ),
                 feedback_generator=feedback_generator,
+                position_phase_augmentation=position_phase_augmentation,
+                position_generator=position_generator,
             )
 
     def _begin_visible_trial(self, batch: SequenceBatch) -> None:

@@ -146,6 +146,10 @@ position has a supervised next-token target is eligible. The task sampler keeps 
 own RNG, so self-context exposure never changes which clean training states the
 matched baseline receives. Interactive and persistent-corpus training default to
 zero feedback.
+It may also receive a dedicated position RNG for per-sequence clock-phase
+augmentation. This changes only which learned clock row is added to each sequence;
+the clean task sampler and feedback sampler retain independent RNG streams, and
+evaluation always uses the canonical zero phase.
 
 `evaluate_metrics` reports held-out loss and accuracy together while retaining the
 historical accuracy-only `evaluate` API used by the live viewer. Both operate outside

@@ -1891,3 +1891,18 @@ weight reassignment each cost only 5.56 points, while endpoint rotation improved
 accuracy by 8.33 points despite increasing loss. Scheduled self-context therefore did
 not stabilize the capability across seeds. A corrected seed-two replication is needed
 before attributing any nonconstant exact continuation to this intervention.
+
+The corrected seed-two replication completed 1,200 updates in 1,026.52 seconds at a
+4.8046 GiB peak. It reached 68.33% rolling train accuracy, 70.83% on the exhaustive
+teacher-forced graph reference, and 51.04% across the 288 free-running tokens. It
+produced zero exact continuations overall and zero among the 30 nonconstant targets.
+The generated example collapsed into a position-locked `2,2,2,2,0,0,2,2,2` cycle.
+Graph silence, endpoint rotation, and source/weight reassignment cost 41.67, 52.78,
+and 48.61 accuracy points, while broadcast silence remained neutral.
+
+This replication retracts the apparent sequence-level gain from scheduled feedback.
+The learned connectome causally carries a strong teacher-forced computation, but the
+closed loop uses the absolute clock as a target template and does not execute the
+withheld recurrence. The next matched intervention retains the coordination clock
+while randomly rotating its starting phase per training sequence. This removes the
+fixed output-by-position shortcut without repeating the failed clock-free ablation.

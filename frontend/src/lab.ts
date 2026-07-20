@@ -311,6 +311,7 @@ interface BenchmarkSnapshot {
   broadcastGain: number | null;
   learningRateScale: number;
   positionSignal: "learned" | "none";
+  positionPhaseAugmentation?: boolean;
   autoregressiveFeedbackProbability: number;
   autoregressiveFeedbackWarmup: number;
   batchSize: number | null;
@@ -698,6 +699,8 @@ export class LaboratoryView {
       && benchmark.broadcastGain === newest.broadcastGain
       && benchmark.learningRateScale === newest.learningRateScale
       && benchmark.positionSignal === newest.positionSignal
+      && Boolean(benchmark.positionPhaseAugmentation)
+        === Boolean(newest.positionPhaseAugmentation)
       && benchmark.autoregressiveFeedbackProbability === newest.autoregressiveFeedbackProbability
       && benchmark.autoregressiveFeedbackWarmup === newest.autoregressiveFeedbackWarmup
       && benchmark.batchSize === newest.batchSize
@@ -707,7 +710,7 @@ export class LaboratoryView {
     const chance = newest.chanceAccuracy === null
       ? ""
       : ` · chance ${this.percent(newest.chanceAccuracy)}`;
-    this.benchmarkSummary.value = `${newest.profile} · ${newest.recallMode.replace("_", " ")} · position ${newest.positionSignal} · feedback ≤${this.percent(newest.autoregressiveFeedbackProbability)} / ${newest.autoregressiveFeedbackWarmup} warm-up · batch ${newest.batchSize ?? "legacy"} · ${newest.ampMode === "bfloat16" ? "BF16" : "FP32"} · seed ${newest.seed ?? "—"} · ${newest.deterministic ? "deterministic" : "seeded"}${rngStatus}${chance} · ${newest.steps ?? "—"} updates`;
+    this.benchmarkSummary.value = `${newest.profile} · ${newest.recallMode.replace("_", " ")} · position ${newest.positionSignal}${newest.positionPhaseAugmentation ? "+jitter" : ""} · feedback ≤${this.percent(newest.autoregressiveFeedbackProbability)} / ${newest.autoregressiveFeedbackWarmup} warm-up · batch ${newest.batchSize ?? "legacy"} · ${newest.ampMode === "bfloat16" ? "BF16" : "FP32"} · seed ${newest.seed ?? "—"} · ${newest.deterministic ? "deterministic" : "seeded"}${rngStatus}${chance} · ${newest.steps ?? "—"} updates`;
     const visibleCohort = cohort.slice(0, SERIES_CLASSES.length);
     this.drawBenchmarkChart(visibleCohort);
     this.drawBenchmarkTopologyChart(visibleCohort);

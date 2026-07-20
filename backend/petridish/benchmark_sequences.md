@@ -72,6 +72,12 @@ message schedule remain unchanged. This matched intervention tests whether the
 organism learns a reusable state transition or a position-indexed trajectory; its
 mode is persisted and forms part of the laboratory cohort identity.
 
+`--position-phase-augmentation` retains the learned clock but rotates its starting
+phase independently for each training sequence. It is limited to the compositional
+grammar and uses a dedicated seeded RNG, so clean training states and scheduled
+feedback masks remain matched. Evaluation uses phase zero. This prevents a fixed
+output-by-position cycle while preserving a local coordination signal.
+
 `compact24_no_broadcast` removes slot broadcasting, while
 `compact24_no_global_memory` removes both slot and fast-weight memory.
 `compact24_fast_weights` enables recurrent linear-attention memory at gain 0.5.

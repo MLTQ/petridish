@@ -183,6 +183,7 @@ def run_benchmark(
     batch_size: int | None = None,
     amp_mode: str = "off",
     position_signal: str = "learned",
+    position_phase_augmentation: bool = False,
     autoregressive_feedback_probability: float = 0.0,
     autoregressive_feedback_warmup: int = 0,
     output_path: Path | None = None,
@@ -212,6 +213,10 @@ def run_benchmark(
         and task != "token_compositional_grammar"
     ):
         raise ValueError("autoregressive feedback is limited to compositional grammar")
+    if position_phase_augmentation and task != "token_compositional_grammar":
+        raise ValueError("position phase augmentation is limited to compositional grammar")
+    if position_phase_augmentation and position_signal == "none":
+        raise ValueError("position phase augmentation requires a learned position signal")
     if deterministic:
         os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
         torch.use_deterministic_algorithms(True)
@@ -260,6 +265,7 @@ def run_benchmark(
         if task == "token_compositional_grammar" else None
     )
     feedback_generator = torch.Generator().manual_seed(seed + 20_000)
+    position_generator = torch.Generator().manual_seed(seed + 30_000)
     parameter_count = sum(parameter.numel() for parameter in experiment.model.parameters())
     trainable_parameter_count = sum(
         parameter.numel() for parameter in experiment.model.parameters()
@@ -279,7 +285,8 @@ def run_benchmark(
             "intervention": (
                 f"{config.message_steps} ticks · "
                 f"broadcast {'on' if config.broadcast_gain > 0 else 'off'} · "
-                f"position {position_signal} · feedback≤"
+                f"position {position_signal} · phase-jitter "
+                f"{'on' if position_phase_augmentation else 'off'} · feedback≤"
                 f"{autoregressive_feedback_probability:g}"
                 f"/{autoregressive_feedback_warmup} warm-up · "
                 f"lr×{learning_rate_scale:g}"
@@ -289,6 +296,7 @@ def run_benchmark(
             "broadcastGain": config.broadcast_gain,
             "learningRateScale": learning_rate_scale,
             "positionSignal": position_signal,
+            "positionPhaseAugmentation": position_phase_augmentation,
             "autoregressiveFeedbackProbability": (
                 autoregressive_feedback_probability
             ),
@@ -377,6 +385,8 @@ def run_benchmark(
                 1,
                 autoregressive_feedback_probability=feedback_probability,
                 feedback_generator=feedback_generator,
+                position_phase_augmentation=position_phase_augmentation,
+                position_generator=position_generator,
             )
             completed_steps = update
             if update % interval == 0 or update == steps:
@@ -524,6 +534,7 @@ def main() -> None:
     parser.add_argument(
         "--position-signal", choices=POSITION_SIGNALS, default="learned"
     )
+    parser.add_argument("--position-phase-augmentation", action="store_true")
     parser.add_argument(
         "--autoregressive-feedback-probability", type=float, default=0.0
     )
@@ -541,6 +552,7 @@ def main() -> None:
         batch_size=args.batch_size,
         amp_mode=args.amp,
         position_signal=args.position_signal,
+        position_phase_augmentation=args.position_phase_augmentation,
         autoregressive_feedback_probability=(
             args.autoregressive_feedback_probability
         ),

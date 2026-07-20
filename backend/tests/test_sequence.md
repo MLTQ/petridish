@@ -33,6 +33,9 @@ the recurrent-order intervention is exactly zero and non-trainable from update z
 The scheduled-feedback regression allows only inputs after supervised predictions,
 executes the mixed-context model path, and rejects invalid probability, shape, and
 first-token feedback rather than silently changing the prompt.
+The phase-augmentation regression proves that zero offsets exactly preserve the
+baseline, distinct rows may rotate the learned clock independently, malformed offsets
+fail, and training requires a dedicated RNG rather than perturbing task sampling.
 The benchmark graph-summary regression fixes delta direction: causal accuracy is
 reference minus intervention, while causal loss is intervention minus reference;
 a disabled broadcast in a local-only control must remain a measured zero delta.

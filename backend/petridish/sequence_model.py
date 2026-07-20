@@ -333,6 +333,7 @@ class CellularSequenceModel(nn.Module):
         frame_callback: SequenceFrameCallback | None = None,
         runtime_state: SequenceRuntimeState | None = None,
         feedback_mask: torch.Tensor | None = None,
+        position_phase_offsets: torch.Tensor | None = None,
     ) -> SequenceForward:
         """Consume discrete tokens one at a time without clearing neuron state."""
 
@@ -343,6 +344,13 @@ class CellularSequenceModel(nn.Module):
                 raise ValueError("feedback mask must be boolean and match token shape")
             if bool(feedback_mask[:, 0].any()):
                 raise ValueError("the first token cannot use autoregressive feedback")
+        if position_phase_offsets is not None and (
+            position_phase_offsets.shape != (tokens.shape[0],)
+            or position_phase_offsets.dtype != torch.long
+        ):
+            raise ValueError(
+                "position phase offsets must be a long vector matching the batch"
+            )
 
         cfg = self.config
         substrate = self.substrate
@@ -460,9 +468,16 @@ class CellularSequenceModel(nn.Module):
                 )
             token_embedding = self.token_identity(position_tokens)
             absolute_position = start_position + position
-            drive = token_embedding + self.position_identity.weight[
-                absolute_position % self.position_identity.num_embeddings
-            ]
+            if position_phase_offsets is None:
+                position_embedding = self.position_identity.weight[
+                    absolute_position % self.position_identity.num_embeddings
+                ]
+            else:
+                position_embedding = self.position_identity(
+                    (absolute_position + position_phase_offsets)
+                    % self.position_identity.num_embeddings
+                )
+            drive = token_embedding + position_embedding
             current_binding_key: torch.Tensor | None = None
             if use_binding_memory:
                 assert self.binding_token_key is not None

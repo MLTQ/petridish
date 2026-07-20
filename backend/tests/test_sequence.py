@@ -471,6 +471,48 @@ def test_autoregressive_feedback_uses_only_preceding_supervised_predictions() ->
         )
 
 
+def test_position_phase_offsets_shift_the_clock_per_sequence() -> None:
+    task = resolve_sequence_task("tiny_language")
+    row = task.batch(1, torch.Generator().manual_seed(6)).tokens
+    tokens = row.expand(2, -1)
+    model = CellularSequenceModel(small_config(), layout=task.key, seed=6)
+
+    reference = model(tokens, capture_trace=False).logits
+    zero_shift = model(
+        tokens, capture_trace=False,
+        position_phase_offsets=torch.zeros(2, dtype=torch.long),
+    ).logits
+    shifted = model(
+        tokens, capture_trace=False,
+        position_phase_offsets=torch.tensor([0, 3], dtype=torch.long),
+    ).logits
+
+    assert torch.equal(reference, zero_shift)
+    assert torch.equal(shifted[0], reference[0])
+    assert not torch.equal(shifted[0], shifted[1])
+    with pytest.raises(ValueError, match="position phase offsets"):
+        model(
+            tokens, capture_trace=False,
+            position_phase_offsets=torch.zeros((2, 1), dtype=torch.long),
+        )
+
+
+def test_position_phase_augmentation_requires_its_own_rng() -> None:
+    experiment = SequenceExperiment(
+        "tiny_language", small_config(), seed=12, device="cpu"
+    )
+
+    with pytest.raises(ValueError, match="position phase augmentation"):
+        experiment.train_updates(1, position_phase_augmentation=True)
+
+    experiment.train_updates(
+        1,
+        position_phase_augmentation=True,
+        position_generator=torch.Generator().manual_seed(12),
+    )
+    assert experiment.training_step == 1
+
+
 def test_nonfinite_loss_is_rejected_before_optimizer_mutation() -> None:
     experiment = SequenceExperiment(
         "tiny_language", small_config(), seed=10, device="cpu"
