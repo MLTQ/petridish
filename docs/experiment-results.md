@@ -1768,3 +1768,74 @@ canonical and
 control. Recovery-only biology is therefore safe enough to retain as an optional
 experimental pressure, but its present stun threshold is too disruptive to enable
 during language optimization by default.
+
+## Held-out compositional autoregression — 2026-07-20
+
+The first leakage-resistant grammar benchmark withholds complete rule compositions,
+not individual tokens. Its ten-token vocabulary contains two operators, four offsets,
+and four digits. Training enumerates all sixteen ordered digit seeds for six
+operator/offset pairs; evaluation enumerates all seeds for the unseen pairs
+`sum+offset-1` and `difference+offset-2`. The 96 training states and 32 evaluation
+states have zero overlap. Every individual operator and offset is familiar, and at
+every supervised position the target remains uniform over four digits even when
+conditioned on the full operator/offset pair. Chance accuracy is therefore 25%.
+
+Seed two used the 68×68 distributed-token substrate with 2,048 living ESN cells,
+sixteen local message ticks per token, zero broadcast, learning-rate scale 0.25,
+BF16, batch two, fixed initial topology, and no lifecycle mutation. Batch four was
+first measured and rejected: it exhausted the 2070's 8 GB at a 7.3938 GiB PyTorch
+allocation peak before completing an update. Batch two completed 1,200 updates in
+1,031.98 seconds with a 4.8046 GiB peak.
+
+| Measure | Result |
+|---------|-------:|
+| Final rolling training accuracy | 77.85% |
+| Teacher-forced held-out graph reference | 73.61% |
+| Free-running held-out token accuracy | 53.47% |
+| Free-running exact nine-token sequences | 0 / 32 |
+| Free-running invalid-token rate | 0.00% |
+| Graph-silence accuracy delta | −44.44 pp |
+| Source-rotation accuracy delta | −63.89 pp |
+| Source/weight-reassignment accuracy delta | −52.78 pp |
+| Broadcast-silence accuracy delta | 0.00 pp |
+
+The result is stronger than the earlier finite-state grammar memorization control.
+It predicts withheld compositions above chance in a closed autoregressive loop, and
+the large matched graph counterfactuals show that the learned directed connectome and
+synaptic assignment causally carry the computation. Zero broadcast confirms that it
+does not rely on the global workspace shortcut.
+
+It is not yet sequence-level generation. The free-running position accuracies were
+25.00%, 46.88%, 59.38%, 18.75%, 100.00%, 100.00%, 25.00%, 46.88%, and 59.38%.
+Teacher forcing lets the organism settle onto a highly accurate later trajectory,
+but an early prediction error changes the recurrence and produces a repeating wrong
+trajectory; no complete withheld continuation survived. The next mechanism should
+therefore train recovery from self-produced context or emphasize the first novel
+transition, while preserving graph-local communication.
+
+The independent seed-three run did not replicate closed-loop composition under the
+same 1,200-update budget:
+
+| Measure | Seed 2 | Seed 3 |
+|---------|-------:|-------:|
+| Final rolling training accuracy | 77.85% | 31.74% |
+| Teacher-forced held-out graph reference | 73.61% | 40.28% |
+| Free-running held-out token accuracy | 53.47% | 24.31% |
+| Exact sequences | 0 / 32 | 0 / 32 |
+| Graph-silence accuracy delta | −44.44 pp | −19.44 pp |
+| Source-rotation accuracy delta | −63.89 pp | −20.83 pp |
+| Source/weight-reassignment accuracy delta | −52.78 pp | −13.89 pp |
+
+Seed three briefly reached 41.67% on a small teacher-forced held-out sample at update
+500, then regressed toward the four-digit entropy floor. Its gradients remained finite,
+topology remained fixed, and graph counterfactuals still show a causal learned route;
+the failure is optimization/attractor instability rather than missing credit or a
+structural reset. The capability exists but is not robust.
+
+The next matched intervention removes the learned absolute-position signal. The
+cellular substrate already evolves recurrently in token order, while the seed-two
+free-running position pattern repeated every six outputs. Suppressing the external
+clock tests whether position-indexed trajectory shortcuts are preventing the graph
+from learning one reusable local transition rule. If that fails, the next objective
+intervention is explicit self-generated-context training rather than another increase
+in cell count.

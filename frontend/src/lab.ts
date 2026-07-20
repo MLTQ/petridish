@@ -310,6 +310,7 @@ interface BenchmarkSnapshot {
   messageSteps: number | null;
   broadcastGain: number | null;
   learningRateScale: number;
+  positionSignal: "learned" | "none";
   batchSize: number | null;
   ampMode: "off" | "bfloat16";
   cudaAllocatorConfig: string | null;
@@ -688,6 +689,7 @@ export class LaboratoryView {
       && benchmark.messageSteps === newest.messageSteps
       && benchmark.broadcastGain === newest.broadcastGain
       && benchmark.learningRateScale === newest.learningRateScale
+      && benchmark.positionSignal === newest.positionSignal
       && benchmark.batchSize === newest.batchSize
       && benchmark.ampMode === newest.ampMode
     ));
@@ -695,7 +697,7 @@ export class LaboratoryView {
     const chance = newest.chanceAccuracy === null
       ? ""
       : ` · chance ${this.percent(newest.chanceAccuracy)}`;
-    this.benchmarkSummary.value = `${newest.profile} · ${newest.recallMode.replace("_", " ")} · batch ${newest.batchSize ?? "legacy"} · ${newest.ampMode === "bfloat16" ? "BF16" : "FP32"} · seed ${newest.seed ?? "—"} · ${newest.deterministic ? "deterministic" : "seeded"}${rngStatus}${chance} · ${newest.steps ?? "—"} updates`;
+    this.benchmarkSummary.value = `${newest.profile} · ${newest.recallMode.replace("_", " ")} · position ${newest.positionSignal} · batch ${newest.batchSize ?? "legacy"} · ${newest.ampMode === "bfloat16" ? "BF16" : "FP32"} · seed ${newest.seed ?? "—"} · ${newest.deterministic ? "deterministic" : "seeded"}${rngStatus}${chance} · ${newest.steps ?? "—"} updates`;
     const visibleCohort = cohort.slice(0, SERIES_CLASSES.length);
     this.drawBenchmarkChart(visibleCohort);
     this.drawBenchmarkTopologyChart(visibleCohort);

@@ -28,6 +28,8 @@ receive the same bounded multiplier.
 The benchmark batch helper preserves the profile default when omitted, applies an
 explicit bounded memory override without mutating the source configuration, and
 therefore keeps reduced-memory artifacts scientifically distinguishable.
+The benchmark position helper proves that the baseline clock remains learned while
+the recurrent-order intervention is exactly zero and non-trainable from update zero.
 The benchmark graph-summary regression fixes delta direction: causal accuracy is
 reference minus intervention, while causal loss is intervention minus reference;
 a disabled broadcast in a local-only control must remain a measured zero delta.
@@ -180,8 +182,9 @@ previous-only, position, and class-frequency baselines remain at 25%.
 The compositional-grammar fixture proves the training and evaluation rule/seed sets
 are disjoint while every individual operator and offset remains familiar. Both
 splits keep operator-only, offset-only, current-only, previous-only, position, and
-frequency baselines at 25%; a black-box free-running audit must distinguish an exact
-recurrence predictor from invalid non-symbol generation across all 32 held-out prompts.
+frequency baselines at 25%. The complete operator/offset pair is also insufficient at
+every position; a black-box free-running audit must distinguish an exact recurrence
+predictor from invalid non-symbol generation across all 32 held-out prompts.
 The zero-broadcast regression requires a hard workspace bypass with no gradients into
 its gain or projections, preventing a nominal ablation from learning to reactivate.
 Headless diagnostics separately verify physical/conducting edges, one-token/context/

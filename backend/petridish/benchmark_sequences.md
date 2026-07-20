@@ -66,6 +66,12 @@ The artifact also records `PYTORCH_ALLOC_CONF` or its legacy
 allocator needed at the 2070 memory limit reproducible without treating it as a
 learning intervention.
 
+`--position-signal none` zeroes and freezes the learned absolute token-position
+embedding before the first update. The recurrent cells, token stream, graph, and
+message schedule remain unchanged. This matched intervention tests whether the
+organism learns a reusable state transition or a position-indexed trajectory; its
+mode is persisted and forms part of the laboratory cohort identity.
+
 `compact24_no_broadcast` removes slot broadcasting, while
 `compact24_no_global_memory` removes both slot and fast-weight memory.
 `compact24_fast_weights` enables recurrent linear-attention memory at gain 0.5.
@@ -210,6 +216,10 @@ all be considered together. Teacher-forced held-out accuracy alone is not succes
 ```bash
 python -m petridish.benchmark_sequences --task token_compositional_grammar \
   --profile token_compositional_grammar68 --architecture esn --message-steps 16 \
-  --broadcast-gain 0 --learning-rate-scale 0.25 --batch-size 4 --amp bfloat16 \
+  --broadcast-gain 0 --learning-rate-scale 0.25 --batch-size 2 --amp bfloat16 \
   --steps 1200 --output benchmarks/lab/token-composition-esn-local.json
 ```
+
+The matched recurrent-order control adds `--position-signal none`. It does not remove
+token order: the same cells and graph still evolve across sequential token calls. It
+removes only the externally supplied absolute clock.

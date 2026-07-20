@@ -100,6 +100,8 @@ explicitly enabled trainer processes.
   dendritic routing controls remain distinguishable.
 - **Does**: Preserves a benchmark's common learning-rate scale so non-finite
   stability retries remain visibly distinct from default-rate controls.
+- **Does**: Preserves the learned/absent absolute-position signal so recurrent-order
+  ablations remain separate benchmark cohorts.
 - **Does**: Preserves effective batch size, autocast precision, and allocator
   configuration so memory-bounded replications cannot merge with full-precision
   optimizer cohorts.

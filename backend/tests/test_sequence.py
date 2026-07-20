@@ -13,6 +13,7 @@ import pytest
 import torch
 
 from petridish.benchmark_sequences import (
+    _configure_position_signal,
     _graph_ablation_summary,
     _override_batch_size,
     _scale_learning_rates,
@@ -306,6 +307,21 @@ def test_benchmark_batch_override_is_explicit_and_bounded() -> None:
     assert defaults.batch_size == 8
     with pytest.raises(ValueError, match="batch size"):
         _override_batch_size(defaults, 0)
+
+
+def test_benchmark_position_signal_can_remove_the_absolute_clock() -> None:
+    learned = torch.nn.Embedding(12, 4)
+    baseline = learned.weight.detach().clone()
+
+    _configure_position_signal(learned, "learned")
+    assert torch.equal(learned.weight, baseline)
+    assert learned.weight.requires_grad
+
+    _configure_position_signal(learned, "none")
+    assert not bool(learned.weight.any())
+    assert not learned.weight.requires_grad
+    with pytest.raises(ValueError, match="position signal"):
+        _configure_position_signal(torch.nn.Embedding(12, 4), "cyclic")
 
 
 def test_benchmark_graph_audit_reports_directional_causal_costs() -> None:
@@ -2049,6 +2065,11 @@ def test_compositional_grammar_holds_out_rule_pairs_without_token_novelty() -> N
                 for value in context.unique():
                     selected = batch.targets[context == value, position]
                     assert sorted(selected.unique().tolist()) == [6, 7, 8, 9]
+            for rule_pair in batch.tokens[:, :2].unique(dim=0):
+                selected = batch.targets[
+                    (batch.tokens[:, :2] == rule_pair).all(dim=1), position
+                ]
+                assert sorted(selected.unique().tolist()) == [6, 7, 8, 9]
     provenance = compositional_grammar_provenance()
     assert provenance["trainingStateCount"] == 96
     assert provenance["heldOutStateCount"] == 32

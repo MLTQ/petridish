@@ -63,8 +63,9 @@ validated launch or stop requests.
 - **Does**: Keeps the persisted benchmark learning-rate scale in its intervention
   identity rather than merging stability retries into a default-rate cohort.
 - **Does**: Shows effective batch and precision, and matches benchmark curves on
-  microticks, broadcast, learning-rate scale, batch, and precision so reduced-memory
-  replications never merge with the original full-precision cohort.
+  microticks, broadcast, learning-rate scale, absolute-position signal, batch, and
+  precision so recurrent-order and reduced-memory controls never merge with their
+  respective baselines.
 - **Does**: Shows failed runs with their persisted exception type/message and keeps
   an empty pre-evaluation failure from producing invalid chart axes.
 - **Does**: Shows final held-out accuracy for each queried binding slot so a

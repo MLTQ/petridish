@@ -96,6 +96,7 @@ TOKEN_CONTROL_PROFILES = {
     "token_pipeline": "token_pipeline68",
     "token_stream": "token_stream68",
 }
+POSITION_SIGNALS = ("learned", "none")
 
 
 def _gradient_norm(parameters: list[torch.nn.Parameter]) -> float:
@@ -129,6 +130,19 @@ def _override_batch_size(config: Any, batch_size: int | None) -> Any:
     if not 1 <= batch_size <= 64:
         raise ValueError("batch size must be between 1 and 64")
     return replace(config, batch_size=batch_size)
+
+
+def _configure_position_signal(
+    position_identity: torch.nn.Embedding, signal: str,
+) -> None:
+    """Apply a declared absolute-clock intervention before the first update."""
+
+    if signal not in POSITION_SIGNALS:
+        raise ValueError(f"unknown position signal: {signal}")
+    if signal == "none":
+        with torch.no_grad():
+            position_identity.weight.zero_()
+        position_identity.weight.requires_grad_(False)
 
 
 def _graph_ablation_summary(
@@ -168,6 +182,7 @@ def run_benchmark(
     learning_rate_scale: float = 1.0,
     batch_size: int | None = None,
     amp_mode: str = "off",
+    position_signal: str = "learned",
     output_path: Path | None = None,
     deterministic: bool = False,
 ) -> dict[str, Any]:
@@ -224,6 +239,7 @@ def run_benchmark(
         recall_pair_count=fixed_recall_pairs,
         recall_pair_max=fixed_recall_pairs or 3,
     )
+    _configure_position_signal(experiment.model.position_identity, position_signal)
     started = time.perf_counter()
     checkpoints: list[dict[str, Any]] = []
     final_graph_audit: dict[str, float] | None = None
@@ -251,12 +267,13 @@ def run_benchmark(
             "intervention": (
                 f"{config.message_steps} ticks · "
                 f"broadcast {'on' if config.broadcast_gain > 0 else 'off'} · "
-                f"lr×{learning_rate_scale:g}"
+                f"position {position_signal} · lr×{learning_rate_scale:g}"
                 if expected_profile is not None else None
             ),
             "messageSteps": config.message_steps,
             "broadcastGain": config.broadcast_gain,
             "learningRateScale": learning_rate_scale,
+            "positionSignal": position_signal,
             "batchSize": config.batch_size,
             "ampMode": experiment.amp_mode,
             "cudaAllocatorConfig": (
@@ -470,6 +487,9 @@ def main() -> None:
     parser.add_argument("--learning-rate-scale", type=float, default=1.0)
     parser.add_argument("--batch-size", type=int)
     parser.add_argument("--amp", choices=("off", "bfloat16"), default="off")
+    parser.add_argument(
+        "--position-signal", choices=POSITION_SIGNALS, default="learned"
+    )
     parser.add_argument("--output", type=Path)
     parser.add_argument("--deterministic", action="store_true")
     args = parser.parse_args()
@@ -482,6 +502,7 @@ def main() -> None:
         learning_rate_scale=args.learning_rate_scale,
         batch_size=args.batch_size,
         amp_mode=args.amp,
+        position_signal=args.position_signal,
         output_path=args.output,
         deterministic=args.deterministic,
     )
