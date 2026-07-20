@@ -150,6 +150,10 @@ It may also receive a dedicated position RNG for per-sequence clock-phase
 augmentation. This changes only which learned clock row is added to each sequence;
 the clean task sampler and feedback sampler retain independent RNG streams, and
 evaluation always uses the canonical zero phase.
+Controlled training may separately up-weight the first supervised target. The loss is
+renormalized by the total token weight, accuracy remains unweighted, and later targets
+retain unit weight. This isolates credit for the first autoregressive transition
+without changing task examples or evaluation metrics.
 
 `evaluate_metrics` reports held-out loss and accuracy together while retaining the
 historical accuracy-only `evaluate` API used by the live viewer. Both operate outside

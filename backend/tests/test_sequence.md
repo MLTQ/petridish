@@ -36,6 +36,8 @@ first-token feedback rather than silently changing the prompt.
 The phase-augmentation regression proves that zero offsets exactly preserve the
 baseline, distinct rows may rotate the learned clock independently, malformed offsets
 fail, and training requires a dedicated RNG rather than perturbing task sampling.
+The first-target weighting regression reconstructs the normalized weighted
+cross-entropy exactly and rejects nonpositive weights before an optimizer update.
 The benchmark graph-summary regression fixes delta direction: causal accuracy is
 reference minus intervention, while causal loss is intervention minus reference;
 a disabled broadcast in a local-only control must remain a measured zero delta.

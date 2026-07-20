@@ -184,6 +184,7 @@ def run_benchmark(
     amp_mode: str = "off",
     position_signal: str = "learned",
     position_phase_augmentation: bool = False,
+    first_target_loss_weight: float = 1.0,
     autoregressive_feedback_probability: float = 0.0,
     autoregressive_feedback_warmup: int = 0,
     output_path: Path | None = None,
@@ -217,6 +218,10 @@ def run_benchmark(
         raise ValueError("position phase augmentation is limited to compositional grammar")
     if position_phase_augmentation and position_signal == "none":
         raise ValueError("position phase augmentation requires a learned position signal")
+    if first_target_loss_weight <= 0:
+        raise ValueError("first-target loss weight must be positive")
+    if first_target_loss_weight != 1 and task != "token_compositional_grammar":
+        raise ValueError("first-target loss weighting is limited to compositional grammar")
     if deterministic:
         os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
         torch.use_deterministic_algorithms(True)
@@ -289,6 +294,7 @@ def run_benchmark(
                 f"{'on' if position_phase_augmentation else 'off'} · feedback≤"
                 f"{autoregressive_feedback_probability:g}"
                 f"/{autoregressive_feedback_warmup} warm-up · "
+                f"first-target×{first_target_loss_weight:g} · "
                 f"lr×{learning_rate_scale:g}"
                 if expected_profile is not None else None
             ),
@@ -297,6 +303,7 @@ def run_benchmark(
             "learningRateScale": learning_rate_scale,
             "positionSignal": position_signal,
             "positionPhaseAugmentation": position_phase_augmentation,
+            "firstTargetLossWeight": first_target_loss_weight,
             "autoregressiveFeedbackProbability": (
                 autoregressive_feedback_probability
             ),
@@ -387,6 +394,7 @@ def run_benchmark(
                 feedback_generator=feedback_generator,
                 position_phase_augmentation=position_phase_augmentation,
                 position_generator=position_generator,
+                first_target_loss_weight=first_target_loss_weight,
             )
             completed_steps = update
             if update % interval == 0 or update == steps:
@@ -535,6 +543,7 @@ def main() -> None:
         "--position-signal", choices=POSITION_SIGNALS, default="learned"
     )
     parser.add_argument("--position-phase-augmentation", action="store_true")
+    parser.add_argument("--first-target-loss-weight", type=float, default=1.0)
     parser.add_argument(
         "--autoregressive-feedback-probability", type=float, default=0.0
     )
@@ -553,6 +562,7 @@ def main() -> None:
         amp_mode=args.amp,
         position_signal=args.position_signal,
         position_phase_augmentation=args.position_phase_augmentation,
+        first_target_loss_weight=args.first_target_loss_weight,
         autoregressive_feedback_probability=(
             args.autoregressive_feedback_probability
         ),

@@ -513,6 +513,34 @@ def test_position_phase_augmentation_requires_its_own_rng() -> None:
     assert experiment.training_step == 1
 
 
+def test_first_target_loss_weight_emphasizes_only_the_first_supervised_token() -> None:
+    experiment = SequenceExperiment(
+        "tiny_language", small_config(), seed=13, device="cpu"
+    )
+    batch = experiment._batch(2)
+    logits = torch.randn(
+        *batch.tokens.shape, len(experiment.task.vocabulary),
+        generator=torch.Generator().manual_seed(13),
+    )
+    selected = batch.loss_mask
+    token_loss = torch.nn.functional.cross_entropy(
+        logits[selected], batch.targets[selected], reduction="none"
+    )
+    first = selected & (selected.long().cumsum(dim=1) == 1)
+    weights = torch.ones_like(token_loss)
+    weights[first[selected]] = 4
+
+    baseline, _ = experiment._masked_loss_accuracy(logits, batch)
+    emphasized, _ = experiment._masked_loss_accuracy(
+        logits, batch, first_target_loss_weight=4
+    )
+
+    assert baseline == pytest.approx(token_loss.mean())
+    assert emphasized == pytest.approx((token_loss * weights).sum() / weights.sum())
+    with pytest.raises(ValueError, match="first-target loss weight"):
+        experiment.train_updates(1, first_target_loss_weight=0)
+
+
 def test_nonfinite_loss_is_rejected_before_optimizer_mutation() -> None:
     experiment = SequenceExperiment(
         "tiny_language", small_config(), seed=10, device="cpu"
@@ -520,7 +548,7 @@ def test_nonfinite_loss_is_rejected_before_optimizer_mutation() -> None:
     parameter = experiment.model.token_identity.weight
     before = parameter.detach().clone()
 
-    def nonfinite_loss(logits, _batch):
+    def nonfinite_loss(logits, _batch, **_kwargs):
         return logits.sum() * float("nan"), 0.0
 
     experiment._masked_loss_accuracy = nonfinite_loss  # type: ignore[method-assign]

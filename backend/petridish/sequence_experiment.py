@@ -334,10 +334,20 @@ class SequenceExperiment:
         ), next_positions, lane, runtime_state, novel_fraction, novel_rows
 
     def _masked_loss_accuracy(
-        self, logits: torch.Tensor, batch: SequenceBatch
+        self, logits: torch.Tensor, batch: SequenceBatch,
+        *, first_target_loss_weight: float = 1.0,
     ) -> tuple[torch.Tensor, float]:
         selected = batch.loss_mask
-        loss = F.cross_entropy(logits[selected].float(), batch.targets[selected])
+        token_loss = F.cross_entropy(
+            logits[selected].float(), batch.targets[selected], reduction="none"
+        )
+        if first_target_loss_weight != 1:
+            first_target = selected & (selected.long().cumsum(dim=1) == 1)
+            weights = torch.ones_like(token_loss)
+            weights[first_target[selected]] = first_target_loss_weight
+            loss = (token_loss * weights).sum() / weights.sum()
+        else:
+            loss = token_loss.mean()
         metric_mask = selected
         if self.task.key == "tiny_language":
             metric_mask = torch.zeros_like(selected)
@@ -390,6 +400,7 @@ class SequenceExperiment:
         feedback_generator: torch.Generator | None = None,
         position_phase_augmentation: bool = False,
         position_generator: torch.Generator | None = None,
+        first_target_loss_weight: float = 1.0,
     ) -> None:
         self._require_persistent_gradient_contexts()
         self.model.train()
@@ -458,7 +469,10 @@ class SequenceExperiment:
                 feedback_mask=feedback_mask,
                 position_phase_offsets=position_phase_offsets,
             )
-        task_loss, accuracy = self._masked_loss_accuracy(result.logits, batch)
+        task_loss, accuracy = self._masked_loss_accuracy(
+            result.logits, batch,
+            first_target_loss_weight=first_target_loss_weight,
+        )
         loss = task_loss + self.model.regularization()
         if not bool(torch.isfinite(loss)):
             raise FloatingPointError("non-finite loss before backward")
@@ -708,6 +722,7 @@ class SequenceExperiment:
         feedback_generator: torch.Generator | None = None,
         position_phase_augmentation: bool = False,
         position_generator: torch.Generator | None = None,
+        first_target_loss_weight: float = 1.0,
     ) -> None:
         """Run trace-free updates with optional context and clock augmentation."""
 
@@ -722,6 +737,8 @@ class SequenceExperiment:
             raise ValueError(
                 "position phase augmentation requires a dedicated generator"
             )
+        if first_target_loss_weight <= 0:
+            raise ValueError("first-target loss weight must be positive")
         for _ in range(max(1, count)):
             self.tick += 1
             self._train_trial(
@@ -733,6 +750,7 @@ class SequenceExperiment:
                 feedback_generator=feedback_generator,
                 position_phase_augmentation=position_phase_augmentation,
                 position_generator=position_generator,
+                first_target_loss_weight=first_target_loss_weight,
             )
 
     def _begin_visible_trial(self, batch: SequenceBatch) -> None:

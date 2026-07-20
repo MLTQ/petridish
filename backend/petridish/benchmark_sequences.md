@@ -78,6 +78,11 @@ grammar and uses a dedicated seeded RNG, so clean training states and scheduled
 feedback masks remain matched. Evaluation uses phase zero. This prevents a fixed
 output-by-position cycle while preserving a local coordination signal.
 
+`--first-target-loss-weight 4` assigns four units of training loss to the first
+supervised token and one to every later target, then renormalizes the weighted mean.
+It is limited to the compositional grammar and persisted in cohort identity. Held-out
+and free-running metrics remain unweighted.
+
 `compact24_no_broadcast` removes slot broadcasting, while
 `compact24_no_global_memory` removes both slot and fast-weight memory.
 `compact24_fast_weights` enables recurrent linear-attention memory at gain 0.5.

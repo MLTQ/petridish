@@ -1906,3 +1906,18 @@ closed loop uses the absolute clock as a target template and does not execute th
 withheld recurrence. The next matched intervention retains the coordination clock
 while randomly rotating its starting phase per training sequence. This removes the
 fixed output-by-position shortcut without repeating the failed clock-free ablation.
+
+The matched phase-jitter run completed 1,200 updates in 1,032.56 seconds at a 4.8047
+GiB peak. It stayed at 25.07% rolling train accuracy, reached exactly 25.00% on the
+exhaustive teacher-forced graph reference, and scored 25.35% over free-running tokens,
+with zero exact nonconstant continuations. Accuracy was 25% at eight of nine generated
+positions and 28.12% at the other. Graph silence improved accuracy by 4.17 points;
+endpoint rotation cost 12.50 and source/weight reassignment cost 25.00.
+
+Full phase randomization is therefore a negative ablation. The present organism uses
+the learned absolute clock as more than a synchronization hint, but denying that clock
+does not make it discover a shift-invariant transition. Since the corrected fixed-
+phase replication fails first at the initial generated token while later positions
+can reach 100%, the next intervention retains the clock and assigns four times the
+loss weight to that first transition. This tests targeted compositional credit before
+introducing a different recurrent cell or a more elaborate timing mechanism.
